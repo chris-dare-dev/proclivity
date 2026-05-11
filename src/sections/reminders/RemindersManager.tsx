@@ -104,22 +104,31 @@ function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
   );
 }
 
+/* ─── RelativeTime — owns its own 30s tick so the parent doesn't re-render (#26) */
+
+function RelativeTime({ fireAt }: { fireAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const absolute = formatFireAt(fireAt);
+  return <span title={absolute}>{relativeTime(fireAt, now)}</span>;
+}
+
 /* ─── Reminder Item ─────────────────────────────────────────── */
 
 interface ReminderItemProps {
   reminder: Reminder;
   linkedTodoTitle?: string;
   onDelete: (id: string) => void;
-  now: number;
 }
 
 function ReminderItem({
   reminder,
   linkedTodoTitle,
   onDelete,
-  now,
 }: ReminderItemProps) {
-  const rel = relativeTime(reminder.fireAt, now);
   const absolute = formatFireAt(reminder.fireAt);
   const recLabel =
     reminder.recurrence && reminder.recurrence !== "none"
@@ -131,7 +140,7 @@ function ReminderItem({
       <div className="reminder-item-body">
         <div className="reminder-item-title">{reminder.title}</div>
         <div className="reminder-item-meta">
-          <span title={absolute}>{rel}</span>
+          <RelativeTime fireAt={reminder.fireAt} />
           <span>·</span>
           <span>{absolute}</span>
           {recLabel && (
@@ -164,12 +173,7 @@ function ReminderItem({
 
 export function RemindersManager() {
   const { state, update, loading } = useStore();
-  // Tick every 30 s to update relative times
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // Note: the 30s tick was moved into <RelativeTime> so only that leaf re-renders (#26)
 
   if (loading) return null;
 
@@ -222,7 +226,6 @@ export function RemindersManager() {
               reminder={r}
               linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
               onDelete={deleteReminder}
-              now={now}
             />
           ))
         )}
@@ -240,7 +243,6 @@ export function RemindersManager() {
               reminder={r}
               linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
               onDelete={deleteReminder}
-              now={now}
             />
           ))}
         </div>

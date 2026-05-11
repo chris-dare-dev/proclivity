@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Todo } from "@/types";
@@ -421,24 +421,29 @@ export function SprintManager() {
 
   const { sprints, activeSprintId, todos } = state;
 
-  const activeSprint = sprints.find((s) => s.id === activeSprintId);
-  const archivedSprints = sprints
-    .filter(isArchived)
-    .sort((a, b) => b.endsAt - a.endsAt);
-  const liveSprints = sprints
-    .filter((s) => !isArchived(s))
-    .sort((a, b) => a.startsAt - b.startsAt);
-
-  // Todos belonging to the active sprint
-  const activeSprintTodos = activeSprintId
-    ? todos.filter(
-        (t) => t.scope === "sprint" && t.sprintId === activeSprintId,
-      )
-    : [];
-
-  // Sprint todos with no sprintId (migration group)
-  const unassignedSprintTodos = todos.filter(
-    (t) => t.scope === "sprint" && !t.sprintId,
+  // Memoize derived lists so filter+sort don't run on every render (#25)
+  const activeSprint = useMemo(
+    () => sprints.find((s) => s.id === activeSprintId),
+    [sprints, activeSprintId],
+  );
+  const archivedSprints = useMemo(
+    () => sprints.filter(isArchived).sort((a, b) => b.endsAt - a.endsAt),
+    [sprints],
+  );
+  const liveSprints = useMemo(
+    () => sprints.filter((s) => !isArchived(s)).sort((a, b) => a.startsAt - b.startsAt),
+    [sprints],
+  );
+  const activeSprintTodos = useMemo(
+    () =>
+      activeSprintId
+        ? todos.filter((t) => t.scope === "sprint" && t.sprintId === activeSprintId)
+        : [],
+    [todos, activeSprintId],
+  );
+  const unassignedSprintTodos = useMemo(
+    () => todos.filter((t) => t.scope === "sprint" && !t.sprintId),
+    [todos],
   );
 
   /* ── actions ── */

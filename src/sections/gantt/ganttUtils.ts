@@ -107,20 +107,31 @@ export function monthSpans(bounds: ChartBounds): MonthSpan[] {
   return spans;
 }
 
+/**
+ * Collect rootId and all its descendants via DFS.
+ * O(n) — builds a children-index map once, then walks it (#42).
+ */
 export function collectDescendants(
   tasks: GanttTask[],
   rootId: string,
 ): Set<string> {
-  const out = new Set<string>([rootId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const t of tasks) {
-      if (t.parentId && out.has(t.parentId) && !out.has(t.id)) {
-        out.add(t.id);
-        changed = true;
-      }
+  // Build parent → children map once
+  const children = new Map<string, string[]>();
+  for (const t of tasks) {
+    if (t.parentId) {
+      const list = children.get(t.parentId) ?? [];
+      list.push(t.id);
+      children.set(t.parentId, list);
     }
+  }
+  // DFS from root
+  const out = new Set<string>();
+  const stack = [rootId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    out.add(id);
+    const kids = children.get(id);
+    if (kids) stack.push(...kids);
   }
   return out;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { EMPTY_STATE, type ProclivityState } from "@/types";
 import { storage } from "./storage";
 
@@ -24,9 +24,10 @@ export function useStore(): {
     };
   }, []);
 
-  const update = async (fn: (s: ProclivityState) => ProclivityState) => {
+  // Stable reference across re-renders so useCallback deps in consumers stay clean (#40)
+  const update = useCallback(async (fn: (s: ProclivityState) => ProclivityState) => {
     await storage.update(fn);
-  };
+  }, []);
 
   return { state, loading, update };
 }

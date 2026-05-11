@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Todo, TodoScope } from "@/types";
@@ -15,10 +15,16 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
   const { state, update, loading } = useStore();
   const [draft, setDraft] = useState("");
 
-  const items = state.todos
-    .filter((t) => t.scope === scope)
-    .filter((t) => (filter ? filter(t) : true))
-    .sort((a, b) => Number(a.done) - Number(b.done) || b.createdAt - a.createdAt);
+  // Memoize filter+sort so it doesn't run on every render (#25)
+  const items = useMemo(
+    () =>
+      state.todos
+        .filter((t) => t.scope === scope)
+        .filter((t) => (filter ? filter(t) : true))
+        .sort((a, b) => Number(a.done) - Number(b.done) || b.createdAt - a.createdAt),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.todos, scope, filter],
+  );
 
   const add = async () => {
     const title = draft.trim();
