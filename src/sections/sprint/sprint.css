@@ -1,0 +1,392 @@
+/* ─── Sprint switcher ────────────────────────────────────────── */
+.sprint-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.sprint-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sprint-tab:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.sprint-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sprint-tab-new {
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sprint-tab-new:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* ─── New sprint inline form ─────────────────────────────────── */
+.sprint-new-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.sprint-new-form h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sprint-new-form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sprint-new-form-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex: 1;
+  min-width: 140px;
+}
+
+.sprint-new-form-row label input {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.sprint-new-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sprint-new-form-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sprint-new-form-name label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.sprint-new-form-name input {
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+/* ─── Active sprint header ───────────────────────────────────── */
+.sprint-header {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.sprint-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.sprint-header-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 2px 0;
+}
+
+.sprint-header-dates {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.sprint-header-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sprint-header-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.sprint-header-actions button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.sprint-header-actions button.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.sprint-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sprint-day-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sprint-progress-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sprint-progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.sprint-task-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── Edit sprint inline form ────────────────────────────────── */
+.sprint-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.sprint-edit-form h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sprint-edit-form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sprint-edit-form-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+  flex: 1;
+  min-width: 140px;
+}
+
+.sprint-edit-form-row label input {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.sprint-edit-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ─── Inline confirm dialog ──────────────────────────────────── */
+.sprint-confirm {
+  background: var(--panel);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sprint-confirm p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  flex: 1;
+}
+
+.sprint-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  opacity: 0.85;
+}
+
+/* ─── Unassigned todos section ───────────────────────────────── */
+.sprint-unassigned {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.sprint-unassigned-heading {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px 0;
+}
+
+.sprint-unassigned-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sprint-unassigned-item:last-child {
+  border-bottom: none;
+}
+
+.sprint-unassigned-title {
+  flex: 1;
+  font-size: 13px;
+}
+
+.sprint-move-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sprint-move-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Archived sprints ───────────────────────────────────────── */
+.sprint-archived-section {
+  margin-top: 40px;
+}
+
+.sprint-archived-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px 0;
+}
+
+.sprint-archived-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.sprint-archived-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.sprint-archived-row:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.sprint-archived-name {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+}
+
+.sprint-archived-dates {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.sprint-archived-caret {
+  color: var(--text-dim);
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+.sprint-archived-caret.open {
+  transform: rotate(180deg);
+}
+
+.sprint-archived-tasks {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+}
+
+.sprint-section-heading {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px 0;
+}
