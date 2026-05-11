@@ -25,9 +25,11 @@ function tsToDateInput(ts: number): string {
 
 function dateInputToTs(val: string): number {
   // parse YYYY-MM-DD as local midnight
-  const [y, m, day] = val.split("-").map(Number);
-  const d = new Date(y, m - 1, day);
-  return d.getTime();
+  const parts = val.split("-").map(Number);
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const day = parts[2] ?? 1;
+  return new Date(y, m - 1, day).getTime();
 }
 
 // TodoItem moved to src/components/TodoItem.tsx (Pattern A)

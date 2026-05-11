@@ -120,7 +120,7 @@ function RelativeTime({ fireAt }: { fireAt: number }) {
 
 interface ReminderItemProps {
   reminder: Reminder;
-  linkedTodoTitle?: string;
+  linkedTodoTitle?: string | undefined;
   onDelete: (id: string) => void;
 }
 

@@ -20,7 +20,12 @@ export function toDateInput(ts: number): string {
 }
 
 export function fromDateInput(s: string): number {
-  const [y, m, d] = s.split("-").map(Number);
+  const parts = s.split("-").map(Number);
+  // Defensive: <input type="date"> always produces YYYY-MM-DD, but
+  // noUncheckedIndexedAccess wants us to prove it.
+  const y = parts[0] ?? 1970;
+  const m = parts[1] ?? 1;
+  const d = parts[2] ?? 1;
   return new Date(y, m - 1, d).getTime();
 }
 
