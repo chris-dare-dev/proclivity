@@ -1,0 +1,14 @@
+node_modules
+dist
+.DS_Store
+*.log
+.vite
+.env
+.env.local
+
+# tsc -b emit (composite project)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+manifest.config.js
+manifest.config.d.ts
