@@ -3,6 +3,7 @@ import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Todo } from "@/types";
 import { ConfirmDialog } from "@/components/Modal";
+import { TodoItem } from "@/components/TodoItem";
 import {
   todayMidnight,
   defaultEndsAt,
@@ -29,34 +30,7 @@ function dateInputToTs(val: string): number {
   return d.getTime();
 }
 
-/* ─── Inline todo item (shared by active + archived views) ─────── */
-
-interface TodoItemProps {
-  todo: Todo;
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-}
-
-function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
-  return (
-    <li className={`todo-item ${todo.done ? "done" : ""}`}>
-      <input
-        type="checkbox"
-        checked={todo.done}
-        onChange={() => onToggle(todo.id)}
-      />
-      <span className="todo-title">{todo.title}</span>
-      <button
-        className="todo-delete"
-        onClick={() => onDelete(todo.id)}
-        title={`Delete: ${todo.title}`}
-        aria-label={`Delete: ${todo.title}`}
-      >
-        ✕
-      </button>
-    </li>
-  );
-}
+// TodoItem moved to src/components/TodoItem.tsx (Pattern A)
 
 /* ─── Inline add-task form ─────────────────────────────────────── */
 

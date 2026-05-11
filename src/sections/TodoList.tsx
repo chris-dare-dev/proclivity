@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Todo, TodoScope } from "@/types";
+import { TodoItem } from "@/components/TodoItem";
 import "./sections.css";
 
 interface Props {
@@ -77,25 +78,12 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
       ) : (
         <ul className="todo-list">
           {items.map((t) => (
-            <li
+            <TodoItem
               key={t.id}
-              className={`todo-item ${t.done ? "done" : ""}`}
-            >
-              <input
-                type="checkbox"
-                checked={t.done}
-                onChange={() => toggle(t.id)}
-              />
-              <span className="todo-title">{t.title}</span>
-              <button
-                className="todo-delete"
-                onClick={() => remove(t.id)}
-                title={`Delete: ${t.title}`}
-                aria-label={`Delete: ${t.title}`}
-              >
-                ✕
-              </button>
-            </li>
+              todo={t}
+              onToggle={toggle}
+              onDelete={remove}
+            />
           ))}
         </ul>
       )}
