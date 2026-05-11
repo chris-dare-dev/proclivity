@@ -99,8 +99,37 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
+/*
+ * Time-of-day color cycle. Keys are placed at notable hours; the cycle
+ * lerps continuously between adjacent keys with a smoothstep curve so
+ * the color shift across the day is gradual rather than stepwise.
+ *
+ * Keys are sorted ascending and a sentinel at h+24 is appended so a time
+ * after the last key (e.g. 23:00) interpolates correctly across midnight
+ * toward the first key (01:00 indigo).
+ */
+const COLOR_KEYS_RAW: Array<{ h: number; hex: string; label: string }> = [
+  { h: 1,  hex: "#4a3aff", label: "indigo"       },
+  { h: 6,  hex: "#3d7eff", label: "bright blue"  },
+  { h: 12, hex: "#2bd4c7", label: "turquoise"    },
+  { h: 14, hex: "#5bd45b", label: "green"        },
+  { h: 16, hex: "#ffd84a", label: "yellow"       },
+  { h: 18, hex: "#ff9a3a", label: "orange"       },
+  { h: 20, hex: "#ff4d4d", label: "red"          },
+  { h: 22, hex: "#9a3aff", label: "purple"       },
+];
+
 function WarpMesh() {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
+
+  const colorKeys = useMemo(() => {
+    const sorted = [...COLOR_KEYS_RAW]
+      .sort((a, b) => a.h - b.h)
+      .map((k) => ({ h: k.h, c: new THREE.Color(k.hex) }));
+    // Wrap sentinel — first key at h+24 closes the loop across midnight.
+    const first = sorted[0]!;
+    return [...sorted, { h: first.h + 24, c: first.c }];
+  }, []);
 
   const uniforms = useMemo(
     () => ({
@@ -109,11 +138,13 @@ function WarpMesh() {
       uAmp: { value: 2.4 },
       uFreq: { value: 0.18 },
       uSpeed: { value: 0.035 },
-      uColor: { value: new THREE.Color("#5be3c3") },
+      uColor: { value: new THREE.Color("#3d7eff") },
       uAlpha: { value: 0.9 },
     }),
     [],
   );
+
+  const colorScratch = useMemo(() => new THREE.Color(), []);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
@@ -124,6 +155,24 @@ function WarpMesh() {
       Math.sin(t * 0.013) * 9 + Math.sin(t * 0.031) * 3.5,
       Math.cos(t * 0.017) * 9 + Math.cos(t * 0.029) * 3.5,
     );
+
+    // Time-of-day color interpolation. Cheap: ~8 comparisons + one lerp.
+    const now = new Date();
+    let h =
+      now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+    // If we're before the first key, advance into the wrapped range
+    if (h < colorKeys[0]!.h) h += 24;
+    for (let i = 0; i < colorKeys.length - 1; i++) {
+      const a = colorKeys[i]!;
+      const b = colorKeys[i + 1]!;
+      if (h >= a.h && h < b.h) {
+        const u = (h - a.h) / (b.h - a.h);
+        const e = u * u * (3 - 2 * u); // smoothstep
+        colorScratch.copy(a.c).lerp(b.c, e);
+        uniforms.uColor.value.copy(colorScratch);
+        break;
+      }
+    }
   });
 
   return (
