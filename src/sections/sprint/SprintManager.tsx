@@ -367,11 +367,12 @@ export function SprintManager() {
   const [mode, setMode] = useState<UIMode>("view");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  if (loading) return null;
-
   const { sprints, activeSprintId, todos } = state;
 
-  // Memoize derived lists so filter+sort don't run on every render (#25)
+  // Memoize derived lists so filter+sort don't run on every render (#25).
+  // These must run unconditionally — the `if (loading)` guard is below all
+  // hooks so React sees a stable hook order across the loading → loaded
+  // transition (React error #310).
   const activeSprint = useMemo(
     () => sprints.find((s) => s.id === activeSprintId),
     [sprints, activeSprintId],
@@ -395,6 +396,8 @@ export function SprintManager() {
     () => todos.filter((t) => t.scope === "sprint" && !t.sprintId),
     [todos],
   );
+
+  if (loading) return null;
 
   /* ── actions ── */
 
