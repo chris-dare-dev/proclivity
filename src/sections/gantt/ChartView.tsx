@@ -17,6 +17,7 @@ import {
   toDateInput,
 } from "./ganttUtils";
 import { TaskRow } from "./TaskRow";
+import { TextInputModal } from "@/components/Modal";
 
 interface Props {
   chartId: string;
@@ -55,6 +56,9 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const [newStart, setNewStart] = useState(toDateInput(today));
   const [newEnd, setNewEnd] = useState(toDateInput(addDays(today, 7)));
   const [newParent, setNewParent] = useState("");
+
+  // Rename modal state
+  const [showRename, setShowRename] = useState(false);
 
   // Live drag preview: maps taskId -> { startsAt, endsAt }
   const [dragPreview, setDragPreview] = useState<
@@ -112,8 +116,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   };
 
   const renameChart = () => {
-    const next = window.prompt("Rename chart", chart?.name ?? "")?.trim();
-    if (next) onRenameChart(next);
+    setShowRename(true);
   };
 
   // ---- Drag handlers ----
@@ -257,6 +260,18 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const totalWidth = bounds.days * DAY_PX;
 
   return (
+    <>
+      {/* Rename chart modal */}
+      <TextInputModal
+        open={showRename}
+        onClose={() => setShowRename(false)}
+        title="Rename chart"
+        placeholder="Chart name…"
+        initialValue={chart?.name ?? ""}
+        submitLabel="Rename"
+        onSubmit={(name) => onRenameChart(name)}
+      />
+
     <div className="gantt-chart">
       <div className="gantt-chart-header">
         <h2 onDoubleClick={renameChart} title="Double-click to rename">
@@ -455,5 +470,6 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
         </div>
       )}
     </div>
+    </>
   );
 }
