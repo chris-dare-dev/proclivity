@@ -237,3 +237,27 @@
   text-overflow: ellipsis;
   overflow: hidden;
 }
+
+/* Drag handles — visible hit zones on left/right edges */
+.gantt-bar-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  z-index: 2;
+}
+.gantt-bar-handle-left {
+  left: 0;
+  cursor: ew-resize;
+}
+.gantt-bar-handle-right {
+  right: 0;
+  cursor: col-resize;
+}
+
+/* During active drag: elevate and dim slightly */
+.gantt-bar.dragging {
+  opacity: 0.85;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}

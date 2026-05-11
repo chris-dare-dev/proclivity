@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { GanttTask } from "@/types";
@@ -24,6 +24,23 @@ interface Props {
   onRenameChart: (name: string) => void;
 }
 
+type DragMode = "move" | "resize-start" | "resize-end";
+
+interface DragState {
+  taskId: string;
+  mode: DragMode;
+  startX: number;
+  origStartsAt: number;
+  origEndsAt: number;
+}
+
+/** Delta in full days given pixel movement */
+function pxToDays(px: number): number {
+  return Math.round(px / DAY_PX);
+}
+
+const EDGE_HIT_PX = 6;
+
 export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const { state, update } = useStore();
   const chart = state.ganttCharts.find((c) => c.id === chartId);
@@ -38,6 +55,12 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const [newStart, setNewStart] = useState(toDateInput(today));
   const [newEnd, setNewEnd] = useState(toDateInput(addDays(today, 7)));
   const [newParent, setNewParent] = useState("");
+
+  // Live drag preview: maps taskId -> { startsAt, endsAt }
+  const [dragPreview, setDragPreview] = useState<
+    Record<string, { startsAt: number; endsAt: number }>
+  >({});
+  const dragRef = useRef<DragState | null>(null);
 
   const updateTask = async (id: string, patch: Partial<GanttTask>) => {
     await update((s) => ({
@@ -91,6 +114,144 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const renameChart = () => {
     const next = window.prompt("Rename chart", chart?.name ?? "")?.trim();
     if (next) onRenameChart(next);
+  };
+
+  // ---- Drag handlers ----
+
+  const onBarPointerDown = useCallback(
+    (
+      e: React.PointerEvent<HTMLDivElement>,
+      task: GanttTask,
+    ) => {
+      // Don't initiate drag on right-click
+      if (e.button !== 0) return;
+
+      const rect = e.currentTarget.getBoundingClientRect();
+      const localX = e.clientX - rect.left;
+      const barWidth = rect.width;
+
+      let mode: DragMode;
+      if (localX <= EDGE_HIT_PX) {
+        mode = "resize-start";
+      } else if (localX >= barWidth - EDGE_HIT_PX) {
+        mode = "resize-end";
+      } else {
+        mode = "move";
+      }
+
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.preventDefault();
+
+      dragRef.current = {
+        taskId: task.id,
+        mode,
+        startX: e.clientX,
+        origStartsAt: task.startsAt,
+        origEndsAt: task.endsAt,
+      };
+
+      // Initialize preview to current values
+      setDragPreview((prev) => ({
+        ...prev,
+        [task.id]: { startsAt: task.startsAt, endsAt: task.endsAt },
+      }));
+
+      // Hide text selection cursor globally during drag
+      document.body.style.userSelect = "none";
+    },
+    [],
+  );
+
+  const onBarPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+
+      const deltaPx = e.clientX - drag.startX;
+      const deltaDays = pxToDays(deltaPx);
+
+      let newStartsAt = drag.origStartsAt;
+      let newEndsAt = drag.origEndsAt;
+
+      if (drag.mode === "move") {
+        newStartsAt = addDays(drag.origStartsAt, deltaDays);
+        newEndsAt = addDays(drag.origEndsAt, deltaDays);
+      } else if (drag.mode === "resize-start") {
+        newStartsAt = addDays(drag.origStartsAt, deltaDays);
+        // Clamp: startsAt must be <= endsAt (min 1-day span)
+        const maxStart = addDays(drag.origEndsAt, -1);
+        if (newStartsAt > maxStart) newStartsAt = maxStart;
+        newEndsAt = drag.origEndsAt;
+      } else {
+        // resize-end
+        newEndsAt = addDays(drag.origEndsAt, deltaDays);
+        // Clamp: endsAt must be >= startsAt (min 1-day span)
+        const minEnd = addDays(drag.origStartsAt, 1);
+        if (newEndsAt < minEnd) newEndsAt = minEnd;
+        newStartsAt = drag.origStartsAt;
+      }
+
+      setDragPreview((prev) => ({
+        ...prev,
+        [drag.taskId]: { startsAt: newStartsAt, endsAt: newEndsAt },
+      }));
+    },
+    [],
+  );
+
+  const onBarPointerUp = useCallback(
+    async (_e: React.PointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      dragRef.current = null;
+      document.body.style.userSelect = "";
+
+      const preview = dragPreview[drag.taskId];
+      if (preview) {
+        // Persist the final position
+        await updateTask(drag.taskId, {
+          startsAt: preview.startsAt,
+          endsAt: preview.endsAt,
+        });
+        // Clear preview
+        setDragPreview((prev) => {
+          const next = { ...prev };
+          delete next[drag.taskId];
+          return next;
+        });
+      }
+    },
+    [dragPreview],
+  );
+
+  const onBarKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Escape" && dragRef.current) {
+        const drag = dragRef.current;
+        dragRef.current = null;
+        document.body.style.userSelect = "";
+        // Revert preview
+        setDragPreview((prev) => {
+          const next = { ...prev };
+          delete next[drag.taskId];
+          return next;
+        });
+        // Release pointer capture if possible
+        try {
+          (e.currentTarget as HTMLDivElement).releasePointerCapture(0);
+        } catch {
+          // ignore – capture may already be released
+        }
+      }
+    },
+    [],
+  );
+
+  // Cursor based on position within bar
+  const getBarCursor = (barWidth: number, localX: number): string => {
+    if (localX <= EDGE_HIT_PX) return "ew-resize";
+    if (localX >= barWidth - EDGE_HIT_PX) return "col-resize";
+    return "grab";
   };
 
   const totalWidth = bounds.days * DAY_PX;
@@ -230,30 +391,61 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
                 )}
 
                 {rows.map((r, idx) => {
-                  const offset = daysBetween(bounds.start, r.task.startsAt);
-                  const span = daysBetween(r.task.startsAt, r.task.endsAt) + 1;
+                  const preview = dragPreview[r.task.id];
+                  const startsAt = preview ? preview.startsAt : r.task.startsAt;
+                  const endsAt = preview ? preview.endsAt : r.task.endsAt;
+                  const offset = daysBetween(bounds.start, startsAt);
+                  const span = daysBetween(startsAt, endsAt) + 1;
                   const progress = r.task.done ? 100 : r.task.progress;
+                  const isDragging = !!preview;
                   return (
                     <div
                       key={r.task.id}
                       className={`gantt-bar ${r.task.done ? "done" : ""} ${
                         r.depth > 0 ? "child" : ""
-                      }`}
+                      } ${isDragging ? "dragging" : ""}`}
                       style={{
                         top: idx * ROW_H + 6,
                         left: offset * DAY_PX + 2,
                         width: Math.max(span * DAY_PX - 4, 4),
                         height: ROW_H - 12,
+                        cursor: isDragging
+                          ? dragRef.current?.mode === "move"
+                            ? "grabbing"
+                            : "ew-resize"
+                          : undefined,
                       }}
-                      title={`${r.task.title} (${toDateInput(
-                        r.task.startsAt,
-                      )} → ${toDateInput(r.task.endsAt)})`}
+                      title={`${r.task.title} (${toDateInput(startsAt)} → ${toDateInput(endsAt)})`}
+                      // Pointer events for drag
+                      onPointerDown={(e) => onBarPointerDown(e, r.task)}
+                      onPointerMove={onBarPointerMove}
+                      onPointerUp={onBarPointerUp}
+                      onKeyDown={onBarKeyDown}
+                      // Dynamic cursor based on hover position
+                      onMouseMove={(e) => {
+                        if (dragRef.current) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const localX = e.clientX - rect.left;
+                        e.currentTarget.style.cursor = getBarCursor(
+                          rect.width,
+                          localX,
+                        );
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!dragRef.current) {
+                          e.currentTarget.style.cursor = "";
+                        }
+                      }}
                     >
+                      {/* Left resize handle */}
+                      <div className="gantt-bar-handle gantt-bar-handle-left" />
                       <div
                         className="gantt-bar-progress"
                         style={{ width: `${progress}%` }}
                       />
                       <span className="gantt-bar-label">{r.task.title}</span>
+                      {/* Right resize handle */}
+                      <div className="gantt-bar-handle gantt-bar-handle-right" />
                     </div>
                   );
                 })}
