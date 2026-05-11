@@ -1,54 +1,386 @@
 # Proclivity
 
-A personal Chrome extension that replaces the new tab page with a planning surface: today / sprint / long-term todos, custom Gantt charts, and reminders.
+## What it is
+
+Proclivity is a personal Manifest V3 Chrome extension that replaces the new-tab
+page with a planning surface. Five tabs organize the work: **Today** (daily
+task list), **Sprint** (time-boxed sprint with per-sprint task scopes and an
+archived-sprint history), **Long-term** (open-ended goals and initiatives),
+**Gantt** (one or more named Gantt charts with nested tasks, collapse/expand,
+drag-to-move, and drag-to-resize), and **Reminders** (one-shot or
+daily/weekly recurring notifications backed by `chrome.alarms`). Behind
+everything sits an animated wireframe-mesh background whose color cycles
+smoothly through the day — indigo at 1 am, bright blue by morning,
+turquoise at noon, yellow in the afternoon, orange at sunset, red in the
+evening, purple at 10 pm.
 
 Local-only. Not published to the Chrome Web Store.
 
+---
+
+## Why
+
+Momentum is beautiful but shallow. Notion is powerful but heavyweight and
+requires a context-switch. The goal here is a planning tool that loads the
+instant a new tab opens, persists everything locally without a server, and
+can be shaped exactly to how this person actually plans work — sprints,
+Gantt charts, and timed reminders — without paying for or waiting on
+anyone else's roadmap.
+
+---
+
 ## Stack
 
-- Vite + React + TypeScript
-- Manifest V3 via `@crxjs/vite-plugin`
-- `chrome.storage.local` for persistence (`chrome.alarms` + `chrome.notifications` for reminders)
+- **Vite 5** + **React 18** + **TypeScript 5** (strict mode)
+- **`@crxjs/vite-plugin` ^2.0.0-beta.28** — wraps the MV3 manifest, handles
+  content-script injection and hot-reload during dev
+- **`chrome.storage.local`** — single-key persistence (~10 MB cap)
+- **`chrome.alarms` + `chrome.notifications`** — service-worker-driven
+  reminder delivery
+- **`@react-three/fiber` ^8** + **`three` ^0.169** — animated background,
+  lazy-loaded so three.js stays out of the initial chunk
+
+---
+
+## Architecture
+
+### The five sections
+
+**Today** and **Long-term** are thin wrappers around the shared
+[`TodoList`](src/sections/TodoList.tsx) component; the only difference is the
+`scope` value (`"today"` or `"long"`) stamped on each `Todo` record.
+
+**Sprint** ([`src/sections/sprint/SprintManager.tsx`](src/sections/sprint/SprintManager.tsx))
+manages a list of named sprints, each with `startsAt`/`endsAt` timestamps.
+Exactly one sprint is "active" at a time (`activeSprintId` in
+`ProclivityState`). Sprint tasks are `Todo` records with `scope: "sprint"` and
+a `sprintId` foreign key. Sprints whose `endsAt` is in the past are shown as
+collapsed, expandable rows in an "Archived" section; they are never deleted
+automatically. The sprint header shows a progress bar driven by task-completion
+ratio, plus a "Day N of M" calendar progress indicator.
+
+**Gantt** ([`src/sections/Gantt.tsx`](src/sections/Gantt.tsx) + [`src/sections/gantt/ChartView.tsx`](src/sections/gantt/ChartView.tsx))
+supports multiple named charts, each a tab at the top of the section. Within a
+chart, tasks have `startsAt`/`endsAt` timestamps and an optional `parentId` for
+nesting. `flattenTasks()` in [`ganttUtils.ts`](src/sections/gantt/ganttUtils.ts)
+does a depth-first traversal and respects each task's `collapsed` flag, so
+entire subtrees can be hidden. The timeline grid is rendered as an absolutely-
+positioned canvas of divs; each bar responds to `onPointerDown`/`onPointerMove`/
+`onPointerUp` via `setPointerCapture` so drag works across the bar boundary.
+The 6-pixel edge zones on each bar switch to resize-start or resize-end mode;
+the center zone is a move. Pressing Escape during a drag reverts the preview and
+releases pointer capture. The drag preview is kept in local component state; the
+final position is committed to storage only on pointer-up.
+
+**Reminders** ([`src/sections/reminders/RemindersManager.tsx`](src/sections/reminders/RemindersManager.tsx))
+lets you create a reminder with a title, an exact fire time, a recurrence
+(`daily`/`weekly`/`none`), and an optional link to an existing todo. When
+a reminder is saved, the service worker's `chrome.storage.onChanged` listener
+picks up the diff and creates a `chrome.alarms` entry. On alarm fire, a
+`chrome.notifications` notification is shown. Recurring reminders have their
+`fireAt` advanced by one day or one week (anchored from the original `fireAt`,
+not the actual firing time, so they don't drift). Non-recurring reminders are
+marked `fired: true`.
+
+### Persistence layer
+
+All state lives under a single key — `"proclivity:state:v1"` — in
+`chrome.storage.local`. The entire `ProclivityState` object is read, patched,
+and written back on every mutation. This keeps the storage model simple (no
+partial-key merges, no migrations between fields) at the cost of one full read-
+modify-write per operation.
+
+Concurrent writes from the React UI would clobber each other without
+serialization. [`storage.update()`](src/storage/storage.ts) solves this with an
+in-memory promise chain (`writeChain`): each call appends to the tail of the
+chain, so writes execute in arrival order and each write reads the result of the
+previous one.
+
+The service worker runs in a separate module scope and cannot share the UI's
+`writeChain`. It maintains a parallel queue (`swWriteChain` in
+[`service-worker.ts`](src/background/service-worker.ts)) for the same reason.
+Both queues enforce the same read-latest → transform → write-back sequence.
+
+### `useStore()` hook
+
+[`useStore()`](src/storage/useStore.ts) is a plain React hook, not a Context
+provider. Every section that needs state calls it directly. This is a deliberate
+choice: the app has five sections kept permanently mounted (all rendered, only
+hidden with `hidden={...}`), so a shared context would re-render all five on
+every state change anyway. With the hook-per-section pattern, each section's
+re-render is triggered only when its own `useStore()` subscription fires — which
+happens to be the same event since there is only one storage key. The hook
+exposes `state`, `loading`, and a stable `update` callback (memoized via
+`useCallback` so consumer `useCallback` deps stay clean).
+
+### Mesh background
+
+[`MeshBackground`](src/components/MeshBackground.tsx) is a full-screen WebGL
+canvas rendered by `@react-three/fiber`. It is lazy-loaded via `React.lazy` in
+[`App.tsx`](src/newtab/App.tsx) so the ~800 kB three.js bundle never blocks the
+initial render.
+
+The geometry is a `PlaneGeometry` (90 × 50 units, 140 × 80 segments) tilted to
+a shallow perspective angle. A `ShaderMaterial` runs a 3-octave fractional
+Brownian motion (fBm) in GLSL using the Ashima Arts simplex noise implementation.
+Two pairs of slow sine waves drive a `uWander` uniform that offsets the noise
+field coordinates each frame, so the warping appears to travel across the screen
+rather than pulse in place. The fragment shader brightens peaks slightly based on
+the `vElevation` varying. Color is updated each frame by interpolating between
+eight time-of-day key colors using a smoothstep curve. Rendering is paused when
+the tab is hidden (`visibilitychange`) and reduced to a single static frame when
+`prefers-reduced-motion: reduce` is set.
+
+### Shared components
+
+[`Modal`](src/components/Modal.tsx) is a portal-rendered dialog with focus
+trap, Escape-to-close, and save/restore of previously focused element. Two
+specializations are exported alongside it: `TextInputModal` (for create/rename
+flows) and `ConfirmDialog` (for destructive confirmations). The base `Modal`
+uses `useId()` per instance so nested modals each have a unique
+`aria-labelledby` target.
+
+[`TodoItem`](src/components/TodoItem.tsx) is a shared `<li>` row used by
+`TodoList`, `SprintManager`, and archived sprint rows.
+
+### Service worker lifecycle
+
+On `onInstalled` and `onStartup`, the service worker calls `reconcileAlarms()`.
+This reads the current reminder list, computes which alarms should exist (all
+non-fired reminders with a future `fireAt`), clears any orphaned
+`proclivity:reminder:*` alarms, and creates any missing ones. Reminders whose
+`fireAt` is already in the past at reconcile time are fired immediately (missed-
+reminder path) and either advanced (if recurring) or marked `fired`.
+
+The `chrome.storage.onChanged` listener runs `diffAndSyncAlarms()` on every
+state change, comparing old and new reminder arrays to create, update, or clear
+alarms reactively. This means the service worker stays synchronized without
+needing explicit messages from the UI.
+
+---
+
+## Layout
+
+```
+proclivity/
+├── manifest.config.ts        # MV3 manifest generated by @crxjs
+├── vite.config.ts            # Vite config: crx plugin, @ alias, build target
+├── tsconfig.json             # Strict TS: exactOptionalPropertyTypes, noUncheckedIndexedAccess
+├── package.json
+├── public/
+│   ├── icon-16.png
+│   ├── icon-48.png
+│   └── icon-128.png
+└── src/
+    ├── newtab/
+    │   ├── index.html        # Extension new-tab entry point
+    │   ├── App.tsx           # Tab router, lazy MeshBackground, memoized Header
+    │   ├── App.css           # Global layout, tab bar, header
+    │   └── index.css         # CSS reset and root vars
+    ├── background/
+    │   └── service-worker.ts # chrome.alarms + chrome.notifications + reconcileAlarms
+    ├── types/
+    │   └── index.ts          # Canonical data model: Todo, Sprint, GanttTask, GanttChart, Reminder, ProclivityState
+    ├── storage/
+    │   ├── constants.ts      # STORAGE_KEY = "proclivity:state:v1"
+    │   ├── storage.ts        # get/set/update (write queue) + subscribe + uid()
+    │   └── useStore.ts       # React hook: state + loading + stable update callback
+    ├── sections/
+    │   ├── sections.css      # Shared section layout styles
+    │   ├── Today.tsx         # TodoList wrapper (scope="today")
+    │   ├── LongTerm.tsx      # TodoList wrapper (scope="long")
+    │   ├── TodoList.tsx      # Reusable add/toggle/delete list for Today and Long-term
+    │   ├── Sprint.tsx        # Re-export of SprintManager
+    │   ├── Gantt.tsx         # Chart-tab manager + modals; delegates to ChartView
+    │   ├── Reminders.tsx     # Re-export of RemindersManager
+    │   ├── sprint/
+    │   │   ├── SprintManager.tsx  # Full sprint UI: switcher, active sprint, archived sprints
+    │   │   ├── sprintUtils.ts     # Date helpers: todayMidnight, isArchived, sprintDayProgress
+    │   │   └── sprint.css
+    │   ├── gantt/
+    │   │   ├── ChartView.tsx      # Timeline grid, drag engine, add-task form
+    │   │   ├── TaskRow.tsx        # Left-panel task row with collapse toggle
+    │   │   ├── ganttUtils.ts      # flattenTasks, chartBounds, monthSpans, collectDescendants
+    │   │   └── gantt.css
+    │   └── reminders/
+    │       ├── RemindersManager.tsx  # Add form, upcoming/fired lists
+    │       ├── reminderUtils.ts      # relativeTime, tsToDatetimeLocal, formatFireAt
+    │       └── reminders.css
+    └── components/
+        ├── Modal.tsx          # Base Modal + TextInputModal + ConfirmDialog
+        ├── Modal.css
+        ├── TodoItem.tsx       # Shared checkbox + title + delete row
+        ├── MeshBackground.tsx # three.js GLSL warp mesh, time-of-day color cycle
+        └── MeshBackground.css
+```
+
+---
 
 ## Develop
 
 ```bash
 npm install
+
+# Dev server with HMR (port 5173, HMR on 5174)
 npm run dev
+
+# Production build (tsc -b + vite build)
+npm run build
+
+# Type-check only, no emit
+npm run typecheck
 ```
 
-Then load the extension unpacked:
+**Load as an unpacked extension:**
 
 1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. **Load unpacked** → select the `dist/` folder (after `npm run build`) or the dev output directory `@crxjs` writes during `npm run dev`
+2. Enable **Developer mode** (toggle, top right)
+3. Click **Load unpacked** and select the `dist/` directory (after `npm run build`)
+   or the `@crxjs` dev output directory during `npm run dev`
 4. Open a new tab
 
-For a production build:
+During development, `@crxjs/vite-plugin` patches the extension manifest and
+injects HMR plumbing automatically; you do not need to reload the extension
+manually after most edits.
 
-```bash
-npm run build
+**TypeScript strictness.** The `tsconfig.json` enables `strict: true` plus two
+additional flags:
+
+- `exactOptionalPropertyTypes: true` — `foo?: T` and `foo?: T | undefined` are
+  distinct; the code uses the latter where `undefined` must be assignable in
+  spreads.
+- `noUncheckedIndexedAccess: true` — array index access returns `T | undefined`;
+  all callers must handle the undefined case or use a non-null assertion.
+
+Both flags are non-negotiable. `npm run build` runs the full compiler suite and
+must pass cleanly before any change is considered done.
+
+---
+
+## Data model
+
+```typescript
+// src/types/index.ts
+
+// Backs the Today, Sprint, and Long-term lists. scope + sprintId
+// together determine which list a todo belongs to.
+interface Todo {
+  id: string;
+  title: string;
+  notes?: string | undefined;
+  scope: "today" | "sprint" | "long";
+  done: boolean;
+  createdAt: number;           // ms since epoch
+  completedAt?: number | undefined;
+  dueAt?: number | undefined;
+  sprintId?: string | undefined; // set iff scope === "sprint"
+}
+
+// One planning sprint. activeSprintId in ProclivityState points at the
+// current sprint; sprints past their endsAt are "archived" but kept.
+interface Sprint {
+  id: string;
+  name: string;
+  startsAt: number;  // ms since epoch (local midnight)
+  endsAt: number;
+}
+
+// One row in a Gantt chart. parentId creates a tree; collapsed hides subtree.
+interface GanttTask {
+  id: string;
+  chartId: string;
+  parentId?: string | undefined;
+  title: string;
+  startsAt: number;
+  endsAt: number;
+  progress: number;   // 0–100; forced to 100 in UI when done is true
+  done: boolean;
+  collapsed?: boolean | undefined;
+  color?: string | undefined;
+}
+
+// A named container for a set of GanttTasks.
+interface GanttChart {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+// One alarm entry. The service worker owns alarm creation; fired=true
+// means the alarm has been delivered and should not re-arm.
+interface Reminder {
+  id: string;
+  title: string;
+  fireAt: number;    // ms since epoch
+  recurrence?: "daily" | "weekly" | "none" | undefined;
+  fired?: boolean | undefined;
+  linkedTodoId?: string | undefined;
+}
+
+// The entire persisted state stored under one chrome.storage.local key.
+interface ProclivityState {
+  todos: Todo[];
+  sprints: Sprint[];
+  activeSprintId?: string | undefined;
+  ganttCharts: GanttChart[];
+  ganttTasks: GanttTask[];
+  reminders: Reminder[];
+}
 ```
 
-The built extension is in `dist/`.
+---
 
-## Layout
+## Working with the code
 
-```
-src/
-  newtab/          # the new tab page (React app entry)
-  background/      # service worker (alarms, notifications)
-  sections/        # Today / Sprint / LongTerm / Gantt / Reminders
-  storage/         # chrome.storage.local wrapper + useStore hook
-  types/           # shared types
-manifest.config.ts # MV3 manifest, generated by @crxjs
-```
+- **All work runs directly on `main`.** No feature branches, no PRs. See
+  [`CLAUDE.md`](CLAUDE.md) for the full branching policy and commit conventions.
+- **`npm run build` is the verification bar.** It must pass cleanly (`tsc -b &&
+  vite build`) before a change is done. Do not merge code that fails typecheck.
+- **Strict TypeScript flags are non-negotiable.** Do not disable `strict`,
+  `exactOptionalPropertyTypes`, or `noUncheckedIndexedAccess` to make code
+  compile.
+- **Keep the initial chunk small.** The newtab chunk should stay under ~200 kB.
+  Heavy dependencies (like three.js) must be lazy-loaded via `React.lazy` +
+  `Suspense`. Do not add new npm dependencies without justification.
+- **Sections are all mounted, only hidden.** `App.tsx` keeps all five section
+  components mounted at all times and hides inactive ones with `hidden={...}`.
+  This is deliberate — switching tabs preserves local component state (drafts,
+  expanded archived sprints, etc.). Do not break this with lazy-loaded sections
+  unless you handle the state preservation explicitly.
+- **Agent skills.** Two Claude Code skills are available for planning and
+  execution:
+  - [`.claude/skills/roadmap`](.claude/skills/roadmap/SKILL.md) — turns a brief
+    into a sequenced `plans/<slug>-roadmap.md` with milestone identifiers.
+  - [`.claude/skills/milestone-pipeline`](.claude/skills/milestone-pipeline/SKILL.md)
+    — executes one milestone end-to-end through Research → Implement → Critique →
+    Rectify with sub-agent orchestration.
+
+---
 
 ## Roadmap
 
-- [x] Today / Sprint / Long-term todo lists
-- [ ] Sprint as a real entity (start/end dates, archival, per-sprint backlog)
-- [ ] Reminders UI wired to `chrome.alarms`
-- [ ] Gantt: create chart, add tasks with start/end, nest, collapse/expand, progress
-- [ ] Drag-and-drop between sections
-- [ ] Daily/weekly review prompts
+- [x] Today / Long-term todo lists
+- [x] Sprint as a real entity (start/end dates, active sprint, per-sprint task
+      scope, archived sprint history)
+- [x] Reminders UI wired to `chrome.alarms` + `chrome.notifications`
+- [x] Gantt: multiple charts, tasks with start/end, nesting via `parentId`,
+      collapse/expand, drag-to-move and drag-to-resize bars
+- [x] Animated wireframe-mesh background with time-of-day color cycle
+- [ ] Drag-and-drop between sections (e.g. promote a today task to a sprint)
+- [ ] Daily / weekly review prompts
+- [ ] Due-date support and overdue indicators on todo items
+- [ ] Gantt task progress editing in the UI (the field exists in the data model)
+- [ ] Gantt task color picker
+
+---
+
+## Storage cap note
+
+`chrome.storage.local` has a quota of approximately 10 MB. The data model is
+composed entirely of small records — todos, sprints, Gantt tasks, reminders are
+each a handful of scalar fields — so normal usage is well within that limit. The
+one design to avoid is unbounded append-only growth: long-term activity logs,
+audit trails, or history of completed items should be pruned or capped rather
+than accumulated indefinitely. If Gantt charts grow into hundreds of tasks, or
+reminder history is never cleared, monitor the storage footprint with
+`chrome.storage.local.getBytesInUse()` during development.

@@ -15,6 +15,7 @@ export interface Todo {
   done: boolean;
   createdAt: number;
   completedAt?: number | undefined;
+  /** Reserved — no UI surface yet. Keep field shape stable for future due-date work. */
   dueAt?: number | undefined;
   sprintId?: string | undefined;
 }
@@ -37,6 +38,7 @@ export interface GanttTask {
   progress: number;
   done: boolean;
   collapsed?: boolean | undefined;
+  /** Reserved — no UI surface yet. Keep field shape stable for future per-task color picking. */
   color?: string | undefined;
 }
 
