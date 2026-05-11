@@ -88,12 +88,11 @@ Adding any package to `dependencies` requires a justification in the commit mess
 
 **Build-time only:** `@crxjs/vite-plugin`, `@vitejs/plugin-react`, `vite`, `typescript`, and the `@types/*` packages are dev dependencies. They are not bundled into the extension.
 
-**Audit status (as of 2026-05-11):** `npm audit` reports 4 vulnerabilities:
+**Audit status (as of 2026-05-11):** `npm audit` reports zero vulnerabilities.
 
-- `esbuild <=0.24.2` (moderate) — dev server CORS issue; does not affect built extension output.
-- `rollup <2.80.0` (high, path traversal) — affects `@crxjs/vite-plugin`; upgrading requires a breaking plugin version change. Track; do not auto-fix without verifying `@crxjs/vite-plugin` compatibility.
+Two findings previously reported (`esbuild <=0.24.2` dev-server CORS; `rollup <2.80.0` path traversal) were resolved by upgrading to Vite 7 (ships esbuild `^0.25`), `@crxjs/vite-plugin@2.4.0` (stable), and adding a scoped `overrides` block in `package.json` that pins the rollup transitive under `@crxjs/vite-plugin` to `^2.80.0`. Both findings only affected build tooling — they never reached the shipped extension bundle — but resolving them keeps `npm audit` clean as a true signal.
 
-Neither finding affects the shipped extension (both are build-tool vulns), but they should be resolved when a compatible upgrade path exists. Do not run `npm audit fix --force` blindly — it would upgrade to `@crxjs/vite-plugin@1.x`, which is incompatible with the current config.
+Do not run `npm audit fix --force` blindly — it would still try to downgrade `@crxjs/vite-plugin` to `1.x`, which is incompatible with `manifest.config.ts`. Investigate any new finding individually first.
 
 **Additional rules:**
 
