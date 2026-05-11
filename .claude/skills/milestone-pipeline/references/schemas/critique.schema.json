@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "milestone-pipeline/critique",
+  "title": "Critique structural metadata",
+  "description": "Critique files are markdown matching critique-format.md. This schema validates the parsed structural data extracted by dedupe-findings.py — section presence, finding ids, severity grammar.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["milestone_id", "critic", "verdict", "findings", "what_was_done_well"],
+  "properties": {
+    "milestone_id": { "type": "string" },
+    "critic": { "type": "string", "enum": ["adversary", "web-perf-reviewer", "infra-auditor", "lfs", "oss-scout"] },
+    "commit_range": { "type": "string" },
+    "generated": { "type": "string", "format": "date-time" },
+    "diff_files_changed": { "type": "integer", "minimum": 0 },
+    "diff_loc_changed": { "type": "integer", "minimum": 0 },
+    "verdict": { "type": "string", "enum": ["SHIP", "SHIP-WITH-FIXES", "DO-NOT-SHIP"] },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "title", "file", "anchor", "what", "why", "proposed_fix", "source_critic"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[CHML][0-9]+$" },
+          "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+          "title": { "type": "string", "maxLength": 100 },
+          "file": { "type": "string" },
+          "line": { "type": ["integer", "string", "null"] },
+          "anchor": { "type": "string" },
+          "what": { "type": "string" },
+          "why": { "type": "string" },
+          "proposed_fix": { "type": "string" },
+          "regression_guard": { "type": ["string", "null"] },
+          "source_critic": { "type": "string" },
+          "source_axis": { "type": ["string", "null"] },
+          "agreement": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "what_was_done_well": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 5,
+      "maxItems": 10
+    },
+    "recommended_rectification_order": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[CHML][0-9]+$" }
+    }
+  }
+}

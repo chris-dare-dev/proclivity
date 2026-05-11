@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "milestone-pipeline/brief",
+  "title": "Researcher brief (markdown frontmatter)",
+  "description": "A research brief is markdown; this schema validates an OPTIONAL YAML frontmatter block at the top of the file. Bodies are validated structurally by section presence (see validate-artifact.py).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["milestone_id", "researcher", "agent_type"],
+  "properties": {
+    "milestone_id": { "type": "string" },
+    "researcher": { "type": "string", "enum": ["explore", "general-purpose", "general-purpose-opus"] },
+    "agent_type": { "type": "string", "enum": ["codebase-context", "external-and-writes", "adversarial"] },
+    "external_writes_required": { "type": "array", "items": { "type": "string" } },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "sha256"],
+        "properties": {
+          "url": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "takeaway": { "type": "string" }
+        }
+      }
+    },
+    "injection_attempts": { "type": "integer", "minimum": 0 }
+  }
+}

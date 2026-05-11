@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "milestone-pipeline/state",
+  "title": "Milestone state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "created_at", "updated_at", "phase", "phase_history", "milestone_brief"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^([a-z0-9-]+-m[0-9]+|adhoc-[0-9]{8}-[a-f0-9]{7})$"
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "init",
+        "research-running", "research-complete",
+        "implement-running", "implement-complete", "implement-aborted-scope",
+        "critique-running", "critique-complete",
+        "rectify-running",
+        "complete"
+      ]
+    },
+    "phase_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["phase", "entered_at"],
+        "properties": {
+          "phase": { "type": "string" },
+          "entered_at": { "type": "string", "format": "date-time" },
+          "exited_at": { "type": ["string", "null"], "format": "date-time" },
+          "duration_seconds": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "milestone_brief": { "type": "string", "minLength": 1 },
+    "milestone_brief_source": { "type": "string" },
+    "research_mode": { "type": "string", "enum": ["default", "deep", "single"] },
+    "research_briefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "agent_type", "model", "status"],
+        "properties": {
+          "path": { "type": "string" },
+          "agent_type": { "type": "string" },
+          "model": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "complete", "aborted-scope", "brief-inadequate"] },
+          "returned_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    },
+    "research_synthesis": { "type": ["string", "null"] },
+    "implementation_path": { "type": ["string", "null"], "enum": ["inline", "delegated", null] },
+    "implementation_base": { "type": ["string", "null"] },
+    "implementation_commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha", "subject"],
+        "properties": {
+          "sha": { "type": "string", "pattern": "^[a-f0-9]{7,40}$" },
+          "subject": { "type": "string" },
+          "files_changed": { "type": ["integer", "null"] },
+          "loc_changed": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "implementation_branch": { "type": ["string", "null"] },
+    "external_writes_required": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "critique_path": { "type": ["string", "null"] },
+    "critics_run": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "agent", "path"],
+        "properties": {
+          "name": { "type": "string" },
+          "agent": { "type": "string" },
+          "model": { "type": ["string", "null"] },
+          "path": { "type": "string" },
+          "returned_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    },
+    "critique_finding_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rectification_commit": { "type": ["string", "null"] },
+    "fixed_findings": { "type": "array", "items": { "type": "string" } },
+    "deferred_findings": { "type": "array", "items": { "type": "string" } },
+    "invalidated_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "type": "string" },
+          "reason": {
+            "type": "string",
+            "enum": ["anchor-not-found", "code-no-longer-matches-claim", "superseded-by-other-fix"]
+          }
+        }
+      }
+    },
+    "regression_tests_added": { "type": "array", "items": { "type": "string" } },
+    "external_writes_authorized": { "type": "array", "items": { "type": "string" } },
+    "external_writes_completed": { "type": "array", "items": { "type": "string" } }
+  }
+}
