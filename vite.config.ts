@@ -21,5 +21,8 @@ export default defineConfig({
   build: {
     target: "esnext",
     sourcemap: true,
+    // Three.js is intentionally large and loads lazily via React.lazy.
+    // We don't ship over the network, so the default 500kB warning is noise.
+    chunkSizeWarningLimit: 1000,
   },
 });

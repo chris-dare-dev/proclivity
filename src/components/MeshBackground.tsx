@@ -108,7 +108,7 @@ function WarpMesh() {
       uWander: { value: new THREE.Vector2(0, 0) },
       uAmp: { value: 2.4 },
       uFreq: { value: 0.18 },
-      uSpeed: { value: 0.08 },
+      uSpeed: { value: 0.035 },
       uColor: { value: new THREE.Color("#5be3c3") },
       uAlpha: { value: 0.9 },
     }),
@@ -121,8 +121,8 @@ function WarpMesh() {
     // Two layered sine pairs at different frequencies = quasi-random wander
     // that never repeats cleanly within a viewing session.
     uniforms.uWander.value.set(
-      Math.sin(t * 0.031) * 9 + Math.sin(t * 0.073) * 3.5,
-      Math.cos(t * 0.041) * 9 + Math.cos(t * 0.067) * 3.5,
+      Math.sin(t * 0.013) * 9 + Math.sin(t * 0.031) * 3.5,
+      Math.cos(t * 0.017) * 9 + Math.cos(t * 0.029) * 3.5,
     );
   });
 
