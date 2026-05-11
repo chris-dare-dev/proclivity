@@ -84,7 +84,8 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
               <button
                 className="todo-delete"
                 onClick={() => remove(t.id)}
-                title="Delete"
+                title={`Delete: ${t.title}`}
+                aria-label={`Delete: ${t.title}`}
               >
                 ✕
               </button>

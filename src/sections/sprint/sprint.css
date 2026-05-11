@@ -350,6 +350,13 @@
   gap: 10px;
   padding: 12px 16px;
   cursor: pointer;
+  /* Reset button chrome so it looks like a row, not a button (#18) */
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  text-align: left;
 }
 
 .sprint-archived-row:hover {

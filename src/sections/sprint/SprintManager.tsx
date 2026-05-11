@@ -48,7 +48,8 @@ function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
       <button
         className="todo-delete"
         onClick={() => onDelete(todo.id)}
-        title="Delete"
+        title={`Delete: ${todo.title}`}
+        aria-label={`Delete: ${todo.title}`}
       >
         ✕
       </button>
@@ -268,10 +269,19 @@ function ActiveSprintHeader({
         </div>
       </div>
       <div className="sprint-progress-row">
+        {/* #20: label now tracks task completion; day-of-N is a secondary label */}
         <span className="sprint-day-label">
           Day {day} of {total}
         </span>
-        <div className="sprint-progress-bar-wrap">
+        {/* #19: progressbar role with numeric ARIA attributes */}
+        <div
+          className="sprint-progress-bar-wrap"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={taskPct}
+          aria-label={`${done} of ${taskTotal} tasks done`}
+        >
           <div
             className="sprint-progress-bar-fill"
             style={{ width: `${taskPct}%` }}
@@ -307,11 +317,17 @@ function ArchivedSprintRow({
 
   return (
     <div className="sprint-archived-item">
-      <div className="sprint-archived-row" onClick={() => setOpen((v) => !v)}>
+      {/* Use <button> instead of <div onClick> for keyboard accessibility (#18) */}
+      <button
+        className="sprint-archived-row"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={`${sprint.name} – ${sprintDateRange(sprint)}`}
+      >
         <div className="sprint-archived-name">{sprint.name}</div>
         <div className="sprint-archived-dates">{sprintDateRange(sprint)}</div>
         <span className={`sprint-archived-caret ${open ? "open" : ""}`}>▾</span>
-      </div>
+      </button>
       {open && (
         <div className="sprint-archived-tasks">
           {sprintTodos.length === 0 ? (

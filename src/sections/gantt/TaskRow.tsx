@@ -97,7 +97,8 @@ export function TaskRow({ row, onUpdate, onDelete, onToggleCollapse }: Props) {
       <button
         className="gantt-task-delete"
         onClick={() => onDelete(task.id)}
-        title="Delete task"
+        title={`Delete task: ${task.title}`}
+        aria-label={`Delete task: ${task.title}`}
       >
         ✕
       </button>
