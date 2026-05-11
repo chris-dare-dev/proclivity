@@ -428,17 +428,20 @@ export function SprintManager() {
 
   const deleteSprint = async () => {
     if (!activeSprintId) return;
-    const nextSprint = sprints.find(
-      (s) => s.id !== activeSprintId && !isArchived(s),
-    );
-    await update((s) => ({
-      ...s,
-      sprints: s.sprints.filter((sp) => sp.id !== activeSprintId),
-      todos: s.todos.filter(
-        (t) => !(t.scope === "sprint" && t.sprintId === activeSprintId),
-      ),
-      activeSprintId: nextSprint?.id,
-    }));
+    // Read sprints from within the update callback to avoid stale closure (#9)
+    await update((s) => {
+      const nextSprint = s.sprints.find(
+        (sp) => sp.id !== activeSprintId && !isArchived(sp),
+      );
+      return {
+        ...s,
+        sprints: s.sprints.filter((sp) => sp.id !== activeSprintId),
+        todos: s.todos.filter(
+          (t) => !(t.scope === "sprint" && t.sprintId === activeSprintId),
+        ),
+        activeSprintId: nextSprint?.id,
+      };
+    });
     setMode("view");
   };
 

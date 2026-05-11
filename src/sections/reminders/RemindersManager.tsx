@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
-import type { Reminder } from "@/types";
+import type { Reminder, Todo } from "@/types";
 import {
   relativeTime,
   tsToDatetimeLocal,
@@ -15,10 +15,10 @@ import "./reminders.css";
 
 interface AddReminderFormProps {
   onSave: (reminder: Omit<Reminder, "id" | "fired">) => void;
+  todos: Todo[];
 }
 
-function AddReminderForm({ onSave }: AddReminderFormProps) {
-  const { state } = useStore();
+function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
 
   // Default fire time: 1 hour from now, rounded to nearest minute
   const defaultFireAt = () => {
@@ -89,7 +89,7 @@ function AddReminderForm({ onSave }: AddReminderFormProps) {
             onChange={(e) => setLinkedTodoId(e.target.value)}
           >
             <option value="">— none —</option>
-            {state.todos.map((t) => (
+            {todos.map((t) => (
               <option key={t.id} value={t.id}>
                 [{t.scope}] {t.title}
               </option>
@@ -109,7 +109,6 @@ function AddReminderForm({ onSave }: AddReminderFormProps) {
 interface ReminderItemProps {
   reminder: Reminder;
   linkedTodoTitle?: string;
-  onDismiss: (id: string) => void;
   onDelete: (id: string) => void;
   now: number;
 }
@@ -117,7 +116,6 @@ interface ReminderItemProps {
 function ReminderItem({
   reminder,
   linkedTodoTitle,
-  onDismiss,
   onDelete,
   now,
 }: ReminderItemProps) {
@@ -150,10 +148,11 @@ function ReminderItem({
         </div>
       </div>
       <div className="reminder-item-actions">
-        {reminder.fired && (
-          <button onClick={() => onDismiss(reminder.id)}>Dismiss</button>
-        )}
-        <button className="danger" onClick={() => onDelete(reminder.id)}>
+        <button
+          className="btn-danger"
+          aria-label={`Delete reminder: ${reminder.title}`}
+          onClick={() => onDelete(reminder.id)}
+        >
           Delete
         </button>
       </div>
@@ -196,15 +195,7 @@ export function RemindersManager() {
     }));
   };
 
-  const dismiss = async (id: string) => {
-    // "Dismiss" just removes the fired state from the UI but keeps the record
-    // We delete it from the list entirely (same as delete for fired items).
-    await update((s) => ({
-      ...s,
-      reminders: s.reminders.filter((r) => r.id !== id),
-    }));
-  };
-
+  // Single delete action: Dismiss was identical and misleadingly commented (#6)
   const deleteReminder = async (id: string) => {
     await update((s) => ({
       ...s,
@@ -214,7 +205,8 @@ export function RemindersManager() {
 
   return (
     <div>
-      <AddReminderForm onSave={addReminder} />
+      {/* Pass todos as prop — avoids a second useStore() in AddReminderForm (#7) */}
+      <AddReminderForm onSave={addReminder} todos={todos} />
 
       {/* Upcoming */}
       <div className="reminders-section">
@@ -229,7 +221,6 @@ export function RemindersManager() {
               key={r.id}
               reminder={r}
               linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
-              onDismiss={dismiss}
               onDelete={deleteReminder}
               now={now}
             />
@@ -248,7 +239,6 @@ export function RemindersManager() {
               key={r.id}
               reminder={r}
               linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
-              onDismiss={dismiss}
               onDelete={deleteReminder}
               now={now}
             />
