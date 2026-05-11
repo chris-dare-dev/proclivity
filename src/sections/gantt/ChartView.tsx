@@ -320,7 +320,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
           </h2>
           <div className="gantt-chart-actions">
             <button onClick={renameChart}>Rename</button>
-            <button className="gantt-delete" onClick={onDeleteChart}>
+            <button className="btn-danger" onClick={onDeleteChart}>
               Delete chart
             </button>
           </div>

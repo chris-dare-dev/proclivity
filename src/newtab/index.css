@@ -44,6 +44,18 @@ button:hover {
   border-color: var(--accent);
 }
 
+/* Global destructive-action button — rest-state danger coloring (#35) */
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--panel-2);
+}
+.btn-danger:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
 input,
 textarea,
 select {

@@ -262,7 +262,7 @@ function ActiveSprintHeader({
         </div>
         <div className="sprint-header-actions">
           <button onClick={onEdit}>Edit</button>
-          <button className="danger" onClick={onDelete}>
+          <button className="btn-danger" onClick={onDelete}>
             Delete
           </button>
         </div>

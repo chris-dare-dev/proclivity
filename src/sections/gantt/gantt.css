@@ -54,6 +54,12 @@
   grid-template-columns: 1fr 150px 150px 200px auto;
   gap: 8px;
 }
+/* Stack form fields when there's not enough horizontal room (#33) */
+@media (max-width: 700px) {
+  .gantt-add-row {
+    grid-template-columns: 1fr;
+  }
+}
 
 .gantt-grid {
   display: flex;
@@ -61,11 +67,22 @@
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel);
+  min-width: 0;
 }
 .gantt-grid-left {
   width: 480px;
   min-width: 480px;
   border-right: 1px solid var(--border);
+}
+/* Narrow viewport: collapse the task table to title-only + checkbox (#36) */
+@media (max-width: 900px) {
+  .gantt-grid-left {
+    width: 280px;
+    min-width: 280px;
+  }
+  .gantt-task-date {
+    display: none;
+  }
 }
 .gantt-grid-right {
   flex: 1;
