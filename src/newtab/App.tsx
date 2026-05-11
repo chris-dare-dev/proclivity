@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import "./App.css";
 import { Today } from "@/sections/Today";
 import { Sprint } from "@/sections/Sprint";
@@ -16,16 +16,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "reminders", label: "Reminders" },
 ];
 
-function useClock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
-function greeting(d: Date) {
+function greetingFor(d: Date) {
   const h = d.getHours();
   if (h < 5) return "Still up";
   if (h < 12) return "Good morning";
@@ -33,35 +24,49 @@ function greeting(d: Date) {
   return "Good evening";
 }
 
+// Header owns its own 1-second tick so the rest of App doesn't re-render
+// on each clock update (Pattern F).
+const Header = memo(function Header() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <header className="header">
+      <div className="header-left">
+        <div className="greeting">{greetingFor(now)}.</div>
+        <div className="date">
+          {now.toLocaleDateString(undefined, {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          })}
+        </div>
+      </div>
+      <div className="clock">
+        {now.toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </div>
+    </header>
+  );
+});
+
 export default function App() {
-  const now = useClock();
   const [tab, setTab] = useState<Tab>("today");
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header-left">
-          <div className="greeting">{greeting(now)}.</div>
-          <div className="date">
-            {now.toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </div>
-        </div>
-        <div className="clock">
-          {now.toLocaleTimeString(undefined, {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </div>
-      </header>
+      <Header />
 
-      <nav className="tabs">
+      <nav className="tabs" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
             className={`tab ${tab === t.id ? "tab-active" : ""}`}
             onClick={() => setTab(t.id)}
           >
@@ -70,12 +75,27 @@ export default function App() {
         ))}
       </nav>
 
+      {/*
+        Keep all sections mounted (#39) — switching tabs preserves
+        local state (drafts, expanded archived sprints, etc.). Inactive
+        sections are hidden via inert + display:none.
+      */}
       <main className="content">
-        {tab === "today" && <Today />}
-        {tab === "sprint" && <Sprint />}
-        {tab === "long" && <LongTerm />}
-        {tab === "gantt" && <Gantt />}
-        {tab === "reminders" && <Reminders />}
+        <div hidden={tab !== "today"}>
+          <Today />
+        </div>
+        <div hidden={tab !== "sprint"}>
+          <Sprint />
+        </div>
+        <div hidden={tab !== "long"}>
+          <LongTerm />
+        </div>
+        <div hidden={tab !== "gantt"}>
+          <Gantt />
+        </div>
+        <div hidden={tab !== "reminders"}>
+          <Reminders />
+        </div>
       </main>
     </div>
   );
