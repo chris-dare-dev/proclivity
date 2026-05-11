@@ -85,32 +85,61 @@ function AddTaskForm({ onAdd, placeholder = "New task…" }: AddTaskProps) {
   );
 }
 
-/* ─── New Sprint form ──────────────────────────────────────────── */
+/* ─── Shared Sprint form (Pattern B: merges New + Edit) ────────── */
 
-interface NewSprintFormProps {
+interface SprintFormProps {
+  /** Heading label */
+  heading: string;
+  /** Label for the submit button */
+  submitLabel: string;
+  initialName?: string;
+  initialStart?: number;
+  initialEnd?: number;
+  /** Called when start changes — allows caller to bump end for new sprints */
+  onStartChange?: (newStart: number, setEnd: (v: string) => void) => void;
   onSave: (name: string, startsAt: number, endsAt: number) => void;
   onCancel: () => void;
 }
 
-function NewSprintForm({ onSave, onCancel }: NewSprintFormProps) {
+function SprintForm({
+  heading,
+  submitLabel,
+  initialName = "",
+  initialStart,
+  initialEnd,
+  onStartChange,
+  onSave,
+  onCancel,
+}: SprintFormProps) {
   const today = todayMidnight();
-  const [name, setName] = useState("");
-  const [startVal, setStartVal] = useState(tsToDateInput(today));
-  const [endVal, setEndVal] = useState(
-    tsToDateInput(defaultEndsAt(today)),
+  const [name, setName] = useState(initialName);
+  const [startVal, setStartVal] = useState(
+    tsToDateInput(initialStart ?? today),
   );
+  const [endVal, setEndVal] = useState(
+    tsToDateInput(initialEnd ?? defaultEndsAt(today)),
+  );
+  // Inline validation error (#21)
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  const startsAt = dateInputToTs(startVal);
+  const endsAt = dateInputToTs(endVal);
+  const isInvalid = endsAt < startsAt;
 
   const handleSave = () => {
-    const n = name.trim() || "Sprint";
-    const startsAt = dateInputToTs(startVal);
-    const endsAt = dateInputToTs(endVal);
+    if (isInvalid) {
+      setDateError("End date must be on or after start date.");
+      return;
+    }
+    setDateError(null);
+    const n = name.trim() || heading;
     onSave(n, startsAt, endsAt);
   };
 
   return (
-    <div className="sprint-new-form">
-      <h4>New Sprint</h4>
-      <div className="sprint-new-form-name">
+    <div className="sprint-form">
+      <h4>{heading}</h4>
+      <div className="sprint-form-name">
         <label>Name</label>
         <input
           autoFocus
@@ -120,7 +149,7 @@ function NewSprintForm({ onSave, onCancel }: NewSprintFormProps) {
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
         />
       </div>
-      <div className="sprint-new-form-row">
+      <div className="sprint-form-row">
         <label>
           Starts
           <input
@@ -128,9 +157,8 @@ function NewSprintForm({ onSave, onCancel }: NewSprintFormProps) {
             value={startVal}
             onChange={(e) => {
               setStartVal(e.target.value);
-              // update end if it's still the default
-              const newStart = dateInputToTs(e.target.value);
-              setEndVal(tsToDateInput(defaultEndsAt(newStart)));
+              setDateError(null);
+              onStartChange?.(dateInputToTs(e.target.value), setEndVal);
             }}
           />
         </label>
@@ -139,71 +167,69 @@ function NewSprintForm({ onSave, onCancel }: NewSprintFormProps) {
           <input
             type="date"
             value={endVal}
-            onChange={(e) => setEndVal(e.target.value)}
+            onChange={(e) => {
+              setEndVal(e.target.value);
+              setDateError(null);
+            }}
           />
         </label>
       </div>
-      <div className="sprint-new-form-actions">
-        <button onClick={handleSave}>Create</button>
+      {dateError && (
+        <div className="sprint-form-error" role="alert">
+          {dateError}
+        </div>
+      )}
+      <div className="sprint-form-actions">
+        <button onClick={handleSave} disabled={isInvalid}>
+          {submitLabel}
+        </button>
         <button onClick={onCancel}>Cancel</button>
       </div>
     </div>
   );
 }
 
-/* ─── Edit Sprint form ─────────────────────────────────────────── */
+/** Thin wrappers so call-sites don't need to supply all SprintForm props */
 
-interface EditSprintFormProps {
+function NewSprintForm({
+  onSave,
+  onCancel,
+}: {
+  onSave: (name: string, startsAt: number, endsAt: number) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <SprintForm
+      heading="New Sprint"
+      submitLabel="Create"
+      onStartChange={(newStart, setEnd) =>
+        setEnd(tsToDateInput(defaultEndsAt(newStart)))
+      }
+      onSave={onSave}
+      onCancel={onCancel}
+    />
+  );
+}
+
+function EditSprintForm({
+  sprint,
+  onSave,
+  onCancel,
+}: {
   sprint: Sprint;
   onSave: (name: string, startsAt: number, endsAt: number) => void;
   onCancel: () => void;
-}
-
-function EditSprintForm({ sprint, onSave, onCancel }: EditSprintFormProps) {
-  const [name, setName] = useState(sprint.name);
-  const [startVal, setStartVal] = useState(tsToDateInput(sprint.startsAt));
-  const [endVal, setEndVal] = useState(tsToDateInput(sprint.endsAt));
-
-  const handleSave = () => {
-    const n = name.trim() || sprint.name;
-    onSave(n, dateInputToTs(startVal), dateInputToTs(endVal));
-  };
-
+}) {
   return (
-    <div className="sprint-edit-form">
-      <h4>Edit Sprint</h4>
-      <div className="sprint-new-form-name">
-        <label>Name</label>
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSave()}
-        />
-      </div>
-      <div className="sprint-edit-form-row">
-        <label>
-          Starts
-          <input
-            type="date"
-            value={startVal}
-            onChange={(e) => setStartVal(e.target.value)}
-          />
-        </label>
-        <label>
-          Ends
-          <input
-            type="date"
-            value={endVal}
-            onChange={(e) => setEndVal(e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="sprint-edit-form-actions">
-        <button onClick={handleSave}>Save</button>
-        <button onClick={onCancel}>Cancel</button>
-      </div>
-    </div>
+    <SprintForm
+      heading="Edit Sprint"
+      submitLabel="Save"
+      initialName={sprint.name}
+      initialStart={sprint.startsAt}
+      initialEnd={sprint.endsAt}
+      onSave={onSave}
+      onCancel={onCancel}
+    />
   );
 }
 

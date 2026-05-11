@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useRef,
   useCallback,
   useState,
@@ -39,21 +40,20 @@ interface ModalProps {
 export function Modal({ open, onClose, title, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  // Unique ID per modal instance so nested modals don't share aria-labelledby (#14)
+  const titleId = useId();
 
   // Save & restore focus
   useEffect(() => {
     if (open) {
       previousFocusRef.current = document.activeElement as HTMLElement;
-      // Focus first focusable child on next tick
-      const id = setTimeout(() => {
-        if (panelRef.current) {
-          const first = getFocusable(panelRef.current)[0];
-          if (first) first.focus();
-        }
-      }, 0);
-      return () => clearTimeout(id);
+      // Focus is handled by consumer autoFocus (#34 — removed setTimeout here)
     } else {
-      previousFocusRef.current?.focus();
+      // Defer restore via rAF so the element isn't focused mid-close-animation (#15)
+      const raf = requestAnimationFrame(() => {
+        previousFocusRef.current?.focus();
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, [open]);
 
@@ -106,9 +106,9 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
       >
-        <h2 className="modal-title" id="modal-title">
+        <h2 className="modal-title" id={titleId}>
           {title}
         </h2>
         {children}

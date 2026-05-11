@@ -43,8 +43,8 @@
   border-color: var(--accent);
 }
 
-/* ─── New sprint inline form ─────────────────────────────────── */
-.sprint-new-form {
+/* ─── Shared sprint form (new + edit, #32) ───────────────────── */
+.sprint-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -55,19 +55,35 @@
   margin-bottom: 20px;
 }
 
-.sprint-new-form h4 {
+.sprint-form h4 {
   margin: 0 0 4px 0;
   font-size: 14px;
   font-weight: 600;
 }
 
-.sprint-new-form-row {
+.sprint-form-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sprint-form-name label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.sprint-form-name input {
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+.sprint-form-row {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.sprint-new-form-row label {
+.sprint-form-row label {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -77,30 +93,19 @@
   min-width: 140px;
 }
 
-.sprint-new-form-row label input {
+.sprint-form-row label input {
   padding: 6px 8px;
   font-size: 13px;
 }
 
-.sprint-new-form-actions {
+.sprint-form-error {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.sprint-form-actions {
   display: flex;
   gap: 8px;
-}
-
-.sprint-new-form-name {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sprint-new-form-name label {
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
-.sprint-new-form-name input {
-  padding: 6px 8px;
-  font-size: 14px;
 }
 
 /* ─── Active sprint header ───────────────────────────────────── */
@@ -190,50 +195,6 @@
   color: var(--text-dim);
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-/* ─── Edit sprint inline form ────────────────────────────────── */
-.sprint-edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-}
-
-.sprint-edit-form h4 {
-  margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sprint-edit-form-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.sprint-edit-form-row label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-dim);
-  flex: 1;
-  min-width: 140px;
-}
-
-.sprint-edit-form-row label input {
-  padding: 6px 8px;
-  font-size: 13px;
-}
-
-.sprint-edit-form-actions {
-  display: flex;
-  gap: 8px;
 }
 
 /* ─── Inline confirm dialog ──────────────────────────────────── */
