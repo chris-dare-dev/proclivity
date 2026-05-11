@@ -1,0 +1,148 @@
+/* ─── Add reminder form ─────────────────────────────────────── */
+.reminder-form {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.reminder-form h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.reminder-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 640px) {
+  .reminder-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reminder-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reminder-form-field label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.reminder-form-field input,
+.reminder-form-field select {
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.reminder-form-field-full {
+  grid-column: 1 / -1;
+}
+
+.reminder-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ─── Reminders list ────────────────────────────────────────── */
+.reminders-section {
+  margin-bottom: 32px;
+}
+
+.reminders-section-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px 0;
+}
+
+.reminder-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 6px;
+}
+
+.reminder-item.fired {
+  opacity: 0.7;
+}
+
+.reminder-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.reminder-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.reminder-item-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.reminder-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.reminder-badge.fired {
+  background: color-mix(in srgb, var(--text-dim) 15%, transparent);
+  color: var(--text-dim);
+}
+
+.reminder-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.reminder-item-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.reminder-item-actions button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.reminder-item-actions button.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.reminder-linked-todo {
+  font-style: italic;
+}
