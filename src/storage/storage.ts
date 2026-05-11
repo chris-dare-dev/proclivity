@@ -1,6 +1,5 @@
 import { EMPTY_STATE, type ProclivityState } from "@/types";
-
-const KEY = "proclivity:state:v1";
+import { STORAGE_KEY } from "./constants";
 
 type Listener = (state: ProclivityState) => void;
 
@@ -9,20 +8,26 @@ const isExtension =
 
 async function readRaw(): Promise<ProclivityState> {
   if (isExtension) {
-    const r = await chrome.storage.local.get(KEY);
-    return (r[KEY] as ProclivityState | undefined) ?? EMPTY_STATE;
+    const r = await chrome.storage.local.get(STORAGE_KEY);
+    return (r[STORAGE_KEY] as ProclivityState | undefined) ?? EMPTY_STATE;
   }
-  const raw = localStorage.getItem(KEY);
+  const raw = localStorage.getItem(STORAGE_KEY);
   return raw ? (JSON.parse(raw) as ProclivityState) : EMPTY_STATE;
 }
 
 async function writeRaw(state: ProclivityState): Promise<void> {
   if (isExtension) {
-    await chrome.storage.local.set({ [KEY]: state });
+    await chrome.storage.local.set({ [STORAGE_KEY]: state });
     return;
   }
-  localStorage.setItem(KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
+
+/**
+ * Serialize all write operations through a promise chain so concurrent
+ * update() calls never clobber each other (finding #1).
+ */
+let writeChain: Promise<void> = Promise.resolve();
 
 export const storage = {
   async get(): Promise<ProclivityState> {
@@ -32,12 +37,21 @@ export const storage = {
   async set(state: ProclivityState): Promise<void> {
     await writeRaw(state);
   },
-  async update(
+  update(
     fn: (s: ProclivityState) => ProclivityState,
   ): Promise<ProclivityState> {
-    const next = fn(await this.get());
-    await this.set(next);
-    return next;
+    // Chain each update so reads always see the latest committed write.
+    const result = writeChain.then(async () => {
+      const next = fn(await this.get());
+      await this.set(next);
+      return next;
+    });
+    // Keep the chain alive; swallow errors so future updates aren't blocked.
+    writeChain = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   },
   subscribe(listener: Listener): () => void {
     if (isExtension) {
@@ -45,14 +59,16 @@ export const storage = {
         changes: Record<string, chrome.storage.StorageChange>,
         area: string,
       ) => {
-        if (area !== "local" || !changes[KEY]) return;
-        listener((changes[KEY].newValue as ProclivityState) ?? EMPTY_STATE);
+        if (area !== "local" || !changes[STORAGE_KEY]) return;
+        listener(
+          (changes[STORAGE_KEY].newValue as ProclivityState) ?? EMPTY_STATE,
+        );
       };
       chrome.storage.onChanged.addListener(handler);
       return () => chrome.storage.onChanged.removeListener(handler);
     }
     const handler = (e: StorageEvent) => {
-      if (e.key !== KEY) return;
+      if (e.key !== STORAGE_KEY) return;
       listener(e.newValue ? JSON.parse(e.newValue) : EMPTY_STATE);
     };
     window.addEventListener("storage", handler);

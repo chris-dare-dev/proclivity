@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { GanttTask } from "@/types";
@@ -33,6 +33,8 @@ interface DragState {
   startX: number;
   origStartsAt: number;
   origEndsAt: number;
+  /** The pointerId captured via setPointerCapture (finding #4) */
+  pointerId: number;
 }
 
 /** Delta in full days given pixel movement */
@@ -40,15 +42,19 @@ function pxToDays(px: number): number {
   return Math.round(px / DAY_PX);
 }
 
-const EDGE_HIT_PX = 6;
+/**
+ * Width of the drag handle zone on each edge in pixels.
+ * Must match .gantt-bar-handle width in gantt.css (finding #30).
+ */
+export const EDGE_HIT_PX = 6;
 
 export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const { state, update } = useStore();
   const chart = state.ganttCharts.find((c) => c.id === chartId);
   const tasks = state.ganttTasks.filter((t) => t.chartId === chartId);
   const rows = flattenTasks(tasks);
-  const bounds = chartBounds(tasks);
-  const months = monthSpans(bounds);
+  const bounds = useMemo(() => chartBounds(tasks), [tasks]);
+  const months = useMemo(() => monthSpans(bounds), [bounds]);
   const today = startOfDay(Date.now());
   const todayOffset = daysBetween(bounds.start, today);
 
@@ -56,6 +62,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const [newStart, setNewStart] = useState(toDateInput(today));
   const [newEnd, setNewEnd] = useState(toDateInput(addDays(today, 7)));
   const [newParent, setNewParent] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
 
   // Rename modal state
   const [showRename, setShowRename] = useState(false);
@@ -66,12 +73,13 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   >({});
   const dragRef = useRef<DragState | null>(null);
 
-  const updateTask = async (id: string, patch: Partial<GanttTask>) => {
+  // Memoize updateTask so callbacks depending on it stay stable (finding #8)
+  const updateTask = useCallback(async (id: string, patch: Partial<GanttTask>) => {
     await update((s) => ({
       ...s,
       ganttTasks: s.ganttTasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
     }));
-  };
+  }, [update]);
 
   const deleteTask = async (id: string) => {
     const all = collectDescendants(tasks, id);
@@ -93,10 +101,14 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
     const start = fromDateInput(newStart);
     const end = fromDateInput(newEnd);
     if (end < start) {
-      alert("End date must be on or after start date.");
+      // Inline validation instead of alert() (finding #10)
+      setAddError("End date must be on or after start date.");
       return;
     }
+    setAddError(null);
     setNewTitle("");
+    // Reset newParent so subsequent tasks aren't silently parented (finding #13)
+    setNewParent("");
     await update((s) => ({
       ...s,
       ganttTasks: [
@@ -151,6 +163,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
         startX: e.clientX,
         origStartsAt: task.startsAt,
         origEndsAt: task.endsAt,
+        pointerId: e.pointerId, // store for releasePointerCapture (finding #4)
       };
 
       // Initialize preview to current values
@@ -202,6 +215,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
     [],
   );
 
+  // Include updateTask in deps so it never goes stale (finding #8)
   const onBarPointerUp = useCallback(
     async (_e: React.PointerEvent<HTMLDivElement>) => {
       const drag = dragRef.current;
@@ -224,7 +238,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
         });
       }
     },
-    [dragPreview],
+    [dragPreview, updateTask],
   );
 
   const onBarKeyDown = useCallback(
@@ -239,9 +253,11 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
           delete next[drag.taskId];
           return next;
         });
-        // Release pointer capture if possible
+        // Release pointer capture using the stored pointerId (finding #4)
         try {
-          (e.currentTarget as HTMLDivElement).releasePointerCapture(0);
+          (e.currentTarget as HTMLDivElement).releasePointerCapture(
+            drag.pointerId,
+          );
         } catch {
           // ignore – capture may already be released
         }
@@ -259,6 +275,31 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
 
   const totalWidth = bounds.days * DAY_PX;
 
+  // Memoize the two O(days) render arrays (findings #43, #24)
+  const dayHeaderCells = useMemo(
+    () =>
+      Array.from({ length: bounds.days }, (_, i) => {
+        const d = new Date(addDays(bounds.start, i));
+        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+        const isToday = i === todayOffset;
+        return { i, date: d.getDate(), isWeekend, isToday };
+      }),
+    [bounds.days, bounds.start, todayOffset],
+  );
+
+  const dayBgCols = useMemo(
+    () =>
+      Array.from({ length: bounds.days }, (_, i) => {
+        const d = new Date(addDays(bounds.start, i));
+        return { i, isWeekend: d.getDay() === 0 || d.getDay() === 6 };
+      }),
+    [bounds.days, bounds.start],
+  );
+
+  // Early return if chart not found (finding #22) — placed after all hooks
+  // so hook order remains stable across renders.
+  if (!chart) return null;
+
   return (
     <>
       {/* Rename chart modal */}
@@ -267,209 +308,205 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
         onClose={() => setShowRename(false)}
         title="Rename chart"
         placeholder="Chart name…"
-        initialValue={chart?.name ?? ""}
+        initialValue={chart.name}
         submitLabel="Rename"
         onSubmit={(name) => onRenameChart(name)}
       />
 
-    <div className="gantt-chart">
-      <div className="gantt-chart-header">
-        <h2 onDoubleClick={renameChart} title="Double-click to rename">
-          {chart?.name ?? "Chart"}
-        </h2>
-        <div className="gantt-chart-actions">
-          <button onClick={renameChart}>Rename</button>
-          <button className="gantt-delete" onClick={onDeleteChart}>
-            Delete chart
-          </button>
-        </div>
-      </div>
-
-      <div className="gantt-add-row">
-        <input
-          placeholder="New task…"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addTask()}
-        />
-        <input
-          type="date"
-          value={newStart}
-          onChange={(e) => setNewStart(e.target.value)}
-        />
-        <input
-          type="date"
-          value={newEnd}
-          min={newStart}
-          onChange={(e) => setNewEnd(e.target.value)}
-        />
-        <select
-          value={newParent}
-          onChange={(e) => setNewParent(e.target.value)}
-        >
-          <option value="">(top-level)</option>
-          {tasks.map((t) => (
-            <option key={t.id} value={t.id}>
-              ↳ {t.title}
-            </option>
-          ))}
-        </select>
-        <button onClick={addTask}>Add task</button>
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="section-empty">
-          No tasks yet. Add one above to populate the timeline.
-        </div>
-      ) : (
-        <div className="gantt-grid">
-          <div className="gantt-grid-left">
-            <div className="gantt-headcell" style={{ height: HEADER_H }}>
-              Task
-            </div>
-            {rows.map((r) => (
-              <TaskRow
-                key={r.task.id}
-                row={r}
-                onUpdate={updateTask}
-                onDelete={deleteTask}
-                onToggleCollapse={toggleCollapse}
-              />
-            ))}
+      <div className="gantt-chart">
+        <div className="gantt-chart-header">
+          <h2 onDoubleClick={renameChart} title="Double-click to rename">
+            {chart.name}
+          </h2>
+          <div className="gantt-chart-actions">
+            <button onClick={renameChart}>Rename</button>
+            <button className="gantt-delete" onClick={onDeleteChart}>
+              Delete chart
+            </button>
           </div>
+        </div>
 
-          <div className="gantt-grid-right">
-            <div className="gantt-timeline" style={{ width: totalWidth }}>
-              <div
-                className="gantt-timeline-header"
-                style={{ height: HEADER_H }}
-              >
-                <div className="gantt-month-row">
-                  {months.map((m, i) => (
-                    <div
-                      key={i}
-                      className="gantt-month"
-                      style={{
-                        left: m.startDay * DAY_PX,
-                        width: m.days * DAY_PX,
-                      }}
-                    >
-                      {m.label}
-                    </div>
-                  ))}
-                </div>
-                <div className="gantt-day-row">
-                  {Array.from({ length: bounds.days }).map((_, i) => {
-                    const d = new Date(addDays(bounds.start, i));
-                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                    const isToday = i === todayOffset;
-                    return (
+        <div className="gantt-add-row">
+          <input
+            placeholder="New task…"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTask()}
+          />
+          <input
+            type="date"
+            aria-label="Start date"
+            value={newStart}
+            onChange={(e) => setNewStart(e.target.value)}
+          />
+          <input
+            type="date"
+            aria-label="End date"
+            value={newEnd}
+            min={newStart}
+            onChange={(e) => setNewEnd(e.target.value)}
+          />
+          <select
+            value={newParent}
+            onChange={(e) => setNewParent(e.target.value)}
+          >
+            <option value="">(top-level)</option>
+            {tasks.map((t) => (
+              <option key={t.id} value={t.id}>
+                {"↳"} {t.title}
+              </option>
+            ))}
+          </select>
+          <button onClick={addTask}>Add task</button>
+        </div>
+        {addError && (
+          <div className="gantt-add-error" role="alert">
+            {addError}
+          </div>
+        )}
+
+        {rows.length === 0 ? (
+          <div className="section-empty">
+            No tasks yet. Add one above to populate the timeline.
+          </div>
+        ) : (
+          <div className="gantt-grid">
+            <div className="gantt-grid-left">
+              <div className="gantt-headcell" style={{ height: HEADER_H }}>
+                Task
+              </div>
+              {rows.map((r) => (
+                <TaskRow
+                  key={r.task.id}
+                  row={r}
+                  onUpdate={updateTask}
+                  onDelete={deleteTask}
+                  onToggleCollapse={toggleCollapse}
+                />
+              ))}
+            </div>
+
+            <div className="gantt-grid-right">
+              <div className="gantt-timeline" style={{ width: totalWidth }}>
+                <div
+                  className="gantt-timeline-header"
+                  style={{ height: HEADER_H }}
+                >
+                  <div className="gantt-month-row">
+                    {months.map((m, i) => (
                       <div
                         key={i}
-                        className={`gantt-day ${isWeekend ? "weekend" : ""} ${
-                          isToday ? "today" : ""
-                        }`}
+                        className="gantt-month"
+                        style={{
+                          left: m.startDay * DAY_PX,
+                          width: m.days * DAY_PX,
+                        }}
+                      >
+                        {m.label}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="gantt-day-row">
+                    {dayHeaderCells.map(({ i, date, isWeekend, isToday }) => (
+                      <div
+                        key={i}
+                        className={`gantt-day${isWeekend ? " weekend" : ""}${isToday ? " today" : ""}`}
                         style={{ width: DAY_PX }}
                       >
-                        {d.getDate()}
+                        {date}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div
+                  className="gantt-timeline-body"
+                  style={{ height: rows.length * ROW_H }}
+                >
+                  <div className="gantt-grid-bg">
+                    {dayBgCols.map(({ i, isWeekend }) => (
+                      <div
+                        key={i}
+                        className={`gantt-bg-col${isWeekend ? " weekend" : ""}`}
+                        style={{ width: DAY_PX }}
+                      />
+                    ))}
+                  </div>
+
+                  {todayOffset >= 0 && todayOffset < bounds.days && (
+                    <div
+                      className="gantt-today-line"
+                      style={{ left: todayOffset * DAY_PX + DAY_PX / 2 }}
+                    />
+                  )}
+
+                  {rows.map((r, idx) => {
+                    const preview = dragPreview[r.task.id];
+                    const startsAt = preview ? preview.startsAt : r.task.startsAt;
+                    const endsAt = preview ? preview.endsAt : r.task.endsAt;
+                    const offset = daysBetween(bounds.start, startsAt);
+                    const span = daysBetween(startsAt, endsAt) + 1;
+                    const progress = r.task.done ? 100 : r.task.progress;
+                    const isDragging = !!preview;
+                    return (
+                      <div
+                        key={r.task.id}
+                        className={`gantt-bar${r.task.done ? " done" : ""}${r.depth > 0 ? " child" : ""}${isDragging ? " dragging" : ""}`}
+                        style={{
+                          top: idx * ROW_H + 6,
+                          left: offset * DAY_PX + 2,
+                          width: Math.max(span * DAY_PX - 4, 4),
+                          height: ROW_H - 12,
+                          cursor: isDragging
+                            ? dragRef.current?.mode === "move"
+                              ? "grabbing"
+                              : "ew-resize"
+                            : undefined,
+                        }}
+                        title={`${r.task.title} (${toDateInput(startsAt)} → ${toDateInput(endsAt)})`}
+                        // Keyboard-accessible drag target (finding #5)
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Task: ${r.task.title}, drag to reschedule`}
+                        // Pointer events for drag
+                        onPointerDown={(e) => onBarPointerDown(e, r.task)}
+                        onPointerMove={onBarPointerMove}
+                        onPointerUp={onBarPointerUp}
+                        onKeyDown={onBarKeyDown}
+                        // Dynamic cursor based on hover position
+                        onMouseMove={(e) => {
+                          if (dragRef.current) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const localX = e.clientX - rect.left;
+                          e.currentTarget.style.cursor = getBarCursor(
+                            rect.width,
+                            localX,
+                          );
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!dragRef.current) {
+                            e.currentTarget.style.cursor = "";
+                          }
+                        }}
+                      >
+                        {/* Left resize handle */}
+                        <div className="gantt-bar-handle gantt-bar-handle-left" />
+                        <div
+                          className="gantt-bar-progress"
+                          style={{ width: `${progress}%` }}
+                        />
+                        <span className="gantt-bar-label">{r.task.title}</span>
+                        {/* Right resize handle */}
+                        <div className="gantt-bar-handle gantt-bar-handle-right" />
                       </div>
                     );
                   })}
                 </div>
               </div>
-
-              <div
-                className="gantt-timeline-body"
-                style={{ height: rows.length * ROW_H }}
-              >
-                <div className="gantt-grid-bg">
-                  {Array.from({ length: bounds.days }).map((_, i) => {
-                    const d = new Date(addDays(bounds.start, i));
-                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                    return (
-                      <div
-                        key={i}
-                        className={`gantt-bg-col ${
-                          isWeekend ? "weekend" : ""
-                        }`}
-                        style={{ width: DAY_PX }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {todayOffset >= 0 && todayOffset < bounds.days && (
-                  <div
-                    className="gantt-today-line"
-                    style={{ left: todayOffset * DAY_PX + DAY_PX / 2 }}
-                  />
-                )}
-
-                {rows.map((r, idx) => {
-                  const preview = dragPreview[r.task.id];
-                  const startsAt = preview ? preview.startsAt : r.task.startsAt;
-                  const endsAt = preview ? preview.endsAt : r.task.endsAt;
-                  const offset = daysBetween(bounds.start, startsAt);
-                  const span = daysBetween(startsAt, endsAt) + 1;
-                  const progress = r.task.done ? 100 : r.task.progress;
-                  const isDragging = !!preview;
-                  return (
-                    <div
-                      key={r.task.id}
-                      className={`gantt-bar ${r.task.done ? "done" : ""} ${
-                        r.depth > 0 ? "child" : ""
-                      } ${isDragging ? "dragging" : ""}`}
-                      style={{
-                        top: idx * ROW_H + 6,
-                        left: offset * DAY_PX + 2,
-                        width: Math.max(span * DAY_PX - 4, 4),
-                        height: ROW_H - 12,
-                        cursor: isDragging
-                          ? dragRef.current?.mode === "move"
-                            ? "grabbing"
-                            : "ew-resize"
-                          : undefined,
-                      }}
-                      title={`${r.task.title} (${toDateInput(startsAt)} → ${toDateInput(endsAt)})`}
-                      // Pointer events for drag
-                      onPointerDown={(e) => onBarPointerDown(e, r.task)}
-                      onPointerMove={onBarPointerMove}
-                      onPointerUp={onBarPointerUp}
-                      onKeyDown={onBarKeyDown}
-                      // Dynamic cursor based on hover position
-                      onMouseMove={(e) => {
-                        if (dragRef.current) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const localX = e.clientX - rect.left;
-                        e.currentTarget.style.cursor = getBarCursor(
-                          rect.width,
-                          localX,
-                        );
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!dragRef.current) {
-                          e.currentTarget.style.cursor = "";
-                        }
-                      }}
-                    >
-                      {/* Left resize handle */}
-                      <div className="gantt-bar-handle gantt-bar-handle-left" />
-                      <div
-                        className="gantt-bar-progress"
-                        style={{ width: `${progress}%` }}
-                      />
-                      <span className="gantt-bar-label">{r.task.title}</span>
-                      {/* Right resize handle */}
-                      <div className="gantt-bar-handle gantt-bar-handle-right" />
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     </>
   );
 }
