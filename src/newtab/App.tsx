@@ -1,10 +1,16 @@
-import { memo, useEffect, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useState } from "react";
 import "./App.css";
 import { Today } from "@/sections/Today";
 import { Sprint } from "@/sections/Sprint";
 import { LongTerm } from "@/sections/LongTerm";
 import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
+
+// Three.js is ~800kB minified — keep it out of the initial chunk so the
+// planner UI renders without waiting on it. The mesh fades in once loaded.
+const MeshBackground = lazy(() =>
+  import("@/components/MeshBackground").then((m) => ({ default: m.MeshBackground })),
+);
 
 type Tab = "today" | "sprint" | "long" | "gantt" | "reminders";
 
@@ -58,45 +64,50 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("today");
 
   return (
-    <div className="app">
-      <Header />
+    <>
+      <Suspense fallback={null}>
+        <MeshBackground />
+      </Suspense>
+      <div className="app">
+        <Header />
 
-      <nav className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`tab ${tab === t.id ? "tab-active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+        <nav className="tabs" role="tablist">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`tab ${tab === t.id ? "tab-active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
-      {/*
-        Keep all sections mounted (#39) — switching tabs preserves
-        local state (drafts, expanded archived sprints, etc.). Inactive
-        sections are hidden via inert + display:none.
-      */}
-      <main className="content">
-        <div hidden={tab !== "today"}>
-          <Today />
-        </div>
-        <div hidden={tab !== "sprint"}>
-          <Sprint />
-        </div>
-        <div hidden={tab !== "long"}>
-          <LongTerm />
-        </div>
-        <div hidden={tab !== "gantt"}>
-          <Gantt />
-        </div>
-        <div hidden={tab !== "reminders"}>
-          <Reminders />
-        </div>
-      </main>
-    </div>
+        {/*
+          Keep all sections mounted (#39) — switching tabs preserves
+          local state (drafts, expanded archived sprints, etc.). Inactive
+          sections are hidden via inert + display:none.
+        */}
+        <main className="content">
+          <div hidden={tab !== "today"}>
+            <Today />
+          </div>
+          <div hidden={tab !== "sprint"}>
+            <Sprint />
+          </div>
+          <div hidden={tab !== "long"}>
+            <LongTerm />
+          </div>
+          <div hidden={tab !== "gantt"}>
+            <Gantt />
+          </div>
+          <div hidden={tab !== "reminders"}>
+            <Reminders />
+          </div>
+        </main>
+      </div>
+    </>
   );
 }

@@ -1,0 +1,27 @@
+.mesh-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Lower the visual weight so it doesn't compete with the planner UI */
+  opacity: 0.55;
+  /* Fade in once three.js has loaded (lazy-import path) */
+  animation: mesh-fade-in 800ms ease-out both;
+}
+
+@keyframes mesh-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-background {
+    animation: none;
+  }
+}
+
+.mesh-background canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
