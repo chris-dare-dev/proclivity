@@ -197,41 +197,6 @@
   flex-shrink: 0;
 }
 
-/* ─── Inline confirm dialog ──────────────────────────────────── */
-.sprint-confirm {
-  background: var(--panel);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.sprint-confirm p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text);
-  flex: 1;
-}
-
-.sprint-confirm-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-danger {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.btn-danger:hover {
-  opacity: 0.85;
-}
-
 /* ─── Unassigned todos section ───────────────────────────────── */
 .sprint-unassigned {
   background: var(--panel);

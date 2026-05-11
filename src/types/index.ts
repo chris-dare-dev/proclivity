@@ -26,6 +26,7 @@ export interface GanttTask {
   title: string;
   startsAt: number;
   endsAt: number;
+  /** 0-100 integer. Forced to 100 in the UI when `done` is true. */
   progress: number;
   done: boolean;
   collapsed?: boolean;

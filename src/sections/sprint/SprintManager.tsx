@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Todo } from "@/types";
+import { ConfirmDialog } from "@/components/Modal";
 import {
   todayMidnight,
   defaultEndsAt,
@@ -233,34 +234,6 @@ function EditSprintForm({
   );
 }
 
-/* ─── Delete confirmation ──────────────────────────────────────── */
-
-interface DeleteConfirmProps {
-  sprintName: string;
-  taskCount: number;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-function DeleteConfirm({ sprintName, taskCount, onConfirm, onCancel }: DeleteConfirmProps) {
-  return (
-    <div className="sprint-confirm">
-      <p>
-        Delete <strong>{sprintName}</strong>?{" "}
-        {taskCount > 0
-          ? `This will also delete ${taskCount} task${taskCount !== 1 ? "s" : ""}.`
-          : "This sprint has no tasks."}
-      </p>
-      <div className="sprint-confirm-actions">
-        <button className="btn-danger" onClick={onConfirm}>
-          Delete
-        </button>
-        <button onClick={onCancel}>Cancel</button>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Active Sprint Header ─────────────────────────────────────── */
 
 interface ActiveSprintHeaderProps {
@@ -411,11 +384,12 @@ function UnassignedGroup({ todos, activeSprintId, onMove }: UnassignedGroupProps
 
 /* ─── Main SprintManager ──────────────────────────────────────── */
 
-type UIMode = "view" | "new-sprint" | "edit-sprint" | "confirm-delete";
+type UIMode = "view" | "new-sprint" | "edit-sprint";
 
 export function SprintManager() {
   const { state, update, loading } = useStore();
   const [mode, setMode] = useState<UIMode>("view");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   if (loading) return null;
 
@@ -585,13 +559,25 @@ export function SprintManager() {
         />
       )}
 
-      {/* Delete confirmation */}
-      {mode === "confirm-delete" && activeSprint && (
-        <DeleteConfirm
-          sprintName={activeSprint.name}
-          taskCount={taskCountForSprint(activeSprint.id)}
+      {/* Delete confirmation (#31 — shared ConfirmDialog) */}
+      {activeSprint && (
+        <ConfirmDialog
+          open={confirmingDelete}
+          onClose={() => setConfirmingDelete(false)}
+          title="Delete sprint"
+          confirmLabel="Delete"
+          message={(() => {
+            const count = taskCountForSprint(activeSprint.id);
+            return (
+              <>
+                Delete <strong>{activeSprint.name}</strong>?{" "}
+                {count > 0
+                  ? `This will also delete ${count} task${count !== 1 ? "s" : ""}.`
+                  : "This sprint has no tasks."}
+              </>
+            );
+          })()}
           onConfirm={deleteSprint}
-          onCancel={() => setMode("view")}
         />
       )}
 
@@ -609,7 +595,7 @@ export function SprintManager() {
             sprint={activeSprint}
             todos={todos}
             onEdit={() => setMode("edit-sprint")}
-            onDelete={() => setMode("confirm-delete")}
+            onDelete={() => setConfirmingDelete(true)}
           />
 
           {/* Unassigned (migration) group */}
