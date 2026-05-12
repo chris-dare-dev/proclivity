@@ -11,6 +11,7 @@ import { useStore } from "@/storage/useStore";
 import { resolvedSettings } from "@/storage/constants";
 import type {
   GreetingStyle,
+  LayoutMode,
   LeadMinutes,
   ProclivityState,
   RecurrenceDefault,
@@ -173,6 +174,7 @@ export function SettingsModal({ open, onClose }: Props) {
       longTerm: pendingVisibility.longTerm,
       gantt: pendingVisibility.gantt,
       reminders: pendingVisibility.reminders,
+      calendar: pendingVisibility.calendar,
     };
     const trimmedName = pendingName.trim();
     const quietHours = pendingQuietEnabled
@@ -284,6 +286,7 @@ export function SettingsModal({ open, onClose }: Props) {
         />
         <DisplaySection
           greetingStyle={rs.greetingStyle}
+          layoutMode={rs.layoutMode}
           live={live}
         />
         <NotificationsSection
@@ -603,13 +606,15 @@ function DateTimeSection({
   );
 }
 
-/* ─── Display (greeting) ─────────────────────────────────── */
+/* ─── Display (greeting + layout) ───────────────────────── */
 
 function DisplaySection({
   greetingStyle,
+  layoutMode,
   live,
 }: {
   greetingStyle: GreetingStyle;
+  layoutMode: LayoutMode;
   live: LiveUpdater;
 }) {
   return (
@@ -625,6 +630,17 @@ function DisplaySection({
         value={greetingStyle}
         onChange={(v) => live("greetingStyle", v)}
         hint={`Shows "Good morning, [name]" at the top of each new tab.`}
+      />
+      <SegmentedControl<LayoutMode>
+        name="settings-layout-mode"
+        legend="Todo layout"
+        options={[
+          { value: "list", label: "List" },
+          { value: "card", label: "Cards" },
+        ]}
+        value={layoutMode}
+        onChange={(v) => live("layoutMode", v)}
+        hint="Cards let you drag items freely across the section and snap them to a grid."
       />
     </section>
   );
@@ -749,6 +765,7 @@ function DashboardSection({
     longTerm: boolean;
     gantt: boolean;
     reminders: boolean;
+    calendar: boolean;
   };
   setVisibility: React.Dispatch<
     React.SetStateAction<{
@@ -757,6 +774,7 @@ function DashboardSection({
       longTerm: boolean;
       gantt: boolean;
       reminders: boolean;
+      calendar: boolean;
     }>
   >;
 }) {
@@ -768,6 +786,7 @@ function DashboardSection({
     { key: "sprint", label: "Sprint" },
     { key: "longTerm", label: "Long-term" },
     { key: "gantt", label: "Gantt" },
+    { key: "calendar", label: "Calendar" },
     { key: "reminders", label: "Reminders" },
   ];
   const allHidden = ROWS.every((r) => !visibility[r.key]);
