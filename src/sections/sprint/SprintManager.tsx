@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Tag, Todo } from "@/types";
 import { ConfirmDialog } from "@/components/Modal";
 import { TodoItem } from "@/components/TodoItem";
 import { TodoEditModal, type TodoEditFields } from "@/components/TodoEditModal";
-import { TagFilterToolbar } from "@/components/TagFilterToolbar";
+
 import { filterByTags } from "@/storage/tags";
 import {
   todayMidnight,
@@ -17,6 +17,11 @@ import {
 } from "./sprintUtils";
 import "../sections.css";
 import "./sprint.css";
+
+/* ─── Lazy card section — only loaded when layoutMode === "card" ── */
+const SprintCardSection = lazy(() =>
+  import("./SprintCardSection").then((m) => ({ default: m.SprintCardSection })),
+);
 
 /* ─── helpers ──────────────────────────────────────────────────── */
 
@@ -434,6 +439,20 @@ export function SprintManager() {
 
   const editingTodo = editingId ? todos.find((t) => t.id === editingId) ?? null : null;
 
+  // layoutMode: read raw from settings (avoids importing resolvedSettings into this chunk)
+  const layoutMode = state.settings.layoutMode ?? "list";
+
+  // Sorted active sprint tasks for card mode (list mode uses activeSprintTodos which is already sorted by filterByTags)
+  const sortedActiveSprintTodos = useMemo(
+    () =>
+      layoutMode === "card"
+        ? [...activeSprintTodosAll].sort(
+            (a, b) => Number(a.done) - Number(b.done) || b.createdAt - a.createdAt,
+          )
+        : activeSprintTodosAll,
+    [activeSprintTodosAll, layoutMode],
+  );
+
   if (loading) return null;
 
   /* ── actions ── */
@@ -517,6 +536,7 @@ export function SprintManager() {
   };
 
   const deleteTodo = async (id: string) => {
+    // NOTE: orphan cardLayouts entry is cleaned up lazily (see technical plan §11).
     await update((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== id) }));
   };
 
@@ -647,41 +667,26 @@ export function SprintManager() {
             onAdd={addTask}
             placeholder="Add a task to this sprint…"
           />
-          <TagFilterToolbar
-            availableTags={sprintAvailableTags}
-            activeTagIds={effectiveActiveTagIds}
-            totalCount={activeSprintTodosAll.length}
-            filteredCount={activeSprintTodos.length}
-            onToggle={(tagId) => setActiveTagIds((prev) =>
-              prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
-            )}
-            onClearAll={() => setActiveTagIds([])}
-          />
-          {activeSprintTodos.length === 0 ? (
-            <div className="section-empty">
-              {effectiveActiveTagIds.length > 0
-                ? <>No tasks in this sprint match the selected tags. <button type="button" className="inline-clear-link" onClick={() => setActiveTagIds([])}>Clear the filter</button></>
-                : "No tasks yet. Add one above."}
-            </div>
-          ) : (
-            <ul className="todo-list">
-              {activeSprintTodos
-                .sort(
-                  (a, b) =>
-                    Number(a.done) - Number(b.done) || b.createdAt - a.createdAt,
-                )
-                .map((t) => (
-                  <TodoItem
-                    key={t.id}
-                    todo={t}
-                    allTags={allTags}
-                    onToggle={toggleTodo}
-                    onDelete={deleteTodo}
-                    onEdit={(id) => setEditingId(id)}
-                  />
-                ))}
-            </ul>
-          )}
+
+          <Suspense fallback={null}>
+            <SprintCardSection
+              layoutMode={layoutMode}
+              sortedItems={sortedActiveSprintTodos}
+              filteredItems={activeSprintTodos}
+              allTags={allTags}
+              effectiveActiveTagIds={effectiveActiveTagIds}
+              availableTags={sprintAvailableTags}
+              cardLayouts={state.cardLayouts}
+              onToggle={(id) => void toggleTodo(id)}
+              onDelete={deleteTodo}
+              onEdit={(id) => setEditingId(id)}
+              onToggleFilter={(tagId) => setActiveTagIds((prev) =>
+                prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+              )}
+              onClearFilter={() => setActiveTagIds([])}
+              update={update}
+            />
+          </Suspense>
         </>
       )}
 
