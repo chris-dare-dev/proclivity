@@ -1,0 +1,139 @@
+import { memo, useMemo } from "react";
+import { DayCell } from "./DayCell";
+import { SprintBars } from "./SprintBars";
+import {
+  buildMonthGrid,
+  indexDayItems,
+  packSegmentLanes,
+  weekdayLabels,
+  type MonthGridCell,
+} from "./calendarUtils";
+import type { Reminder, Sprint, Tag, Todo, WeekStart } from "@/types";
+
+interface MonthGridProps {
+  monthStart: number;
+  weekStart: WeekStart;
+  /** Live local-midnight timestamp for "today" — kept up-to-date via a
+   *  midnight-tick effect in Calendar.tsx so the Today cell never drifts. */
+  today: number;
+  reminders: Reminder[];
+  todos: Todo[];
+  sprints: Sprint[];
+  tags: Tag[];
+  activeSprintId?: string | undefined;
+}
+
+/**
+ * Renders one calendar month as a 6 × 7 grid of `DayCell`s with a
+ * `SprintBars` overlay positioned above. All heavy computation —
+ * grid layout, per-cell item indexing, tag lookup — is memoized on
+ * the input data.
+ *
+ * Memo stability: `useStore` returns stable array references when data
+ * hasn't changed (setState on subscribe only fires when storage actually
+ * updates), so the memo barrier is effective for tab-switch churn.
+ * The `today` prop updates once per day via a midnight-tick in Calendar.tsx.
+ */
+export const MonthGrid = memo(function MonthGrid({
+  monthStart,
+  weekStart,
+  today,
+  reminders,
+  todos,
+  sprints,
+  tags,
+  activeSprintId,
+}: MonthGridProps) {
+  const cells: MonthGridCell[] = useMemo(
+    () => buildMonthGrid(monthStart, weekStart, today),
+    [monthStart, weekStart, today],
+  );
+
+  const dayItems = useMemo(
+    () => indexDayItems(cells, reminders, todos, today),
+    [cells, reminders, todos, today],
+  );
+
+  const tagById = useMemo(() => {
+    const m = new Map<string, Tag>();
+    for (const t of tags) m.set(t.id, t);
+    return m;
+  }, [tags]);
+
+  const labels = useMemo(() => weekdayLabels(weekStart), [weekStart]);
+
+  // H2: compute per-row lane counts so each cell can set data-lanes,
+  // allowing CSS to apply correct padding-top per row rather than globally.
+  const lanesByRow = useMemo(
+    () => packSegmentLanes(sprints, cells, activeSprintId).lanesByRow,
+    [sprints, cells, activeSprintId],
+  );
+
+  // L6: detect empty state — no sprints visible and no cell has any items.
+  const isEmpty = useMemo(() => {
+    if (sprints.some((s) => {
+      // Quick check: sprint overlaps the visible grid window.
+      if (cells.length === 0) return false;
+      const gridStart = cells[0]!.ts;
+      const gridEnd = cells[cells.length - 1]!.ts;
+      const sStart = s.startsAt;
+      const sEnd = s.endsAt;
+      return sEnd >= gridStart && sStart <= gridEnd;
+    })) return false;
+    for (const items of dayItems.values()) {
+      if (items.reminders.length > 0 || items.longTermDue.length > 0 || items.todayTodos.length > 0) {
+        return false;
+      }
+    }
+    return true;
+  }, [sprints, cells, dayItems]);
+
+  return (
+    <>
+      {/* M2: treat the calendar grid as decorative tabular content in v1.
+          role="grid" without full keyboard semantics is worse than no role
+          because AT users expect arrow-key navigation that isn't implemented.
+          Cells carry aria-label for date context. */}
+      <div className="calendar-grid">
+        <div className="calendar-grid__header">
+          {labels.map((label) => (
+            <div key={label} className="calendar-grid__weekday">
+              {label}
+            </div>
+          ))}
+        </div>
+
+        <div className="calendar-grid__body">
+          <div className="calendar-grid__cells">
+            {cells.map((cell) => (
+              <DayCell
+                key={cell.ts}
+                cell={cell}
+                items={
+                  dayItems.get(cell.ts) ?? {
+                    reminders: [],
+                    longTermDue: [],
+                    todayTodos: [],
+                  }
+                }
+                tagById={tagById}
+                lanes={lanesByRow[Math.floor(cell.index / 7)] ?? 0}
+              />
+            ))}
+          </div>
+          <SprintBars
+            cells={cells}
+            sprints={sprints}
+            todos={todos}
+            {...(activeSprintId !== undefined ? { activeSprintId } : {})}
+          />
+        </div>
+      </div>
+      {isEmpty && (
+        <p className="calendar-empty-hint">
+          Nothing scheduled this month — visit Reminders or Sprint to add items.
+        </p>
+      )}
+    </>
+  );
+});

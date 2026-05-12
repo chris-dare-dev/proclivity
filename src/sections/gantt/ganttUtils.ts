@@ -1,43 +1,21 @@
 import type { GanttTask } from "@/types";
+import {
+  DAY_MS,
+  addDays,
+  daysBetween,
+  fromDateInput,
+  startOfDay,
+  toDateInput,
+} from "@/lib/dateUtils";
 
-export const DAY_MS = 24 * 60 * 60 * 1000;
+// Re-export the shared helpers under their historic module path so
+// existing callers (ChartView, TaskRow, etc.) keep compiling without
+// edits while Calendar imports them from `@/lib/dateUtils` directly.
+export { DAY_MS, addDays, daysBetween, fromDateInput, startOfDay, toDateInput };
+
 export const DAY_PX = 28;
 export const ROW_H = 36;
 export const HEADER_H = 48;
-
-export function startOfDay(ts: number): number {
-  const d = new Date(ts);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-export function toDateInput(ts: number): string {
-  const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-export function fromDateInput(s: string): number {
-  const parts = s.split("-").map(Number);
-  // Defensive: <input type="date"> always produces YYYY-MM-DD, but
-  // noUncheckedIndexedAccess wants us to prove it.
-  const y = parts[0] ?? 1970;
-  const m = parts[1] ?? 1;
-  const d = parts[2] ?? 1;
-  return new Date(y, m - 1, d).getTime();
-}
-
-export function addDays(ts: number, n: number): number {
-  const d = new Date(ts);
-  d.setDate(d.getDate() + n);
-  return d.getTime();
-}
-
-export function daysBetween(a: number, b: number): number {
-  return Math.round((startOfDay(b) - startOfDay(a)) / DAY_MS);
-}
 
 export interface TaskSpan {
   startsAt: number;

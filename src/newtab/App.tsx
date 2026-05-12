@@ -26,13 +26,19 @@ const MeshBackground = lazy(() =>
 // Mirrors the MeshBackground lazy-load pattern (AC #6).
 const ChatPanel = lazy(() => import("@/components/chat/ChatPanel"));
 
-type Tab = "today" | "sprint" | "long" | "gantt" | "reminders";
+// Calendar is the only purely-derived view (no first-class CRUD UI of its
+// own) — lazy-load so its month-grid CSS + helpers don't sit in the initial
+// chunk for users who never visit the tab.
+const Calendar = lazy(() => import("@/sections/Calendar"));
+
+type Tab = "today" | "sprint" | "long" | "gantt" | "reminders" | "calendar";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "today", label: "Today" },
   { id: "sprint", label: "Sprint" },
   { id: "long", label: "Long-term" },
   { id: "gantt", label: "Gantt" },
+  { id: "calendar", label: "Calendar" },
   { id: "reminders", label: "Reminders" },
 ];
 
@@ -181,6 +187,7 @@ const TAB_KEY: Record<Tab, keyof ResolvedUserSettings["sectionVisibility"]> = {
   long: "longTerm",
   gantt: "gantt",
   reminders: "reminders",
+  calendar: "calendar",
 };
 
 export default function App() {
@@ -216,12 +223,16 @@ export default function App() {
       <div className="app">
         <Header />
 
+        {/* L3: each tab button gets an id so the matching tabpanel can
+            reference it via aria-labelledby, completing the tablist pattern. */}
         <nav className="tabs" role="tablist">
           {visibleTabs.map((t) => (
             <button
               key={t.id}
+              id={`tab-btn-${t.id}`}
               role="tab"
               aria-selected={tab === t.id}
+              aria-controls={`tabpanel-${t.id}`}
               className={`tab ${tab === t.id ? "tab-active" : ""}`}
               onClick={() => setTab(t.id)}
             >
@@ -237,28 +248,65 @@ export default function App() {
         */}
         <main className="content">
           {rs.sectionVisibility.today && (
-            <div hidden={tab !== "today"}>
+            <div
+              id="tabpanel-today"
+              role="tabpanel"
+              aria-labelledby="tab-btn-today"
+              hidden={tab !== "today"}
+            >
               <Today />
             </div>
           )}
           {rs.sectionVisibility.sprint && (
-            <div hidden={tab !== "sprint"}>
+            <div
+              id="tabpanel-sprint"
+              role="tabpanel"
+              aria-labelledby="tab-btn-sprint"
+              hidden={tab !== "sprint"}
+            >
               <Sprint />
             </div>
           )}
           {rs.sectionVisibility.longTerm && (
-            <div hidden={tab !== "long"}>
+            <div
+              id="tabpanel-long"
+              role="tabpanel"
+              aria-labelledby="tab-btn-long"
+              hidden={tab !== "long"}
+            >
               <LongTerm />
             </div>
           )}
           {rs.sectionVisibility.gantt && (
-            <div hidden={tab !== "gantt"}>
+            <div
+              id="tabpanel-gantt"
+              role="tabpanel"
+              aria-labelledby="tab-btn-gantt"
+              hidden={tab !== "gantt"}
+            >
               <Gantt />
             </div>
           )}
           {rs.sectionVisibility.reminders && (
-            <div hidden={tab !== "reminders"}>
+            <div
+              id="tabpanel-reminders"
+              role="tabpanel"
+              aria-labelledby="tab-btn-reminders"
+              hidden={tab !== "reminders"}
+            >
               <Reminders />
+            </div>
+          )}
+          {rs.sectionVisibility.calendar && (
+            <div
+              id="tabpanel-calendar"
+              role="tabpanel"
+              aria-labelledby="tab-btn-calendar"
+              hidden={tab !== "calendar"}
+            >
+              <Suspense fallback={null}>
+                <Calendar />
+              </Suspense>
             </div>
           )}
           {visibleTabs.length === 0 && (

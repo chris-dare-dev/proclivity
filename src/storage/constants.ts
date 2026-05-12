@@ -45,6 +45,7 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
     longTerm: true,
     gantt: true,
     reminders: true,
+    calendar: true,
   },
   defaultReminderLeadMinutes: 10,
   defaultRecurrence: "none",
@@ -91,6 +92,7 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
       longTerm: sv.longTerm ?? DEFAULT_SETTINGS.sectionVisibility.longTerm,
       gantt: sv.gantt ?? DEFAULT_SETTINGS.sectionVisibility.gantt,
       reminders: sv.reminders ?? DEFAULT_SETTINGS.sectionVisibility.reminders,
+      calendar: sv.calendar ?? DEFAULT_SETTINGS.sectionVisibility.calendar,
     },
     defaultReminderLeadMinutes:
       s.defaultReminderLeadMinutes ??

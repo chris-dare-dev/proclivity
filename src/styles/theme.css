@@ -31,6 +31,8 @@
   /* Accent — overridden inline by useThemeSync() for user-chosen color */
   --accent: #7c9cff;
   --accent-2: oklch(0.83 0.13 179);
+  /* H5: contrast-aware text color for use ON the accent background (dark theme). */
+  --accent-on: oklch(1 0 0);
 
   /* Semantic */
   --danger: oklch(0.70 0.18 22);
@@ -72,6 +74,8 @@
   --text-dim: oklch(0.45 0.018 252);
   --accent: #4859d0;
   --accent-2: oklch(0.55 0.15 179);
+  /* H5: light-theme accent-on — dark text on lighter accents maintains AA contrast. */
+  --accent-on: oklch(0.18 0.012 252);
   --danger: oklch(0.55 0.22 22);
   --warn: oklch(0.60 0.18 60);
   --ok: oklch(0.50 0.15 179);
@@ -142,4 +146,17 @@
 html {
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
+}
+
+/* M3: visually-hidden utility for SR-only content (live regions, descriptions). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

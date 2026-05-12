@@ -37,10 +37,20 @@ export interface Todo {
   tags: string[];
 }
 
+/**
+ * A time-boxed sprint.
+ *
+ * Interval convention: **closed (inclusive)** — `startsAt` is the first
+ * day the sprint is active and `endsAt` is the last day (both inclusive).
+ * Two back-to-back sprints where A ends on Tuesday and B starts on Tuesday
+ * share that day; the calendar renders them on separate lanes.
+ */
 export interface Sprint {
   id: string;
   name: string;
+  /** Local-midnight timestamp of the sprint's first day (inclusive). */
   startsAt: number;
+  /** Local-midnight timestamp of the sprint's last day (inclusive). */
   endsAt: number;
 }
 
@@ -204,6 +214,7 @@ export interface ResolvedUserSettings {
     longTerm: boolean;
     gantt: boolean;
     reminders: boolean;
+    calendar: boolean;
   };
   defaultReminderLeadMinutes: LeadMinutes;
   defaultRecurrence: RecurrenceDefault;
