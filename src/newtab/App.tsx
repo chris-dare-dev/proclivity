@@ -315,7 +315,13 @@ export default function App() {
               hidden={tab !== "calendar"}
             >
               <Suspense fallback={null}>
-                <Calendar />
+                <Calendar
+                  onTabChange={(t) => {
+                    // Guard: only switch to a valid Tab value.
+                    const valid: Tab[] = ["today", "sprint", "long", "gantt", "reminders", "calendar"];
+                    if ((valid as string[]).includes(t)) setTab(t as Tab);
+                  }}
+                />
               </Suspense>
             </div>
           )}

@@ -21,6 +21,9 @@ interface SprintBarsProps {
   /** Which sprint id (if any) is currently active in the Sprint tab —
    *  rendered with extra emphasis so the user can spot it at a glance. */
   activeSprintId?: string | undefined;
+  /** Optional callback — when provided, clicking a bar navigates to the
+   *  given sprint id. Pass undefined to keep bars non-interactive. */
+  onSprintClick?: ((id: string) => void) | undefined;
 }
 
 /**
@@ -48,6 +51,7 @@ export const SprintBars = memo(function SprintBars({
   sprints,
   todos,
   activeSprintId,
+  onSprintClick,
 }: SprintBarsProps) {
   // H7: build a Map<id, Sprint> once via useMemo to avoid O(n) .find per segment.
   const sprintById = useMemo(() => {
@@ -113,6 +117,10 @@ export const SprintBars = memo(function SprintBars({
         const dateRange = `${toDateInput(sprint.startsAt)} to ${toDateInput(sprint.endsAt)}`;
         const ariaLabel = `${sprint.name} sprint, ${dateRange}, ${todoCount} ${todoCount === 1 ? "todo" : "todos"}${isActive ? ", active" : ""}`;
 
+        const handleClick = onSprintClick
+          ? () => onSprintClick(sprint.id)
+          : undefined;
+
         return (
           <div
             key={`${seg.sprintId}-${seg.weekRow}-${i}`}
@@ -130,8 +138,15 @@ export const SprintBars = memo(function SprintBars({
               top: `calc(${top}% + var(--calendar-bar-row-offset, 0px) + ${seg.lane} * var(--calendar-bar-stride, 18px))`,
             }}
             title={`${sprint.name} (${todoCount} ${todoCount === 1 ? "todo" : "todos"})`}
-            role="img"
+            role={handleClick ? "button" : "img"}
             aria-label={ariaLabel}
+            onClick={handleClick}
+            tabIndex={handleClick ? 0 : undefined}
+            onKeyDown={
+              handleClick
+                ? (e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }
+                : undefined
+            }
           >
             {seg.isStart ? (
               <span className="calendar-bar__label">

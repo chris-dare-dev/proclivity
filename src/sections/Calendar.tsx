@@ -22,7 +22,12 @@ import "./calendar/calendar.css";
  * native tabs (Today, Sprint, Long-term, Reminders). The Calendar
  * is a cross-cutting overview, not a duplicate of those CRUD UIs.
  */
-export default function Calendar() {
+interface CalendarProps {
+  /** Optional callback from App — navigates to a named tab (M3/M4). */
+  onTabChange?: ((tab: string) => void) | undefined;
+}
+
+export default function Calendar({ onTabChange }: CalendarProps) {
   const { state } = useStore();
 
   // L5: only weekStart is used from settings — inline rather than resolvedSettings.
@@ -120,6 +125,7 @@ export default function Calendar() {
         {...(state.activeSprintId !== undefined
           ? { activeSprintId: state.activeSprintId }
           : {})}
+        {...(onTabChange !== undefined ? { onTabChange } : {})}
       />
     </section>
   );
@@ -128,19 +134,26 @@ export default function Calendar() {
 function Legend() {
   return (
     <ul className="calendar-legend" aria-label="Legend">
+      {/* H3: show both active and inactive sprint bar states so the legend
+          matches the dominant (active) bar the user sees on screen. */}
       <li>
-        <span className="calendar-legend__bar" /> Sprint
+        <span className="calendar-legend__bar calendar-legend__bar--active" aria-hidden="true" /> Sprint (active)
       </li>
       <li>
-        <span className="calendar-legend__dot calendar-legend__dot--reminder" />{" "}
+        <span className="calendar-legend__bar" aria-hidden="true" /> Sprint
+      </li>
+      {/* L2: mirror the R/T/L glyph letters from chip dots into legend dots
+          so users can decode the pairing at a glance. */}
+      <li>
+        <span className="calendar-legend__dot calendar-legend__dot--reminder" aria-hidden="true">R</span>{" "}
         Reminder
       </li>
       <li>
-        <span className="calendar-legend__dot calendar-legend__dot--today" />{" "}
+        <span className="calendar-legend__dot calendar-legend__dot--today" aria-hidden="true">T</span>{" "}
         Today todo
       </li>
       <li>
-        <span className="calendar-legend__dot calendar-legend__dot--long" />{" "}
+        <span className="calendar-legend__dot calendar-legend__dot--long" aria-hidden="true">L</span>{" "}
         Long-term
       </li>
     </ul>

@@ -52,6 +52,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  /* round2-M1: explicit duration so hover doesn't snap. */
+  transition: color 120ms ease, border-color 120ms ease;
 }
 .calendar-nav-btn:hover {
   color: var(--text);
@@ -74,9 +76,14 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  /* round2-M1: explicit duration so hover doesn't snap. */
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
+/* round2-L1: add bg + color change to match nav-btn hover model. */
 .calendar-today-btn:hover:not(:disabled) {
   border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-2));
+  color: var(--accent);
 }
 .calendar-today-btn:disabled {
   opacity: 0.5;
@@ -107,17 +114,29 @@
 .calendar-legend__bar {
   display: inline-block;
   width: 22px;
-  height: 6px;
-  border-radius: 3px;
+  /* round2-M6: bumped from 6px to 10px so the swatch is taller than x-height. */
+  height: 10px;
+  border-radius: 4px;
   /* H5: opaque token so the bar colour is predictable regardless of underlay. */
   background: color-mix(in srgb, var(--accent) 30%, var(--panel-2));
 }
-/* H6: legend dots bumped to 12×12 to accommodate the glyph letter. */
+/* round2-H3: active sprint bar uses solid accent — matches the dominant bar on screen. */
+.calendar-legend__bar--active {
+  background: var(--accent);
+}
+/* H6 + round2-L2: legend dots use inline-flex to centre the R/T/L letter glyphs,
+   mirroring the treatment on .calendar-chip__dot. */
 .calendar-legend__dot {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 12px;
   height: 12px;
   border-radius: 50%;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--accent-on);
+  line-height: 1;
 }
 .calendar-legend__dot--reminder { background: var(--warn); }
 .calendar-legend__dot--today    { background: var(--accent); }
@@ -132,6 +151,17 @@
   color: var(--text-dim);
   text-align: center;
   padding: var(--space-4) 0;
+}
+/* round2-M4: inline tab-navigation buttons inside the empty hint. */
+.calendar-empty-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  font-style: inherit;
+  text-decoration: underline;
+  padding: 0;
 }
 
 /* ───────────────────────── Grid ───────────────────────────── */
@@ -210,16 +240,22 @@
 .calendar-cell--out {
   background: color-mix(in srgb, var(--panel) 92%, transparent);
 }
+/* round2-M5: removed opacity: 0.55 — double-dim (color + opacity) made dates
+ * near-invisible in light theme. --text-dim alone provides sufficient contrast separation. */
 .calendar-cell--out .calendar-cell__date {
   color: var(--text-dim);
-  opacity: 0.55;
 }
 
-/* H5: today cell — 14% accent mix for better luminance contrast; inset
- * border gives a positional cue independent of color (colorblind-safe). */
+/* H5 + round2-M2: today cell — bumped to 20% mix for better dark-theme legibility;
+ * inset border widened to 3px for stronger positional cue. */
 .calendar-cell--today {
-  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--panel));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+/* round2-M2: light theme needs a stronger tint because both panel and highlight
+ * are near-white — 25% keeps the cell distinctly visible. */
+[data-theme="light"] .calendar-cell--today {
+  background: color-mix(in srgb, var(--accent) 25%, var(--panel));
 }
 
 .calendar-cell__head {
@@ -231,7 +267,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  pointer-events: none;
+  /* round2-L5: removed pointer-events: none — the container has no :hover rules
+   * so removing it doesn't intercept anything, and it unblocks future interactivity
+   * on the date number / today pill (e.g. click-to-add-event). */
 }
 .calendar-cell__date {
   font-size: 13px;
@@ -279,6 +317,15 @@
    * inflate the chip's min-content width and feed it into the grid track. */
   overflow: hidden;
   min-width: 0;
+  /* round2-H1: default cursor signals the title tooltip is available on hover;
+   * transition provides micro-animation feedback. Full title is in the native
+   * `title` attr — sufficient for desktop. Mobile users must visit the source tab. */
+  cursor: default;
+  transition: background 120ms ease;
+}
+/* round2-H1: subtle tint on hover to reinforce that the chip has a title tooltip. */
+.calendar-chip:hover {
+  background: color-mix(in srgb, var(--panel-2) 90%, var(--accent));
 }
 .calendar-chip.is-done .calendar-chip__label {
   text-decoration: line-through;
@@ -364,12 +411,23 @@
   pointer-events: auto;
   /* Subtle inset so adjacent bars don't kiss the cell border. */
   margin: 0 2px;
+  /* round2-M3: cursor + transition for hover brightness feedback. */
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+/* round2-M3: hover brightness to signal interactivity. */
+.calendar-bar:hover {
+  filter: brightness(1.12);
 }
 /* H5: active bar text uses --accent-on for contrast-aware color. */
 .calendar-bar--active {
   background: var(--accent);
   color: var(--accent-on);
   box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+/* round2-M3: slightly gentler brightness on active bar (already bright). */
+.calendar-bar--active:hover {
+  filter: brightness(1.08);
 }
 /* M7: overflow chip. */
 .calendar-bar--overflow {
@@ -407,6 +465,12 @@
   border-radius: 8px;
   font-weight: 700;
 }
+/* round2-L4: on active (bright accent) bars the dark-navy --bg badge is hard to
+ * read — use accent-on instead for both bg and text. */
+.calendar-bar--active .calendar-bar__count {
+  background: color-mix(in srgb, var(--accent-on) 15%, transparent);
+  color: var(--accent-on);
+}
 
 /* ───────────────────────── Compact layout ─────────────────── */
 
@@ -431,6 +495,12 @@
   .calendar-chip__label {
     font-size: 11px;
   }
+  /* round2-L3: reduce weekday header to match chip label size — avoids an
+   * inverted hierarchy where structural labels outsize content. */
+  .calendar-grid__weekday {
+    font-size: 11px;
+    padding: 6px 4px;
+  }
   .calendar-bars {
     --calendar-bar-row-offset: 22px;
     --calendar-bar-stride: 14px;
@@ -444,12 +514,14 @@
 @media (prefers-reduced-motion: reduce) {
   .calendar-nav-btn,
   .calendar-today-btn,
-  .calendar-bar {
+  .calendar-bar,
+  .calendar-chip {
     transition: none;
   }
 }
 [data-reduced-motion="true"] .calendar-nav-btn,
 [data-reduced-motion="true"] .calendar-today-btn,
-[data-reduced-motion="true"] .calendar-bar {
+[data-reduced-motion="true"] .calendar-bar,
+[data-reduced-motion="true"] .calendar-chip {
   transition: none;
 }

@@ -21,6 +21,9 @@ interface MonthGridProps {
   sprints: Sprint[];
   tags: Tag[];
   activeSprintId?: string | undefined;
+  /** Optional tab-navigation callback passed down from App. When provided,
+   *  sprint bars become clickable (M3) and empty-state has actionable links (M4). */
+  onTabChange?: ((tab: string) => void) | undefined;
 }
 
 /**
@@ -43,6 +46,7 @@ export const MonthGrid = memo(function MonthGrid({
   sprints,
   tags,
   activeSprintId,
+  onTabChange,
 }: MonthGridProps) {
   const cells: MonthGridCell[] = useMemo(
     () => buildMonthGrid(monthStart, weekStart, today),
@@ -126,12 +130,35 @@ export const MonthGrid = memo(function MonthGrid({
             sprints={sprints}
             todos={todos}
             {...(activeSprintId !== undefined ? { activeSprintId } : {})}
+            {...(onTabChange !== undefined
+              ? { onSprintClick: (_id: string) => onTabChange("sprint") }
+              : {})}
           />
         </div>
       </div>
       {isEmpty && (
         <p className="calendar-empty-hint">
-          Nothing scheduled this month — visit Reminders or Sprint to add items.
+          {onTabChange !== undefined ? (
+            <>
+              Nothing scheduled this month.{" "}
+              <button
+                className="calendar-empty-link"
+                onClick={() => onTabChange("sprint")}
+              >
+                Add a sprint
+              </button>{" "}
+              or{" "}
+              <button
+                className="calendar-empty-link"
+                onClick={() => onTabChange("reminders")}
+              >
+                set a reminder
+              </button>{" "}
+              to populate the calendar.
+            </>
+          ) : (
+            "Nothing scheduled this month — visit Reminders or Sprint to add items."
+          )}
         </p>
       )}
     </>
