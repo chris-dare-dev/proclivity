@@ -96,7 +96,14 @@ export function SettingsModal({ open, onClose }: Props) {
   };
 
   const runTestPrompt = async () => {
-    abortRef.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // Capture the signal into a local so the inner await sites don't
+    // depend on abortRef.current still being non-null after the
+    // microtask gap — the close-effect can null it out between awaits
+    // and dereferencing `null.signal` would throw a TypeError that
+    // bypasses our AbortError silencer (rect M1).
+    const signal = controller.signal;
     setNano((s) => ({
       ...s,
       testInFlight: true,
@@ -105,21 +112,26 @@ export function SettingsModal({ open, onClose }: Props) {
     }));
     try {
       const session = await nanoCreateSession({
-        signal: abortRef.current.signal,
+        signal,
         monitor: (m) => {
           m.addEventListener("downloadprogress", (e) => {
-            // ProgressEvent.loaded is 0.0–1.0 per the SDK docs.
+            // ProgressEvent.loaded is a byte count, NOT a 0–1 fraction.
+            // Normalise against e.total when present; fall back to null
+            // (the badge will render without a percentage) otherwise.
+            // (rect H1)
+            const fraction =
+              e.total > 0 ? Math.min(e.loaded / e.total, 1) : null;
             setNano((s) => ({
               ...s,
               availability: "downloading",
-              downloadProgress: e.loaded,
+              downloadProgress: fraction,
             }));
           });
         },
       });
       try {
         const response = await session.prompt("Say hi in 5 words.", {
-          signal: abortRef.current.signal,
+          signal,
         });
         setNano((s) => ({
           ...s,

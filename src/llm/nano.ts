@@ -72,13 +72,22 @@ interface CreateSessionOpts {
   /** Aborts an in-flight `create()` / `prompt()`. */
   signal?: AbortSignal;
   /**
-   * Initial system-prompt-style messages seeded into the session before
-   * the user's first turn. See `LanguageModelCreateOptions.initialPrompts`.
+   * Initial messages seeded into the session before the user's first
+   * turn. The SDK accepts either a plain user/assistant array OR a
+   * tuple whose first element is a system message — we mirror that
+   * shape exactly so callers in gemini-nano-m3 can seed a system
+   * prompt (the tool-call schema instruction) at creation time.
+   * See `LanguageModelCreateOptions.initialPrompts`.
    */
-  initialPrompts?: LanguageModelMessage[];
+  initialPrompts?:
+    | [LanguageModelSystemMessage, ...LanguageModelMessage[]]
+    | LanguageModelMessage[];
   /**
    * Called once with a `CreateMonitor` while the model is downloading.
-   * Use it to surface download progress (0.0–1.0 on `e.loaded`).
+   * Listen for "downloadprogress" events; `e.loaded` is bytes
+   * transferred and `e.total` is total bytes — divide to get a 0–1
+   * fraction. (Earlier doc claimed 0–1 directly; that was wrong.
+   * Corrected in rect H1.)
    */
   monitor?: CreateMonitorCallback;
 }
