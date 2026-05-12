@@ -162,7 +162,7 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
 
       {loading ? null : layoutMode === "card" ? (
         /* ── Card mode — lazy-loaded ─────────────────────────────── */
-        <Suspense fallback={<div className="section-empty">Loading cards…</div>}>
+        <Suspense fallback={null}>
           <TodoCardSection
             scope={scope}
             scopedItems={scopedItems}
