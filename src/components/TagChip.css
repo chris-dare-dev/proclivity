@@ -1,0 +1,52 @@
+/*
+ * TagChip.css — tag pill visual styles.
+ *
+ * --chip-color is set via inline style on each chip from the tag's hex value.
+ * We use color-mix(in srgb, ...) because the inputs are hex strings; sRGB
+ * color-mix works natively with hex and is supported in Chrome 111+.
+ * A hex-fallback background is declared first for pre-111 Chrome so text
+ * stays visible (progressive enhancement — CRITICAL fix #7).
+ *
+ * We do NOT use opacity on the container for visual subduing (WCAG 1.4.3
+ * concern flagged in critique HIGH #15) — dim text tokens are used instead.
+ */
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 999px;
+  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* Hex fallback — color-mix not available in very old Chrome */
+  background: var(--chip-color, var(--accent));
+  /* color-mix tint — 15% hue against transparent */
+  background: color-mix(in srgb, var(--chip-color, var(--accent)) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chip-color, var(--accent)) 35%, transparent);
+  /* text color is set inline via getContrastingText() */
+}
+
+.tag-chip-remove {
+  background: transparent;
+  border: none;
+  padding: 0 0 0 2px;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+}
+.tag-chip-remove:hover {
+  opacity: 1;
+}
+.tag-chip-remove:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}

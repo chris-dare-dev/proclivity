@@ -1,0 +1,97 @@
+/*
+ * TagFilterToolbar.css — per-section filter chip row.
+ *
+ * NOT using container opacity for "subdued at rest" (avoids WCAG 1.4.3
+ * failure flagged in critique HIGH #15). Instead, .is-inactive uses
+ * direct dim text tokens on its children.
+ *
+ * Chip border stays 1px always; active chips use box-shadow inset to
+ * avoid layout reflow from border-width change (critique LOW #32).
+ */
+
+.tag-filter-toolbar {
+  margin-bottom: 8px;
+}
+
+.tag-filter-toolbar.is-active {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: var(--radius);
+  padding: 6px 10px 8px;
+  margin: 0 -10px 8px;
+}
+
+.tag-filter-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+/* ── Filter chip buttons ─────────────────────────────────────── */
+
+.tag-filter-chip {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.tag-filter-chip .tag-chip {
+  /* At rest: subdued — use dim border and text-dim color */
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+/* Inactive toolbar: further dim the chips */
+.tag-filter-toolbar.is-inactive .tag-filter-chip .tag-chip {
+  color: var(--text-dim);
+}
+
+.tag-filter-chip.is-selected .tag-chip {
+  /* Selected: tinted background using chip color, inset shadow for depth */
+  background: color-mix(in srgb, var(--chip-color, var(--accent)) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chip-color, var(--accent)) 35%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip-color, var(--accent)) 30%, transparent);
+}
+
+.tag-filter-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+/* ── Clear button ─────────────────────────────────────────────── */
+
+.tag-filter-clear {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  padding: 3px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-left: 2px;
+}
+.tag-filter-clear:hover {
+  color: var(--text);
+}
+.tag-filter-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Status line ─────────────────────────────────────────────── */
+
+.tag-filter-status {
+  font-size: 11px;
+  color: var(--accent);
+  padding: 0 0 4px 0;
+}
+
+/* Hide from sighted users when toolbar is inactive; keep in DOM for AT */
+.tag-filter-toolbar.is-inactive .tag-filter-status {
+  display: none;
+}
