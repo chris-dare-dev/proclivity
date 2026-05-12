@@ -17,7 +17,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["chrome", "vite/client"],
+    "types": ["chrome", "vite/client", "dom-chromium-ai"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
