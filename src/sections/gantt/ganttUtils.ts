@@ -39,13 +39,26 @@ export function daysBetween(a: number, b: number): number {
   return Math.round((startOfDay(b) - startOfDay(a)) / DAY_MS);
 }
 
+export interface TaskSpan {
+  startsAt: number;
+  endsAt: number;
+}
+
 export interface FlatRow {
   task: GanttTask;
   depth: number;
   hasChildren: boolean;
+  /** Parent task if this is a sub-task. Used to clamp/validate date edits. */
+  parent: GanttTask | undefined;
+  /** Tight union of direct children's [start,end]. Used so a parent edit
+   *  cannot shrink the parent below the range its children already span. */
+  childrenSpan: TaskSpan | undefined;
 }
 
 export function flattenTasks(tasks: GanttTask[]): FlatRow[] {
+  const byId = new Map<string, GanttTask>();
+  for (const t of tasks) byId.set(t.id, t);
+
   const byParent = new Map<string | undefined, GanttTask[]>();
   for (const t of tasks) {
     const key = t.parentId;
@@ -61,12 +74,89 @@ export function flattenTasks(tasks: GanttTask[]): FlatRow[] {
     const children = byParent.get(parentId) ?? [];
     for (const t of children) {
       const kids = byParent.get(t.id) ?? [];
-      out.push({ task: t, depth, hasChildren: kids.length > 0 });
+      const hasChildren = kids.length > 0;
+      let childrenSpan: TaskSpan | undefined;
+      if (hasChildren) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (const k of kids) {
+          if (k.startsAt < min) min = k.startsAt;
+          if (k.endsAt > max) max = k.endsAt;
+        }
+        childrenSpan = { startsAt: min, endsAt: max };
+      }
+      const parent = t.parentId ? byId.get(t.parentId) : undefined;
+      out.push({ task: t, depth, hasChildren, parent, childrenSpan });
       if (!t.collapsed) walk(t.id, depth + 1);
     }
   };
   walk(undefined, 0);
   return out;
+}
+
+/**
+ * Parent / child date-containment invariant. For every parent P and direct
+ * child C: P.startsAt ≤ C.startsAt AND C.endsAt ≤ P.endsAt.
+ *
+ * checkBounds evaluates a candidate span against its parent (must contain
+ * candidate) and its existing children (candidate must contain them). Returns
+ * a human-readable violation or null if the candidate is valid.
+ */
+export interface BoundsViolation {
+  message: string;
+}
+
+export function checkBounds(
+  candidate: TaskSpan,
+  parent: GanttTask | undefined,
+  childrenSpan: TaskSpan | undefined,
+): BoundsViolation | null {
+  if (parent) {
+    if (candidate.startsAt < parent.startsAt) {
+      return {
+        message: `Sub-task cannot start before parent "${parent.title}" (${toDateInput(parent.startsAt)}).`,
+      };
+    }
+    if (candidate.endsAt > parent.endsAt) {
+      return {
+        message: `Sub-task cannot end after parent "${parent.title}" (${toDateInput(parent.endsAt)}).`,
+      };
+    }
+  }
+  if (childrenSpan) {
+    if (candidate.startsAt > childrenSpan.startsAt) {
+      return {
+        message: `Cannot start after the earliest sub-task (${toDateInput(childrenSpan.startsAt)}). Adjust the sub-task first.`,
+      };
+    }
+    if (candidate.endsAt < childrenSpan.endsAt) {
+      return {
+        message: `Cannot end before the latest sub-task (${toDateInput(childrenSpan.endsAt)}). Adjust the sub-task first.`,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Lookup the direct-children span for a given parent id from a tasks array.
+ * Returns undefined when the parent has no children. Used by addTask and the
+ * drag handler — both of which don't have a precomputed FlatRow at hand.
+ */
+export function directChildrenSpan(
+  tasks: GanttTask[],
+  parentId: string,
+): TaskSpan | undefined {
+  let min = Infinity;
+  let max = -Infinity;
+  let any = false;
+  for (const t of tasks) {
+    if (t.parentId !== parentId) continue;
+    any = true;
+    if (t.startsAt < min) min = t.startsAt;
+    if (t.endsAt > max) max = t.endsAt;
+  }
+  return any ? { startsAt: min, endsAt: max } : undefined;
 }
 
 export interface ChartBounds {

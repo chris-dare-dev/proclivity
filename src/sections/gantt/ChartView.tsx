@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { GanttTask } from "@/types";
@@ -8,13 +8,16 @@ import {
   ROW_H,
   addDays,
   chartBounds,
+  checkBounds,
   collectDescendants,
   daysBetween,
+  directChildrenSpan,
   flattenTasks,
   fromDateInput,
   monthSpans,
   startOfDay,
   toDateInput,
+  type TaskSpan,
 } from "./ganttUtils";
 import { TaskRow } from "./TaskRow";
 import { TextInputModal } from "@/components/Modal";
@@ -35,6 +38,11 @@ interface DragState {
   origEndsAt: number;
   /** The pointerId captured via setPointerCapture (finding #4) */
   pointerId: number;
+  /** Parent span (if any) — clamps so the task cannot leave its parent. */
+  parentSpan: TaskSpan | undefined;
+  /** Existing direct-children span (if any) — clamps so the task continues
+   *  to contain its own children after the drag commits. */
+  childrenSpan: TaskSpan | undefined;
 }
 
 /** Delta in full days given pixel movement */
@@ -63,6 +71,14 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   const [newEnd, setNewEnd] = useState(toDateInput(addDays(today, 7)));
   const [newParent, setNewParent] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
+  /** Chart-level error toast from row edits or drag clamps. Auto-clears. */
+  const [editError, setEditError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editError) return;
+    const id = window.setTimeout(() => setEditError(null), 4500);
+    return () => window.clearTimeout(id);
+  }, [editError]);
 
   // Rename modal state
   const [showRename, setShowRename] = useState(false);
@@ -104,6 +120,17 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
       // Inline validation instead of alert() (finding #10)
       setAddError("End date must be on or after start date.");
       return;
+    }
+    // Parent-containment: if newParent is set, the new sub-task must fit
+    // inside its parent. New tasks have no children, so only the parent
+    // side of the invariant applies here.
+    if (newParent) {
+      const parent = tasks.find((t) => t.id === newParent);
+      const violation = checkBounds({ startsAt: start, endsAt: end }, parent, undefined);
+      if (violation) {
+        setAddError(violation.message);
+        return;
+      }
     }
     setAddError(null);
     setNewTitle("");
@@ -157,6 +184,14 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
       e.currentTarget.setPointerCapture(e.pointerId);
       e.preventDefault();
 
+      const parent = task.parentId
+        ? tasks.find((t) => t.id === task.parentId)
+        : undefined;
+      const parentSpan: TaskSpan | undefined = parent
+        ? { startsAt: parent.startsAt, endsAt: parent.endsAt }
+        : undefined;
+      const childrenSpan = directChildrenSpan(tasks, task.id);
+
       dragRef.current = {
         taskId: task.id,
         mode,
@@ -164,6 +199,8 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
         origStartsAt: task.startsAt,
         origEndsAt: task.endsAt,
         pointerId: e.pointerId, // store for releasePointerCapture (finding #4)
+        parentSpan,
+        childrenSpan,
       };
 
       // Initialize preview to current values
@@ -186,24 +223,51 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
       const deltaPx = e.clientX - drag.startX;
       const deltaDays = pxToDays(deltaPx);
 
+      // Bounds expressed as day-deltas from the originals. ±Infinity means
+      // "no constraint from this side." Math.max / Math.min collapses them.
+      const parentStartDelta = drag.parentSpan
+        ? daysBetween(drag.origStartsAt, drag.parentSpan.startsAt)
+        : -Infinity;
+      const parentEndDelta = drag.parentSpan
+        ? daysBetween(drag.origEndsAt, drag.parentSpan.endsAt)
+        : Infinity;
+      const childStartDelta = drag.childrenSpan
+        ? daysBetween(drag.origStartsAt, drag.childrenSpan.startsAt)
+        : Infinity;
+      const childEndDelta = drag.childrenSpan
+        ? daysBetween(drag.origEndsAt, drag.childrenSpan.endsAt)
+        : -Infinity;
+
       let newStartsAt = drag.origStartsAt;
       let newEndsAt = drag.origEndsAt;
 
       if (drag.mode === "move") {
-        newStartsAt = addDays(drag.origStartsAt, deltaDays);
-        newEndsAt = addDays(drag.origEndsAt, deltaDays);
+        // A single delta shifts both ends. The four constraints fold to:
+        //   delta ≥ parentStartDelta   (don't slide left of parent.start)
+        //   delta ≤ parentEndDelta     (don't slide right of parent.end)
+        //   delta ≤ childStartDelta    (don't slide past earliest child)
+        //   delta ≥ childEndDelta      (don't slide before latest child end)
+        const minDelta = Math.max(parentStartDelta, childEndDelta);
+        const maxDelta = Math.min(parentEndDelta, childStartDelta);
+        const clamped = Math.max(minDelta, Math.min(maxDelta, deltaDays));
+        newStartsAt = addDays(drag.origStartsAt, clamped);
+        newEndsAt = addDays(drag.origEndsAt, clamped);
       } else if (drag.mode === "resize-start") {
-        newStartsAt = addDays(drag.origStartsAt, deltaDays);
-        // Clamp: startsAt must be <= endsAt (min 1-day span)
-        const maxStart = addDays(drag.origEndsAt, -1);
-        if (newStartsAt > maxStart) newStartsAt = maxStart;
+        // Only start moves. Upper bound is the lesser of (origEnd - 1day)
+        // and the earliest child start. Lower bound is the parent start.
+        const minDelta = parentStartDelta;
+        const maxDeltaFromSpan = -1; // origStart + delta ≤ origEnd − 1
+        const maxDelta = Math.min(maxDeltaFromSpan, childStartDelta);
+        const clamped = Math.max(minDelta, Math.min(maxDelta, deltaDays));
+        newStartsAt = addDays(drag.origStartsAt, clamped);
         newEndsAt = drag.origEndsAt;
       } else {
-        // resize-end
-        newEndsAt = addDays(drag.origEndsAt, deltaDays);
-        // Clamp: endsAt must be >= startsAt (min 1-day span)
-        const minEnd = addDays(drag.origStartsAt, 1);
-        if (newEndsAt < minEnd) newEndsAt = minEnd;
+        // resize-end — only end moves.
+        const minDeltaFromSpan = 1; // origEnd + delta ≥ origStart + 1
+        const minDelta = Math.max(minDeltaFromSpan, childEndDelta);
+        const maxDelta = parentEndDelta;
+        const clamped = Math.max(minDelta, Math.min(maxDelta, deltaDays));
+        newEndsAt = addDays(drag.origEndsAt, clamped);
         newStartsAt = drag.origStartsAt;
       }
 
@@ -364,6 +428,11 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
             {addError}
           </div>
         )}
+        {editError && (
+          <div className="gantt-add-error gantt-edit-error" role="alert">
+            {editError}
+          </div>
+        )}
 
         {rows.length === 0 ? (
           <div className="section-empty">
@@ -382,6 +451,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
                   onUpdate={updateTask}
                   onDelete={deleteTask}
                   onToggleCollapse={toggleCollapse}
+                  onBoundsError={setEditError}
                 />
               ))}
             </div>
