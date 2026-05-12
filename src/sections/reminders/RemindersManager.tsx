@@ -402,45 +402,46 @@ export function RemindersManager() {
   const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  if (loading) return null;
-
+  // All hooks must run unconditionally — the `if (loading)` guard sits below
+  // them. Otherwise React error #310 ("rendered more hooks than the previous
+  // render") fires when loading flips from true to false.
   const { reminders, todos, tags: allTags } = state;
 
-  const todoMap = new Map(todos.map((t) => [t.id, t.title]));
+  const upcoming = useMemo(
+    () => reminders.filter((r) => !r.fired).sort((a, b) => a.fireAt - b.fireAt),
+    [reminders],
+  );
 
-  const upcoming = reminders
-    .filter((r) => !r.fired)
-    .sort((a, b) => a.fireAt - b.fireAt);
-
-  const fired = reminders
-    .filter((r) => r.fired)
-    .sort((a, b) => b.fireAt - a.fireAt);
+  const fired = useMemo(
+    () => reminders.filter((r) => r.fired).sort((a, b) => b.fireAt - a.fireAt),
+    [reminders],
+  );
 
   // Tags used in any reminder (for filter toolbar)
   const availableTags = useMemo(() => {
     const usedIds = new Set(reminders.flatMap((r) => r.tags));
     return allTags.filter((tag) => usedIds.has(tag.id));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reminders, allTags]);
 
   // Prune activeTagIds when tags are deleted
   const effectiveActiveTagIds = useMemo(() => {
     const knownIds = new Set(allTags.map((t) => t.id));
     return activeTagIds.filter((id) => knownIds.has(id));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTagIds, allTags]);
 
   const filteredUpcoming = useMemo(
     () => filterByTags(upcoming, effectiveActiveTagIds),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [upcoming, effectiveActiveTagIds],
   );
 
   const filteredFired = useMemo(
     () => filterByTags(fired, effectiveActiveTagIds),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [fired, effectiveActiveTagIds],
   );
+
+  if (loading) return null;
+
+  const todoMap = new Map(todos.map((t) => [t.id, t.title]));
 
   const editingReminder = editingId
     ? reminders.find((r) => r.id === editingId) ?? null
