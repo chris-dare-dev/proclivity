@@ -162,7 +162,7 @@ export function TodoCardSection({
 
         {showHint && scopedItems.length > 0 && (
           <div className="card-onboarding-hint">
-            Drag cards to rearrange. They snap to a grid.
+            Drag to rearrange · drag bottom-right corner to resize · Shift+Arrow resizes by one step.
             <button type="button" onClick={onDismissHint}>
               Got it
             </button>
