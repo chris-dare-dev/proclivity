@@ -1,0 +1,145 @@
+/*
+ * theme.css — single source of truth for color and spacing tokens.
+ *
+ * Imported once in src/newtab/main.tsx before index.css.
+ *
+ * Data attributes on <html> drive theme/density/motion. They are written
+ * by useThemeSync() in response to UserSettings.
+ *
+ *   data-theme="dark" | "light"          (resolved from settings.theme)
+ *   data-density="compact" | "spacious"  (default density uses the base scale)
+ *   data-font-size="sm" | "lg"           (default size uses the base scale)
+ *   data-reduced-motion="true"           (settings.reducedMotion OR OS preference)
+ *
+ * --accent is overridden via inline style on <html> so the user's chosen
+ * color cascades above the :root block without authoring per-color rules.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Elevation / surface — dark theme (the historic baseline) */
+  --bg: oklch(0.10 0.012 252);
+  --panel: oklch(0.14 0.014 252);
+  --panel-2: oklch(0.17 0.016 252);
+  --border: oklch(0.22 0.018 252);
+
+  /* Text */
+  --text: oklch(0.93 0.008 252);
+  --text-dim: oklch(0.68 0.018 252);
+
+  /* Accent — overridden inline by useThemeSync() for user-chosen color */
+  --accent: #7c9cff;
+  --accent-2: oklch(0.83 0.13 179);
+
+  /* Semantic */
+  --danger: oklch(0.70 0.18 22);
+  --warn: oklch(0.80 0.15 60);
+  --ok: oklch(0.83 0.13 179);
+
+  /* Shape */
+  --radius: 10px;
+
+  /* Spacing scale — default density */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --row-height: 44px;
+  --section-gap: 20px;
+  --panel-pad-y: 16px;
+  --panel-pad-x: 20px;
+  --form-gap: 12px;
+
+  /* Typography */
+  --font-size-base: 15px;
+  --line-height-base: 1.5;
+
+  /* Native form elements follow --accent automatically. */
+  accent-color: var(--accent);
+}
+
+/* ── Light theme ──────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: oklch(0.97 0.004 252);
+  --panel: oklch(1.00 0 0);
+  --panel-2: oklch(0.95 0.005 252);
+  --border: oklch(0.88 0.008 252);
+  --text: oklch(0.18 0.012 252);
+  --text-dim: oklch(0.45 0.018 252);
+  --accent: #4859d0;
+  --accent-2: oklch(0.55 0.15 179);
+  --danger: oklch(0.55 0.22 22);
+  --warn: oklch(0.60 0.18 60);
+  --ok: oklch(0.50 0.15 179);
+}
+
+/* ── Density: compact ─────────────────────────────────────────── */
+[data-density="compact"] {
+  --space-1: 2px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --row-height: 32px;
+  --section-gap: 12px;
+  --panel-pad-y: 10px;
+  --panel-pad-x: 14px;
+  --form-gap: 8px;
+}
+
+/* ── Density: spacious ───────────────────────────────────────── */
+[data-density="spacious"] {
+  --space-1: 6px;
+  --space-2: 12px;
+  --space-3: 18px;
+  --space-4: 24px;
+  --space-5: 28px;
+  --row-height: 52px;
+  --section-gap: 28px;
+  --panel-pad-y: 20px;
+  --panel-pad-x: 28px;
+  --form-gap: 16px;
+}
+
+/* ── Font size scale ─────────────────────────────────────────── */
+[data-font-size="sm"] {
+  --font-size-base: 13px;
+}
+[data-font-size="lg"] {
+  --font-size-base: 17px;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────── */
+/* User-set (or OS-derived) preference. The OS-level media query below
+ * provides a belt-and-suspenders fallback that always applies regardless
+ * of in-app override. The user setting can only ADD reduced motion;
+ * it cannot suppress an OS-level preference. */
+[data-reduced-motion="true"] *,
+[data-reduced-motion="true"] *::before,
+[data-reduced-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Apply base font size to root so it cascades. */
+html {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
