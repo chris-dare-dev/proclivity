@@ -6,6 +6,9 @@ dist
 .env
 .env.local
 
+# RSA private key for stable extension ID — see plans/gemini-setup.md
+*.pem
+
 # tsc -b emit (composite project)
 *.tsbuildinfo
 vite.config.js
