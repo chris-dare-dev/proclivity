@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createSession as nanoCreateSession } from "@/llm/nano";
 
 /*
@@ -161,6 +161,22 @@ export function useChatSession(): UseChatSessionResult {
 
     setMessages([]);
     setGenerating(false);
+  }, []);
+
+  /*
+   * Unmount cleanup (rect H1): abort any in-flight prompt and destroy the
+   * session when the hook's owning component unmounts. Without this, toggling
+   * `chatEnabled` off (or H2's panel-close path) would tear down the hook
+   * instance while a session was still holding GPU/CPU inference resources.
+   * Same abort-before-destroy ordering as `clear()`.
+   */
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      sessionRef.current?.destroy();
+      sessionRef.current = null;
+    };
   }, []);
 
   return { messages, generating, send, clear };

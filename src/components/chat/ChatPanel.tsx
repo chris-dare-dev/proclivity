@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useChatSession } from "@/hooks/useChatSession";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -8,7 +8,9 @@ import "./ChatPanel.css";
  * ChatPanel — right-side slide-in panel for on-device chat with Gemini Nano.
  *
  * Acceptance criteria met here:
- *   AC #1  — panel is only mounted when chatEnabled (gated in App.tsx).
+ *   AC #1  — panel is only mounted when chatEnabled AND chatOpen (gated in
+ *            App.tsx). Unmount on close releases session + abort via the
+ *            useChatSession cleanup effect (rect H1+H2).
  *   AC #2  — slides in at ~380px, bottom drawer on ≤900px (CSS).
  *   AC #3  — session created lazily by useChatSession on first send.
  *   AC #4  — contextoverflow + QuotaExceededError handled in useChatSession.
@@ -18,38 +20,78 @@ import "./ChatPanel.css";
  * Default export required for React.lazy(() => import("@/components/chat/ChatPanel")).
  */
 
+const FOCUSABLE_SELECTORS = [
+  "a[href]",
+  "area[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "button:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
+
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
+  );
+}
+
 interface ChatPanelProps {
-  open: boolean;
   onClose: () => void;
 }
 
-export default function ChatPanel({ open, onClose }: ChatPanelProps) {
+export default function ChatPanel({ onClose }: ChatPanelProps) {
   const { messages, generating, send, clear } = useChatSession();
+  const panelRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the latest message.
+  // Auto-scroll to the latest message. Panel is always mounted when open
+  // (gated in App.tsx), so we don't need an `open` guard here.
   useEffect(() => {
-    if (open) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, open]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  // Close panel on Escape key.
+  // Escape closes the panel.
   useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [onClose]);
+
+  // Focus trap on Tab — keeps keyboard navigation inside the panel while
+  // it's open. Mirrors Modal.tsx's pattern but inlined to avoid coupling
+  // to that component's internals (rect M2).
+  const handlePanelKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !panelRef.current) return;
+    const focusable = getFocusable(panelRef.current);
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) {
+      e.preventDefault();
+      return;
+    }
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
 
   return (
     <div
-      className={`chat-panel${open ? " chat-panel--open" : ""}`}
+      ref={panelRef}
+      className="chat-panel chat-panel--open"
       role="complementary"
       aria-label="Gemini Nano chat"
-      aria-hidden={!open}
+      onKeyDown={handlePanelKeyDown}
     >
       {/* Header */}
       <div className="chat-panel__header">
@@ -78,8 +120,14 @@ export default function ChatPanel({ open, onClose }: ChatPanelProps) {
         </button>
       </div>
 
-      {/* Message list */}
-      <div className="chat-panel__messages" aria-live="polite" aria-atomic="false">
+      {/*
+        Message list. aria-live deliberately NOT set here (rect M1) — each
+        <ChatMessage> with role="system-notice" already declares aria-live,
+        and the .chat-panel__thinking indicator carries its own. Nesting two
+        live regions caused duplicate / garbled announcements on some
+        screen readers.
+      */}
+      <div className="chat-panel__messages">
         {messages.length === 0 && !generating ? (
           <p className="chat-panel__empty">
             Ask Gemini Nano anything — your conversation stays on-device.

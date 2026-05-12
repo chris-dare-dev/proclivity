@@ -116,9 +116,15 @@ const Header = memo(function Header() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
-      {chatEnabled && (
+      {/*
+        Gate on both `chatEnabled` (feature toggle) AND `chatOpen` (user
+        intent) so the ChatPanel unmounts entirely when closed — its
+        useChatSession cleanup effect aborts the in-flight prompt and
+        destroys the session, releasing GPU/CPU memory (rect H2).
+      */}
+      {chatEnabled && chatOpen && (
         <Suspense fallback={null}>
-          <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
+          <ChatPanel onClose={() => setChatOpen(false)} />
         </Suspense>
       )}
     </>
