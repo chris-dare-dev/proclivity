@@ -55,7 +55,10 @@ interface ResizeState {
   origH: number;
 }
 
-const MIN_W = 140;
+// HIGH fix: raised from 140 to match task-card CSS min-width: 200px.
+// At 140–199px the draggable wrapper overrides min-width:0 on task-card,
+// making titles wrap character-by-character at ~10px wide.
+const MIN_W = 200;
 const MIN_H = 80;
 const MAX_W = 600;
 const MAX_H = 500;
@@ -366,13 +369,15 @@ export const DraggableCard = memo(function DraggableCard({
       onKeyDown={handleKeyDown}
     >
       {children}
-      {/* Resize handle — bottom-right wedge */}
+      {/* Resize handle — bottom-right wedge.
+          role="button": interactive widget (was "separator" which is non-interactive).
+          tabIndex={-1}: not in Tab order; keyboard resize is via Shift+Arrow on the card. */}
       <div
         ref={resizeHandleRef}
         className="card-resize-handle"
-        role="separator"
-        aria-label="Resize card"
-        aria-orientation="horizontal"
+        role="button"
+        aria-label="Drag to resize"
+        title="Drag to resize"
         tabIndex={-1}
         onPointerDown={handleResizePointerDown}
         onPointerMove={handleResizePointerMove}

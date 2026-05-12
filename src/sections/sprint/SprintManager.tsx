@@ -17,7 +17,10 @@ import {
   sprintDayProgress,
   sprintTaskStats,
 } from "./sprintUtils";
-import { resetCardPositions } from "@/storage/cardLayouts";
+// bundle fix: import from the lightweight module so cardLayouts.ts (which
+// contains resize helpers) stays in the lazy card-mode chunk, keeping the
+// initial bundle under 200 kB.
+import { resetCardPositions } from "@/storage/resetCardPositions";
 import "../sections.css";
 import "./sprint.css";
 

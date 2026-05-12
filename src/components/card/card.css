@@ -200,7 +200,10 @@
 .task-card:focus-within .task-card-actions {
   opacity: 1;
   pointer-events: auto;
-  border-left-color: color-mix(in srgb, var(--border) 70%, transparent);
+  /* HIGH fix: was color-mix(--border 70%, transparent) which resolves near-white
+   * in light mode (contrast < 1.1:1). --text-dim 25% gives visible mid-gray in
+   * both dark and light themes. */
+  border-left-color: color-mix(in srgb, var(--text-dim) 25%, transparent);
 }
 [data-reduced-motion="true"] .task-card-actions {
   transition: none;

@@ -140,7 +140,8 @@ export function useCardLayout<T extends { id: string }>({
   // C2 fix: z computed atomically inside updater — no stale-closure capture.
   const onDragEnd = useCallback(
     async (id: string, pos: CardPosition) => {
-      await update(setCardPositionToFront(id, { x: pos.x, y: pos.y }));
+      // CRITICAL fix: pass w/h so a drag never silently wipes user-set resize dims.
+      await update(setCardPositionToFront(id, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }));
     },
     [update],
   );

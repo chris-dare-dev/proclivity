@@ -10,9 +10,15 @@
  * The CARD_GRID_SIZE constant (8 px) is in constants.ts and shared with
  * DraggableCard. Snap math is done in DraggableCard on pointer-up; only
  * the final snapped values flow through these helpers.
+ *
+ * bundle note: SprintManager imports resetCardPositions from the separate
+ * resetCardPositions.ts module so this file (which contains resize-specific
+ * helpers) stays in the lazy card-mode chunk.
  */
 
 import type { CardPosition, ProclivityState } from "@/types";
+// Re-export so card-mode code can import from one place.
+export { resetCardPositions } from "./resetCardPositions";
 
 /**
  * Returns a state updater that writes (or overwrites) a single card position.
@@ -41,8 +47,14 @@ export function setCardPosition(
  * localPositions, onDragEnd reads it back from a stale closure) with a
  * race-free atomic updater.
  *
+ * CRITICAL fix: w/h are now preserved across drag/nudge. The caller may pass
+ * w/h explicitly (e.g. from commitDrag snapped position); if omitted the
+ * updater falls back to the existing stored w/h so a resize is never wiped by
+ * a subsequent drag or keyboard nudge.
+ *
  * Usage:
  *   await update(setCardPositionToFront(itemId, { x, y }));
+ *   await update(setCardPositionToFront(itemId, { x, y, w, h }));
  */
 export function setCardPositionToFront(
   itemId: string,
@@ -54,9 +66,17 @@ export function setCardPositionToFront(
       (m, p) => (p.z > m ? p.z : m),
       0,
     );
+    const existing = layouts[itemId];
+    // Preserve stored w/h when caller does not supply them so a drag or
+    // keyboard nudge never silently discards a user-set resize.
+    const w = pos.w ?? existing?.w;
+    const h = pos.h ?? existing?.h;
+    const entry: CardPosition = { x: pos.x, y: pos.y, z: maxZ + 1 };
+    if (w !== undefined) entry.w = w;
+    if (h !== undefined) entry.h = h;
     return {
       ...s,
-      cardLayouts: { ...layouts, [itemId]: { ...pos, z: maxZ + 1 } },
+      cardLayouts: { ...layouts, [itemId]: entry },
     };
   };
 }
@@ -86,30 +106,6 @@ export function setCardSize(
         [itemId]: { ...existing, w: size.w, h: size.h },
       },
     };
-  };
-}
-
-/**
- * Returns a state updater that removes all card positions for the given item
- * ids. Used by the "Reset layout" button (per-section) and by deletion
- * handlers to clean up orphan entries.
- *
- * When no positions remain after the wipe, `cardLayouts` is set to `undefined`
- * to keep storage compact.
- *
- * Usage:
- *   await update(resetCardPositions(sectionItems.map(t => t.id)));
- *   await update(resetCardPositions([deletedItemId]));   // deletion cleanup
- */
-export function resetCardPositions(
-  itemIds: string[],
-): (s: ProclivityState) => ProclivityState {
-  return (s) => {
-    if (!s.cardLayouts) return s;
-    const next = { ...s.cardLayouts };
-    for (const id of itemIds) delete next[id];
-    const hasEntries = Object.keys(next).length > 0;
-    return { ...s, cardLayouts: hasEntries ? next : undefined };
   };
 }
 
