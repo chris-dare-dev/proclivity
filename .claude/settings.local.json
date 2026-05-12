@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:linear.app)",
+      "WebFetch(domain:m3.material.io)",
+      "WebFetch(domain:www.radix-ui.com)",
+      "WebSearch"
+    ]
+  }
+}
