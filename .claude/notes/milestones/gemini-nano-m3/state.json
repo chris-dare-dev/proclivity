@@ -1,0 +1,110 @@
+{
+  "id": "gemini-nano-m3",
+  "created_at": "2026-05-12T16:12:46Z",
+  "updated_at": "2026-05-12T16:51:02Z",
+  "phase": "complete",
+  "phase_history": [
+    {
+      "phase": "init",
+      "entered_at": "2026-05-12T16:12:46Z",
+      "exited_at": "2026-05-12T16:12:55Z",
+      "duration_seconds": 9.0
+    },
+    {
+      "phase": "research-running",
+      "entered_at": "2026-05-12T16:12:55Z",
+      "exited_at": "2026-05-12T16:21:45Z",
+      "duration_seconds": 530.0
+    },
+    {
+      "phase": "research-complete",
+      "entered_at": "2026-05-12T16:21:45Z",
+      "exited_at": "2026-05-12T16:21:59Z",
+      "duration_seconds": 14.0
+    },
+    {
+      "phase": "implement-running",
+      "entered_at": "2026-05-12T16:21:59Z",
+      "exited_at": "2026-05-12T16:33:01Z",
+      "duration_seconds": 662.0
+    },
+    {
+      "phase": "implement-complete",
+      "entered_at": "2026-05-12T16:33:01Z",
+      "exited_at": "2026-05-12T16:33:21Z",
+      "duration_seconds": 20.0
+    },
+    {
+      "phase": "critique-running",
+      "entered_at": "2026-05-12T16:33:21Z",
+      "exited_at": "2026-05-12T16:46:01Z",
+      "duration_seconds": 760.0
+    },
+    {
+      "phase": "critique-complete",
+      "entered_at": "2026-05-12T16:46:01Z",
+      "exited_at": "2026-05-12T16:46:01Z",
+      "duration_seconds": 0.0
+    },
+    {
+      "phase": "rectify-running",
+      "entered_at": "2026-05-12T16:46:01Z",
+      "exited_at": "2026-05-12T16:51:02Z",
+      "duration_seconds": 301.0
+    },
+    {
+      "phase": "complete",
+      "entered_at": "2026-05-12T16:51:02Z",
+      "exited_at": null,
+      "duration_seconds": null
+    }
+  ],
+  "milestone_brief": "### gemini-nano-m3 \u2014 Tool actions from chat\n\n**Description.** Teach the chat to do things. Define a JSON schema for \"tool calls\" \u2014 a tagged-union of three action shapes (`add_todo`, `add_gantt_task`, `set_reminder`). The chat prepends a system prompt that explains the schema and tells Nano: when the user's intent is to create records, respond with a tool-call JSON; otherwise respond conversationally. On each response, attempt to parse as the tool-call schema first; on success, apply via `useStore.update()` and surface the created records inline in the chat with an \"Undo\" affordance visible \u2265 10 seconds; on failure, treat the response as plain text. Includes a 20-prompt eval at `plans/gemini-nano-eval-snapshot.md` documenting parse-rate on the union schema.\n\n**Acceptance criteria.**\n- [ ] System prompt + schema constant live in `src/llm/nano.ts` (or a sibling file in `src/llm/`).\n- [ ] Three tool-call shapes implemented: `add_todo` (writes `state.todos`), `add_gantt_task` (writes `state.ganttTasks`, requires a `chartId` field), `set_reminder` (writes `state.reminders` with future `fireAt`).\n- [ ] When a tool call is parsed, the chat shows a record card (\"Added todo: 'plan trip'\") with Undo button.\n- [ ] Undo button reverses the state mutation within 10 seconds of the action; after 10 s the affordance fades.\n- [ ] Disambiguation: when Nano's response parses as a tool call AND has accompanying prose, both render.\n- [ ] When the user prompt isn't an action (\"how should I plan my week?\"), Nano responds conversationally; no record is created.\n- [ ] `plans/gemini-nano-eval-snapshot.md` exists with: 20 prompts (10 action, 10 conversational), the tool-call parse rate, the false-positive rate (tool-call inferred when none was intended), Nano model version, Chrome version.\n- [ ] Parse rate \u2265 90% to close the milestone. False-positive rate \u2264 5%.\n- [ ] `npm run build` passes; main chunk grows < 10 kB.\n- Given a connected chat, When the user types \"add a todo to call the dentist tomorrow\", Then a new `state.todos` entry appears with title matching and a card with Undo shows in the chat within 5 s.\n\n**Dependencies.** `gemini-nano-m2`.\n\n**Complexity.** M (2\u20133 days).\n\n---",
+  "milestone_brief_source": "plans/gemini-nano-roadmap.md",
+  "research_mode": "default",
+  "research_briefs": [
+    ".claude/notes/milestones/gemini-nano-m3/research/brief-1.md",
+    ".claude/notes/milestones/gemini-nano-m3/research/brief-2.md"
+  ],
+  "research_synthesis": ".claude/notes/milestones/gemini-nano-m3/research/synthesis.md",
+  "implementation_path": "delegated",
+  "implementation_base": "65c6651d186f120baeb815c84087364e710036f4",
+  "implementation_commits": [
+    "43560d8"
+  ],
+  "implementation_branch": null,
+  "external_writes_required": [
+    "Maintainer runs the 20-prompt eval in plans/gemini-nano-eval-snapshot.md after m3 lands; fills result cells; commits separately."
+  ],
+  "critique_path": ".claude/notes/milestones/gemini-nano-m3/critique/dedup.md",
+  "critics_run": [
+    "adversary"
+  ],
+  "critique_finding_counts": {
+    "critical": 0,
+    "high": 2,
+    "medium": 5,
+    "low": 5
+  },
+  "rectification_commit": "035e00e",
+  "fixed_findings": [
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "M5"
+  ],
+  "deferred_findings": [
+    "H1",
+    "H2",
+    "L1",
+    "L2",
+    "L3",
+    "L4",
+    "L5"
+  ],
+  "invalidated_findings": [],
+  "regression_tests_added": [],
+  "external_writes_authorized": [],
+  "external_writes_completed": []
+}

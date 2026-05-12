@@ -1,0 +1,102 @@
+{
+  "id": "gemini-nano-m2",
+  "created_at": "2026-05-12T14:19:36Z",
+  "updated_at": "2026-05-12T14:52:02Z",
+  "phase": "complete",
+  "phase_history": [
+    {
+      "phase": "init",
+      "entered_at": "2026-05-12T14:19:36Z",
+      "exited_at": "2026-05-12T14:19:44Z",
+      "duration_seconds": 8.0
+    },
+    {
+      "phase": "research-running",
+      "entered_at": "2026-05-12T14:19:44Z",
+      "exited_at": "2026-05-12T14:26:07Z",
+      "duration_seconds": 383.0
+    },
+    {
+      "phase": "research-complete",
+      "entered_at": "2026-05-12T14:26:07Z",
+      "exited_at": "2026-05-12T14:26:43Z",
+      "duration_seconds": 36.0
+    },
+    {
+      "phase": "implement-running",
+      "entered_at": "2026-05-12T14:26:43Z",
+      "exited_at": "2026-05-12T14:37:14Z",
+      "duration_seconds": 631.0
+    },
+    {
+      "phase": "implement-complete",
+      "entered_at": "2026-05-12T14:37:14Z",
+      "exited_at": "2026-05-12T14:37:47Z",
+      "duration_seconds": 33.0
+    },
+    {
+      "phase": "critique-running",
+      "entered_at": "2026-05-12T14:37:47Z",
+      "exited_at": "2026-05-12T14:49:24Z",
+      "duration_seconds": 697.0
+    },
+    {
+      "phase": "critique-complete",
+      "entered_at": "2026-05-12T14:49:24Z",
+      "exited_at": "2026-05-12T14:49:24Z",
+      "duration_seconds": 0.0
+    },
+    {
+      "phase": "rectify-running",
+      "entered_at": "2026-05-12T14:49:24Z",
+      "exited_at": "2026-05-12T14:52:02Z",
+      "duration_seconds": 158.0
+    },
+    {
+      "phase": "complete",
+      "entered_at": "2026-05-12T14:52:02Z",
+      "exited_at": null,
+      "duration_seconds": null
+    }
+  ],
+  "milestone_brief": "### gemini-nano-m2 \u2014 Embedded chat side panel\n\n**Description.** Add a chat affordance \u2014 a persistent right-side panel (or modal \u2014 design decision in m2's research phase). Single-conversation thread with Nano. Free-text prompt input, message history rendered as a list with role badges (user / assistant). Auto-trim oldest exchanges when `contextoverflow` fires. A \"Clear chat\" button destroys the session. No structured tool calls yet \u2014 just conversation. Reuses `src/llm/nano.ts` from m1.\n\n**Acceptance criteria.**\n- [ ] A new chat affordance is reachable from the gear icon area (or its own icon \u2014 m2 decides). When opened, it slides in as a side panel or appears as a modal.\n- [ ] The chat starts a `LanguageModelSession` on first open and reuses it across messages.\n- [ ] User-typed messages submit on Enter and append to the history; Nano's response appends below.\n- [ ] On `contextoverflow`, the oldest exchange is removed from the visible history and a small \"(older messages trimmed)\" line shows in its place.\n- [ ] \"Clear chat\" destroys the session and empties the history.\n- [ ] Session is recreated lazily on the next user message after clear.\n- [ ] `npm run build` passes; chat assets in a code-split chunk if they exceed 15 kB; initial newtab chunk grows by < 5 kB.\n- Given Nano is ready and a chat panel is open, When the user types a message, Then a reply appears in < 5 seconds (p50).\n\n**Dependencies.** `gemini-nano-m1`.\n\n**Complexity.** M (2\u20133 days).",
+  "milestone_brief_source": "plans/gemini-nano-roadmap.md",
+  "research_mode": "default",
+  "research_briefs": [
+    ".claude/notes/milestones/gemini-nano-m2/research/brief-1.md",
+    ".claude/notes/milestones/gemini-nano-m2/research/brief-2.md"
+  ],
+  "research_synthesis": ".claude/notes/milestones/gemini-nano-m2/research/synthesis.md",
+  "implementation_path": "delegated",
+  "implementation_base": "eee58dbfd180616b63995b0b4060df028f2bd882",
+  "implementation_commits": [
+    "ef0f309"
+  ],
+  "implementation_branch": null,
+  "external_writes_required": [],
+  "critique_path": ".claude/notes/milestones/gemini-nano-m2/critique/dedup.md",
+  "critics_run": [
+    "adversary"
+  ],
+  "critique_finding_counts": {
+    "critical": 0,
+    "high": 2,
+    "medium": 2,
+    "low": 2
+  },
+  "rectification_commit": "47f3d93",
+  "fixed_findings": [
+    "H1",
+    "H2",
+    "M1",
+    "M2"
+  ],
+  "deferred_findings": [
+    "L1",
+    "L2"
+  ],
+  "invalidated_findings": [],
+  "regression_tests_added": [],
+  "external_writes_authorized": [],
+  "external_writes_completed": []
+}

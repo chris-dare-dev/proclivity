@@ -1,0 +1,103 @@
+{
+  "id": "gemini-nano-m1",
+  "created_at": "2026-05-12T02:24:40Z",
+  "updated_at": "2026-05-12T02:56:58Z",
+  "phase": "complete",
+  "phase_history": [
+    {
+      "phase": "init",
+      "entered_at": "2026-05-12T02:24:40Z",
+      "exited_at": "2026-05-12T02:24:59Z",
+      "duration_seconds": 19.0
+    },
+    {
+      "phase": "research-running",
+      "entered_at": "2026-05-12T02:24:59Z",
+      "exited_at": "2026-05-12T02:31:21Z",
+      "duration_seconds": 382.0
+    },
+    {
+      "phase": "research-complete",
+      "entered_at": "2026-05-12T02:31:21Z",
+      "exited_at": "2026-05-12T02:31:34Z",
+      "duration_seconds": 13.0
+    },
+    {
+      "phase": "implement-running",
+      "entered_at": "2026-05-12T02:31:34Z",
+      "exited_at": "2026-05-12T02:34:43Z",
+      "duration_seconds": 189.0
+    },
+    {
+      "phase": "implement-complete",
+      "entered_at": "2026-05-12T02:34:43Z",
+      "exited_at": "2026-05-12T02:34:54Z",
+      "duration_seconds": 11.0
+    },
+    {
+      "phase": "critique-running",
+      "entered_at": "2026-05-12T02:34:54Z",
+      "exited_at": "2026-05-12T02:54:57Z",
+      "duration_seconds": 1203.0
+    },
+    {
+      "phase": "critique-complete",
+      "entered_at": "2026-05-12T02:54:57Z",
+      "exited_at": "2026-05-12T02:54:57Z",
+      "duration_seconds": 0.0
+    },
+    {
+      "phase": "rectify-running",
+      "entered_at": "2026-05-12T02:54:57Z",
+      "exited_at": "2026-05-12T02:56:58Z",
+      "duration_seconds": 121.0
+    },
+    {
+      "phase": "complete",
+      "entered_at": "2026-05-12T02:56:58Z",
+      "exited_at": null,
+      "duration_seconds": null
+    }
+  ],
+  "milestone_brief": "### gemini-nano-m1 \u2014 Plumbing + availability surface\n\n**Description.** Create `src/llm/nano.ts` exporting a thin TypeScript wrapper around the Prompt API: `availability()`, `params()`, `createSession(opts?)`, plus typed `prompt(text, opts?)` and a `promptStructured<T>(text, schema, opts?)` helper that returns the parsed JSON. Surface availability state in the existing gear-icon `SettingsModal` (new \"Gemini Nano\" section showing one of `ready` / `downloading\u2026` / `downloadable (\u22484 GB)` / `unavailable`). Add a \"Test prompt\" affordance that runs `await session.prompt(\"Say hi in 5 words\")` and displays the response inline. No chat UI yet, no tool calling. The point is to prove the pipe and give the user a visible status indicator.\n\n**Acceptance criteria.**\n- [ ] `src/llm/nano.ts` exists, exports the helpers, compiles under strict TS.\n- [ ] `SettingsModal` shows a \"Gemini Nano\" sub-section with the live availability state (refreshes when the modal opens).\n- [ ] Clicking the \"Test prompt\" button calls Nano and renders the response in the modal.\n- [ ] If `availability()` returns `\"unavailable\"`, the section displays a one-sentence explanation pointing at `chrome://flags/#prompt-api-for-gemini-nano` (or the equivalent for the user's Chrome version) and a link to docs.\n- [ ] If `availability()` returns `\"downloadable\"`, clicking Test prompt triggers `LanguageModel.create()` which begins the download; the UI shows progress (poll `availability()` until `\"downloading\"` flips to `\"available\"`).\n- [ ] `npm run build` passes; initial newtab chunk grows by < 5 kB (the wrapper is tiny; no new npm deps).\n- Given Nano is `available`, When the user opens Settings and clicks Test prompt, Then a friendly response appears within \u2264 5 seconds.\n\n**Dependencies.** `gemini-nano-spike-1` reports green (or surfaces \"unavailable\" with a documented graceful-degrade plan).\n\n**Complexity.** M (1\u20132 days).",
+  "milestone_brief_source": "plans/gemini-nano-roadmap.md",
+  "research_mode": "default",
+  "research_briefs": [
+    ".claude/notes/milestones/gemini-nano-m1/research/brief-1.md",
+    ".claude/notes/milestones/gemini-nano-m1/research/brief-2.md"
+  ],
+  "research_synthesis": ".claude/notes/milestones/gemini-nano-m1/research/synthesis.md",
+  "implementation_path": "inline",
+  "implementation_base": "3597a50c0504fd60511852f0e8caca6f344dd07c",
+  "implementation_commits": [
+    "b849eb0"
+  ],
+  "implementation_branch": null,
+  "external_writes_required": [],
+  "critique_path": ".claude/notes/milestones/gemini-nano-m1/critique/dedup.md",
+  "critics_run": [
+    "adversary"
+  ],
+  "critique_finding_counts": {
+    "critical": 0,
+    "high": 1,
+    "medium": 3,
+    "low": 3
+  },
+  "rectification_commit": "b99a92b",
+  "fixed_findings": [
+    "H1",
+    "M1",
+    "M2"
+  ],
+  "deferred_findings": [
+    "M3",
+    "L1",
+    "L2",
+    "L3"
+  ],
+  "invalidated_findings": [],
+  "regression_tests_added": [],
+  "external_writes_authorized": [],
+  "external_writes_completed": []
+}

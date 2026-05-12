@@ -1,0 +1,101 @@
+{
+  "id": "gemini-m1",
+  "created_at": "2026-05-12T01:30:34Z",
+  "updated_at": "2026-05-12T02:00:00Z",
+  "phase": "aborted-pivot",
+  "phase_history": [
+    {
+      "phase": "init",
+      "entered_at": "2026-05-12T01:30:34Z",
+      "exited_at": "2026-05-12T01:39:06Z",
+      "duration_seconds": 512.0
+    },
+    {
+      "phase": "research-complete",
+      "entered_at": "2026-05-12T01:39:06Z",
+      "exited_at": "2026-05-12T01:39:34Z",
+      "duration_seconds": 28.0
+    },
+    {
+      "phase": "implement-running",
+      "entered_at": "2026-05-12T01:39:34Z",
+      "exited_at": "2026-05-12T01:42:16Z",
+      "duration_seconds": 162.0
+    },
+    {
+      "phase": "implement-complete",
+      "entered_at": "2026-05-12T01:42:16Z",
+      "exited_at": "2026-05-12T01:43:05Z",
+      "duration_seconds": 49.0
+    },
+    {
+      "phase": "critique-running",
+      "entered_at": "2026-05-12T01:43:05Z",
+      "exited_at": "2026-05-12T01:50:58Z",
+      "duration_seconds": 473.0
+    },
+    {
+      "phase": "critique-complete",
+      "entered_at": "2026-05-12T01:50:58Z",
+      "exited_at": "2026-05-12T01:51:10Z",
+      "duration_seconds": 12.0
+    },
+    {
+      "phase": "rectify-running",
+      "entered_at": "2026-05-12T01:51:10Z",
+      "exited_at": null,
+      "duration_seconds": null
+    },
+    {
+      "phase": "aborted-pivot",
+      "entered_at": "2026-05-12T02:00:00Z",
+      "exited_at": "2026-05-12T02:00:00Z",
+      "duration_seconds": 0,
+      "note": "Cloud API path aborted; pivoting to Gemini Nano (on-device). Implementation commits 1cdcd4f, 4de1a03 reverted in 9547cd6."
+    }
+  ],
+  "milestone_brief": "### gemini-m1 \u2014 Stable extension ID + OAuth Client registration\n\n**Description.** Stabilize the unpacked extension's ID across reinstalls by adding a Base64-encoded public key to the manifest, then register a corresponding OAuth 2.0 Client ID of type \"Chrome Extension\" in Google Cloud Console. Document the GCP-side steps in a developer-only setup doc so future-you can re-register if the key rotates. Ships the manifest delta + the setup doc only \u2014 no `gemini.ts` code yet. Runs concurrently with `gemini-spike-1` (the spike validates the end-to-end consent flow against the same Client ID).\n\n**Acceptance criteria.**\n- [ ] `manifest.config.ts` includes a `key` field (Base64 RSA public key).\n- [ ] The private key is stored at `.proclivity-key.pem` and `.gitignore` excludes it.\n- [ ] Re-deriving the extension ID from the public key (per `plans/gemini-integration-research.md` \u00a71.3) yields the same string as `chrome://extensions` shows after loading unpacked.\n- [ ] A new `plans/gemini-setup.md` doc walks the GCP-console flow (project creation, OAuth consent screen, Client ID type \"Chrome Extension\", extension-ID binding).\n- [ ] `manifest.config.ts` declares the `identity` permission and includes the `oauth2` block with the registered Client ID + the `generative-language.retriever` scope.\n- [ ] `manifest.config.ts` declares `host_permissions: [\"https://generativelanguage.googleapis.com/*\"]`.\n- [ ] `npm run build` passes; no new TypeScript errors; bundle delta < 1 kB.\n- Given a fresh `npm install` + `npm run build`, When the extension is loaded unpacked, Then the extension ID matches the value precomputed from the public key.\n\n**Dependencies.** `gemini-spike-1` must report green (OAuth flow returns a token).\n\n**Complexity.** S (\u2264 1 day of actual editing; bulk is the offline GCP work).\n\n**Specialist suggestion.** `security-reviewer` \u2014 see `.claude/skills/roadmap/references/specialist-contracts.md`. Touches credentials, network egress, manifest permissions.",
+  "milestone_brief_source": "plans/gemini-roadmap.md",
+  "research_mode": "default",
+  "research_briefs": [
+    ".claude/notes/milestones/gemini-m1/research/brief-1.md",
+    ".claude/notes/milestones/gemini-m1/research/brief-2.md"
+  ],
+  "research_synthesis": ".claude/notes/milestones/gemini-m1/research/synthesis.md",
+  "implementation_path": "inline",
+  "implementation_base": "cb800ac0b193f0e26686e9190eab1340b1021902",
+  "implementation_commits": [
+    "1cdcd4f"
+  ],
+  "implementation_branch": null,
+  "external_writes_required": [
+    "User must create or select a Google Cloud project in Google Cloud Console (console.cloud.google.com)",
+    "User must enable the Generative Language API in the Google Cloud project",
+    "User must configure the OAuth Consent Screen with user type External and add themselves as a Test User",
+    "User must create an OAuth 2.0 Client ID of type Chrome Extension with the stable extension ID in the Item ID field",
+    "User must run openssl key-generation locally and store the private key at .proclivity-key.pem",
+    "User must load the extension unpacked and verify chrome://extensions ID matches the derived ID",
+    "User must paste the issued OAuth Client ID into manifest.config.ts oauth2.client_id"
+  ],
+  "critique_path": ".claude/notes/milestones/gemini-m1/critique/dedup.md",
+  "critics_run": [
+    "adversary"
+  ],
+  "critique_finding_counts": {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 0
+  },
+  "rectification_commit": "4de1a03",
+  "fixed_findings": [
+    "H1",
+    "M1",
+    "M2"
+  ],
+  "deferred_findings": [],
+  "invalidated_findings": [],
+  "regression_tests_added": [],
+  "external_writes_authorized": [],
+  "external_writes_completed": []
+}
