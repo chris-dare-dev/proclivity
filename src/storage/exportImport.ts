@@ -129,6 +129,26 @@ export async function importData(file: File): Promise<ImportResult> {
     return { ...r, tags: validTags };
   });
 
+  // M6 fix: drop orphan cardLayouts entries that don't correspond to any
+  // current todo or reminder. Mirrors the tag-id filter above. Without this,
+  // importing a backup from a different device can introduce hundreds of
+  // stale position entries that grow without bound.
+  if (merged.cardLayouts) {
+    const knownItemIds = new Set([
+      ...merged.todos.map((t) => t.id),
+      ...merged.reminders.map((r) => r.id),
+    ]);
+    const cleanedLayouts: typeof merged.cardLayouts = {};
+    for (const [id, pos] of Object.entries(merged.cardLayouts)) {
+      if (knownItemIds.has(id)) {
+        cleanedLayouts[id] = pos;
+      } else {
+        console.warn(`[proclivity] import: dropping orphan cardLayouts entry for unknown id "${id}"`);
+      }
+    }
+    merged.cardLayouts = Object.keys(cleanedLayouts).length > 0 ? cleanedLayouts : undefined;
+  }
+
   await storage.set(merged);
   return { ok: true };
 }

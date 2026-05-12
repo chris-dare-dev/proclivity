@@ -7,6 +7,7 @@ import { TodoItem } from "@/components/TodoItem";
 import { TodoEditModal, type TodoEditFields } from "@/components/TodoEditModal";
 
 import { filterByTags } from "@/storage/tags";
+import { resolvedSettings } from "@/storage/constants";
 import {
   todayMidnight,
   defaultEndsAt,
@@ -15,6 +16,7 @@ import {
   sprintDayProgress,
   sprintTaskStats,
 } from "./sprintUtils";
+import { resetCardPositions } from "@/storage/cardLayouts";
 import "../sections.css";
 import "./sprint.css";
 
@@ -439,8 +441,9 @@ export function SprintManager() {
 
   const editingTodo = editingId ? todos.find((t) => t.id === editingId) ?? null : null;
 
-  // layoutMode: read raw from settings (avoids importing resolvedSettings into this chunk)
-  const layoutMode = state.settings.layoutMode ?? "list";
+  // D9 fix: use resolvedSettings for consistent layoutMode read (resolvedSettings is
+  // already in constants.ts which is in the shared chunk — no bundle cost here).
+  const layoutMode = resolvedSettings(state.settings).layoutMode;
 
   // Sorted active sprint tasks for card mode (list mode uses activeSprintTodos which is already sorted by filterByTags)
   const sortedActiveSprintTodos = useMemo(
@@ -536,8 +539,15 @@ export function SprintManager() {
   };
 
   const deleteTodo = async (id: string) => {
-    // NOTE: orphan cardLayouts entry is cleaned up lazily (see technical plan §11).
-    await update((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== id) }));
+    // Clean up orphan card position on deletion (C1/H3 fix: matches TodoList.remove and
+    // RemindersManager.deleteReminder). Applies for both active-sprint and archived-sprint
+    // task deletion since the same helper is called from both paths.
+    await update((s) =>
+      resetCardPositions([id])({
+        ...s,
+        todos: s.todos.filter((t) => t.id !== id),
+      }),
+    );
   };
 
   const handleEditSave = async (id: string, fields: TodoEditFields) => {
@@ -677,6 +687,7 @@ export function SprintManager() {
               effectiveActiveTagIds={effectiveActiveTagIds}
               availableTags={sprintAvailableTags}
               cardLayouts={state.cardLayouts}
+              cardHintSeen={resolvedSettings(state.settings).cardHintSeen}
               onToggle={(id) => void toggleTodo(id)}
               onDelete={deleteTodo}
               onEdit={(id) => setEditingId(id)}
@@ -684,6 +695,12 @@ export function SprintManager() {
                 prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
               )}
               onClearFilter={() => setActiveTagIds([])}
+              onDismissHint={() => {
+                void update((s) => ({
+                  ...s,
+                  settings: { ...s.settings, cardHintSeen: true },
+                }));
+              }}
               update={update}
             />
           </Suspense>

@@ -8,13 +8,14 @@
  * Props mirror the slice of TodoList state/handlers that card mode needs.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CardCanvas } from "@/components/card/CardCanvas";
 import { DraggableCard } from "@/components/card/DraggableCard";
 import {
-  setCardPosition,
+  setCardPositionToFront,
   resetCardPositions,
   computeCascadeLayout,
+  CASCADE_CARD_H,
 } from "@/storage/cardLayouts";
 import type { CardPosition, CardLayoutMap, Tag, Todo } from "@/types";
 import { TagChip } from "@/components/TagChip";
@@ -30,11 +31,15 @@ interface Props {
   availableTags: Tag[];
   cardLayouts: CardLayoutMap | undefined;
   emptyHint: string;
+  /** D7/L2: whether the drag hint was already dismissed (persisted per-extension). */
+  cardHintSeen: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
   onEdit: (id: string) => void;
   onToggleFilter: (tagId: string) => void;
   onClearFilter: () => void;
+  /** D7/L2: called when user dismisses the onboarding hint. */
+  onDismissHint: () => void;
   update: (fn: (s: import("@/types").ProclivityState) => import("@/types").ProclivityState) => Promise<void>;
 }
 
@@ -47,55 +52,32 @@ export function TodoCardSection({
   availableTags,
   cardLayouts,
   emptyHint,
+  cardHintSeen,
   onToggle,
   onDelete,
   onEdit,
   onToggleFilter,
   onClearFilter,
+  onDismissHint,
   update,
 }: Props) {
-  // Live drag positions — pure local state, no storage writes during drag
-  const [localPositions, setLocalPositions] = useState<Record<string, CardPosition>>({});
-  // Onboarding hint: shown once per mount (session)
-  const [hintDismissed, setHintDismissed] = useState(false);
-  const hintShownRef = useRef(false);
-  // Canvas ref for width-based layout computation
+  // Live drag positions — pure local state, no storage writes during drag.
+  // H1 fix: pre-seeded with the cascade layout for un-positioned items so the
+  // first paint never shows cards stacked at (0,0). Storage persistence happens
+  // asynchronously in the useEffect below.
   const canvasElRef = useRef<HTMLDivElement | null>(null);
 
-  // Max z-index across all cards
-  const maxZ = useMemo(() => {
-    let max = 0;
-    for (const t of scopedItems) {
-      const pos = localPositions[t.id] ?? cardLayouts?.[t.id];
-      if (pos && pos.z > max) max = pos.z;
-    }
-    return max;
-  }, [scopedItems, localPositions, cardLayouts]);
-
-  // Position resolver: live drag → persisted → fallback 0,0
-  const getPosition = useCallback(
-    (id: string): CardPosition =>
-      localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 },
-    [localPositions, cardLayouts],
-  );
-
-  // Ensure initial cascade layout for unsaved items (idempotent — skips already-placed)
-  const ensureInitialLayout = useCallback(async () => {
-    if (!scopedItems.length) return;
+  const computeInitialPositions = useCallback((): Record<string, CardPosition> => {
     const unsaved = scopedItems.filter((t) => !cardLayouts?.[t.id]);
-    if (!unsaved.length) return;
-
+    if (!unsaved.length) return {};
     const canvasWidth = canvasElRef.current?.offsetWidth ?? 800;
-    const cascade = computeCascadeLayout(
-      unsaved.map((t) => t.id),
-      canvasWidth,
-    );
-
-    // Offset below already-placed cards so new items don't overlap
+    const cascade = computeCascadeLayout(unsaved.map((t) => t.id), canvasWidth);
+    // Offset new cards below already-placed ones.
+    const CARD_ROW_H = CASCADE_CARD_H + 16;
     let offsetY = 0;
     for (const t of scopedItems) {
       const pos = cardLayouts?.[t.id];
-      if (pos) offsetY = Math.max(offsetY, pos.y + 150);
+      if (pos) offsetY = Math.max(offsetY, pos.y + CARD_ROW_H);
     }
     if (offsetY > 0) {
       for (const id of Object.keys(cascade)) {
@@ -103,12 +85,35 @@ export function TodoCardSection({
         if (entry) entry.y += offsetY;
       }
     }
+    return cascade;
+  }, [scopedItems, cardLayouts]);
 
-    await update((s) => ({
+  const [localPositions, setLocalPositions] = useState<Record<string, CardPosition>>(
+    () => computeInitialPositions(),
+  );
+
+  // D7/L2: hint shown until cardHintSeen is persisted (no more per-tab state).
+
+  // Persist the cascade to storage (once, when there are un-positioned items).
+  // This runs after paint so the user never sees the (0,0) flash.
+  useEffect(() => {
+    const unsaved = scopedItems.filter((t) => !cardLayouts?.[t.id]);
+    if (!unsaved.length) return;
+    const cascade = computeInitialPositions();
+    if (!Object.keys(cascade).length) return;
+    void update((s) => ({
       ...s,
       cardLayouts: { ...(s.cardLayouts ?? {}), ...cascade },
     }));
-  }, [scopedItems, cardLayouts, update]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedItems.map((t) => t.id).join(","), cardLayouts === undefined ? "undef" : "def"]);
+
+  // Position resolver: live drag → persisted → fallback 0,0
+  const getPosition = useCallback(
+    (id: string): CardPosition =>
+      localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 },
+    [localPositions, cardLayouts],
+  );
 
   // Canvas height: expand to fit the tallest placed card
   const canvasMinHeight = useMemo(() => {
@@ -129,21 +134,15 @@ export function TodoCardSection({
     [],
   );
 
-  const handleDragStart = useCallback(
-    (id: string) => {
-      const newZ = maxZ + 1;
-      const current = localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 };
-      setLocalPositions((prev) => ({ ...prev, [id]: { ...current, z: newZ } }));
-    },
-    [maxZ, localPositions, cardLayouts],
-  );
-
+  // C2 fix: z-bump is computed atomically inside the state updater so it is
+  // never lost to stale-closure capture. onDragStart is only used for the
+  // DOM is-dragging class (handled in DraggableCard itself) — no z work here.
   const handleDragEnd = useCallback(
     async (id: string, pos: CardPosition) => {
-      const zPos: CardPosition = { ...pos, z: (localPositions[id]?.z ?? pos.z) };
-      await update(setCardPosition(id, zPos));
+      // setCardPositionToFront reads current maxZ from s.cardLayouts atomically.
+      await update(setCardPositionToFront(id, { x: pos.x, y: pos.y }));
     },
-    [update, localPositions],
+    [update],
   );
 
   const handleResetLayout = useCallback(async () => {
@@ -152,9 +151,7 @@ export function TodoCardSection({
     await update(resetCardPositions(ids));
   }, [scopedItems, update]);
 
-  // ── Onboarding hint ────────────────────────────────────────────
-  if (!hintShownRef.current) hintShownRef.current = true;
-  const showHint = !hintDismissed;
+  const showHint = !cardHintSeen;
 
   // ── Per-card render ────────────────────────────────────────────
   const renderCard = (t: Todo) => {
@@ -170,7 +167,6 @@ export function TodoCardSection({
         itemId={t.id}
         position={getPosition(t.id)}
         onPositionChange={handlePositionChange}
-        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         filteredOut={isFilteredOut}
       >
@@ -250,13 +246,10 @@ export function TodoCardSection({
 
       {/* Canvas */}
       <CardCanvas ariaLabel={`${scope} tasks canvas`}>
-        {/* Ref div to measure canvas width + trigger initial layout */}
+        {/* Canvas width measurement ref — used by computeInitialPositions */}
         <div
           ref={(el) => {
             canvasElRef.current = el?.parentElement as HTMLDivElement | null;
-            if (el && scopedItems.some((t) => !cardLayouts?.[t.id])) {
-              void ensureInitialLayout();
-            }
           }}
           style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
         />
@@ -283,7 +276,7 @@ export function TodoCardSection({
         {showHint && scopedItems.length > 0 && (
           <div className="card-onboarding-hint">
             Drag cards to rearrange. They snap to a grid.
-            <button type="button" onClick={() => setHintDismissed(true)}>
+            <button type="button" onClick={onDismissHint}>
               Got it
             </button>
           </div>

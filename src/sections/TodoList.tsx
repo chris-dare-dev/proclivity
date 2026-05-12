@@ -172,11 +172,18 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
             availableTags={availableTags}
             cardLayouts={cardLayouts}
             emptyHint={emptyHint}
+            cardHintSeen={rs.cardHintSeen}
             onToggle={(id) => void toggle(id)}
             onDelete={remove}
             onEdit={(id) => setEditingId(id)}
             onToggleFilter={toggleFilter}
             onClearFilter={() => setActiveTagIds([])}
+            onDismissHint={() => {
+              void update((s) => ({
+                ...s,
+                settings: { ...s.settings, cardHintSeen: true },
+              }));
+            }}
             update={update}
           />
         </Suspense>

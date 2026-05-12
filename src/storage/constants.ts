@@ -58,6 +58,7 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
     chatPosition: "right",
   },
   layoutMode: "list",
+  cardHintSeen: false,
 };
 
 /**
@@ -113,5 +114,6 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
         DEFAULT_SETTINGS.geminiNano.chatPosition,
     },
     layoutMode: s.layoutMode ?? DEFAULT_SETTINGS.layoutMode,
+    cardHintSeen: s.cardHintSeen ?? DEFAULT_SETTINGS.cardHintSeen,
   };
 }

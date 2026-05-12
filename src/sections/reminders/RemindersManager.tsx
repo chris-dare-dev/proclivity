@@ -13,9 +13,10 @@
  * is cleaner UX than the warning-but-save footgun.
  */
 
-import { lazy, Suspense, useState, useMemo } from "react";
+import { lazy, Suspense, useState, useEffect, useMemo } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
+import { resolvedSettings } from "@/storage/constants";
 import type { Reminder, Tag, Todo } from "@/types";
 import { Modal } from "@/components/Modal";
 import { TagPickerArea } from "@/components/TagPickerArea";
@@ -183,9 +184,10 @@ function ReminderEditModal({
   const [tagIds, setTagIds] = useState<string[]>([...reminder.tags]);
   const [titleError, setTitleError] = useState<string | null>(null);
 
-  // Reset on open with new reminder
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useMemo(() => {
+  // H5 fix: useEffect (side-effect semantics) instead of the anti-pattern
+  // useMemo+setState that required an eslint-disable. Same behaviour: resets
+  // form fields when the modal opens for a different reminder.
+  useEffect(() => {
     if (open) {
       setTitle(reminder.title);
       setFireAtVal(tsToDatetimeLocal(reminder.fireAt));
@@ -194,7 +196,7 @@ function ReminderEditModal({
       setTagIds([...reminder.tags]);
       setTitleError(null);
     }
-  }, [open, reminder.id]);
+  }, [open, reminder.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fireAtTs = datetimeLocalToTs(fireAtVal);
   const isPast = fireAtTs < Date.now();
@@ -324,7 +326,8 @@ export function RemindersManager() {
   // render") fires when loading flips from true to false.
   const { reminders, todos, tags: allTags, cardLayouts } = state;
 
-  const layoutMode = state.settings.layoutMode ?? "list";
+  // D9 fix: use resolvedSettings for consistent layoutMode read across all sections.
+  const layoutMode = resolvedSettings(state.settings).layoutMode;
 
   const upcoming = useMemo(
     () => reminders.filter((r) => !r.fired).sort((a, b) => a.fireAt - b.fireAt),
@@ -425,10 +428,17 @@ export function RemindersManager() {
           availableTags={availableTags}
           todoMap={todoMap}
           cardLayouts={cardLayouts}
+          cardHintSeen={resolvedSettings(state.settings).cardHintSeen}
           onDelete={deleteReminder}
           onEdit={(id) => setEditingId(id)}
           onToggleFilter={toggleFilter}
           onClearFilter={() => setActiveTagIds([])}
+          onDismissHint={() => {
+            void update((s) => ({
+              ...s,
+              settings: { ...s.settings, cardHintSeen: true },
+            }));
+          }}
           update={update}
         />
       </Suspense>

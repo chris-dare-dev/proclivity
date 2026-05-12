@@ -32,6 +32,36 @@ export function setCardPosition(
 }
 
 /**
+ * Returns a state updater that writes a card position AND atomically bumps its
+ * z to `max(all other z values) + 1` (bring-to-front). By computing maxZ
+ * inside the updater the z value is always correct even if React batched the
+ * drag-start setLocalPositions call before this commit fires.
+ *
+ * C2 fix: replaces the 3-callback z-order pattern (onDragStart bumps z in
+ * localPositions, onDragEnd reads it back from a stale closure) with a
+ * race-free atomic updater.
+ *
+ * Usage:
+ *   await update(setCardPositionToFront(itemId, { x, y }));
+ */
+export function setCardPositionToFront(
+  itemId: string,
+  pos: Omit<CardPosition, "z">,
+): (s: ProclivityState) => ProclivityState {
+  return (s) => {
+    const layouts = s.cardLayouts ?? {};
+    const maxZ = Object.values(layouts).reduce(
+      (m, p) => (p.z > m ? p.z : m),
+      0,
+    );
+    return {
+      ...s,
+      cardLayouts: { ...layouts, [itemId]: { ...pos, z: maxZ + 1 } },
+    };
+  };
+}
+
+/**
  * Returns a state updater that removes all card positions for the given item
  * ids. Used by the "Reset layout" button (per-section) and by deletion
  * handlers to clean up orphan entries.
@@ -56,6 +86,14 @@ export function resetCardPositions(
 }
 
 /**
+ * Estimated card height used for cascade-layout row spacing and new-item offset.
+ * Matches .task-card min-height in card.css (which can grow with content, but
+ * this is the single source of truth for the grid math).
+ * If .task-card min-height changes, update this constant to match.
+ */
+export const CASCADE_CARD_H = 130;
+
+/**
  * Compute a cascade (waterfall) initial layout for a list of items.
  * Called the first time a section renders in card mode and some items have
  * no saved position. The result should be written to storage in one shot
@@ -69,7 +107,7 @@ export function computeCascadeLayout(
   canvasWidth = 800,
 ): Record<string, CardPosition> {
   const CARD_W = 240;
-  const CARD_H = 130; // estimate; cards are variable-height but this gives reasonable rows
+  const CARD_H = CASCADE_CARD_H;
   const GAP = 16;
   const START_X = 20;
   const START_Y = 20;

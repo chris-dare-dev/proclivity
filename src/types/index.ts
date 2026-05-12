@@ -185,6 +185,11 @@ export interface UserSettings {
 
   /** Card view layout mode. Default "list" (existing behavior). */
   layoutMode?: LayoutMode | undefined;
+  /**
+   * D7/L2 fix: whether the card-mode onboarding hint has been dismissed.
+   * Persisted per-extension so the hint doesn't reappear on new tabs.
+   */
+  cardHintSeen?: boolean | undefined;
 }
 
 /**
@@ -229,6 +234,8 @@ export interface ResolvedUserSettings {
   };
   /** Card view layout mode — always present with default "list". */
   layoutMode: LayoutMode;
+  /** Whether the card-mode onboarding hint has been dismissed (per-extension). */
+  cardHintSeen: boolean;
 }
 
 export interface ProclivityState {

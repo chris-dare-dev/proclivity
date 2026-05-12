@@ -23,11 +23,13 @@ interface Props {
   effectiveActiveTagIds: string[];
   availableTags: Tag[];
   cardLayouts: CardLayoutMap | undefined;
+  cardHintSeen: boolean;
   onToggle: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
   onEdit: (id: string) => void;
   onToggleFilter: (tagId: string) => void;
   onClearFilter: () => void;
+  onDismissHint: () => void;
   update: (fn: (s: ProclivityState) => ProclivityState) => Promise<void>;
 }
 
@@ -39,11 +41,13 @@ export function SprintCardSection({
   effectiveActiveTagIds,
   availableTags,
   cardLayouts,
+  cardHintSeen,
   onToggle,
   onDelete,
   onEdit,
   onToggleFilter,
   onClearFilter,
+  onDismissHint,
   update,
 }: Props) {
   if (layoutMode === "card") {
@@ -57,11 +61,13 @@ export function SprintCardSection({
         availableTags={availableTags}
         cardLayouts={cardLayouts}
         emptyHint="No tasks yet. Add one above."
+        cardHintSeen={cardHintSeen}
         onToggle={onToggle}
         onDelete={onDelete}
         onEdit={onEdit}
         onToggleFilter={onToggleFilter}
         onClearFilter={onClearFilter}
+        onDismissHint={onDismissHint}
         update={update}
       />
     );

@@ -83,7 +83,9 @@ export function SettingsModal({ open, onClose }: Props) {
   );
 
   // Snapshot taken at open so Cancel/Escape/backdrop can revert.
-  const snapshotRef = useRef<UserSettings | null>(null);
+  // H4 fix: include cardLayouts in the snapshot so dragging cards while the
+  // settings modal is open doesn't survive a Cancel.
+  const snapshotRef = useRef<{ settings: UserSettings; cardLayouts: ProclivityState["cardLayouts"] } | null>(null);
 
   // Apply-on-Done local state. Initialized at open from resolvedSettings.
   const [pendingName, setPendingName] = useState(rs.name);
@@ -125,7 +127,10 @@ export function SettingsModal({ open, onClose }: Props) {
   // and mark the V2 badge as seen.
   useEffect(() => {
     if (!open) return;
-    snapshotRef.current = structuredClone(state.settings);
+    snapshotRef.current = {
+      settings: structuredClone(state.settings),
+      cardLayouts: structuredClone(state.cardLayouts),
+    };
     setPendingName(rs.name);
     setPendingWeekStart(rs.weekStart);
     setPendingRelativeDates(rs.relativeDates);
@@ -203,7 +208,10 @@ export function SettingsModal({ open, onClose }: Props) {
     if (snap) {
       await update((s) => ({
         ...s,
-        settings: { ...snap, settingsV2Seen: true },
+        settings: { ...snap.settings, settingsV2Seen: true },
+        // H4 fix: restore cardLayouts so positions dragged during settings preview
+        // are reverted when the user cancels.
+        cardLayouts: snap.cardLayouts,
       }));
     }
     onClose();

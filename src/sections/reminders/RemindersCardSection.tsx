@@ -8,16 +8,17 @@
  * Loaded only on first render of the reminders section.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"; // useEffect used for H1 fix and RelativeTime
 import type { Reminder, Tag, CardLayoutMap, CardPosition } from "@/types";
 import type { ProclivityState } from "@/types";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 import { TagChip } from "@/components/TagChip";
 import { filterByTags } from "@/storage/tags";
 import {
-  setCardPosition,
+  setCardPositionToFront,
   resetCardPositions,
   computeCascadeLayout,
+  CASCADE_CARD_H,
 } from "@/storage/cardLayouts";
 import { CardCanvas } from "@/components/card/CardCanvas";
 import { DraggableCard } from "@/components/card/DraggableCard";
@@ -44,10 +45,12 @@ interface Props {
   availableTags: Tag[];
   todoMap: Map<string, string>;
   cardLayouts: CardLayoutMap | undefined;
+  cardHintSeen: boolean;
   onDelete: (id: string) => Promise<void>;
   onEdit: (id: string) => void;
   onToggleFilter: (tagId: string) => void;
   onClearFilter: () => void;
+  onDismissHint: () => void;
   update: (fn: (s: ProclivityState) => ProclivityState) => Promise<void>;
 }
 
@@ -60,10 +63,12 @@ export function RemindersCardSection({
   availableTags,
   todoMap,
   cardLayouts,
+  cardHintSeen,
   onDelete,
   onEdit,
   onToggleFilter,
   onClearFilter,
+  onDismissHint,
   update,
 }: Props) {
   const allReminders = useMemo(() => [...upcoming, ...fired], [upcoming, fired]);
@@ -168,10 +173,12 @@ export function RemindersCardSection({
       availableTags={availableTags}
       todoMap={todoMap}
       cardLayouts={cardLayouts}
+      cardHintSeen={cardHintSeen}
       onDelete={onDelete}
       onEdit={onEdit}
       onToggleFilter={onToggleFilter}
       onClearFilter={onClearFilter}
+      onDismissHint={onDismissHint}
       update={update}
     />
   );
@@ -252,10 +259,12 @@ interface CardCanvasProps {
   availableTags: Tag[];
   todoMap: Map<string, string>;
   cardLayouts: CardLayoutMap | undefined;
+  cardHintSeen: boolean;
   onDelete: (id: string) => Promise<void>;
   onEdit: (id: string) => void;
   onToggleFilter: (tagId: string) => void;
   onClearFilter: () => void;
+  onDismissHint: () => void;
   update: (fn: (s: ProclivityState) => ProclivityState) => Promise<void>;
 }
 
@@ -268,50 +277,27 @@ function ReminderCardCanvas({
   availableTags,
   todoMap,
   cardLayouts,
+  cardHintSeen,
   onDelete,
   onEdit,
   onToggleFilter,
   onClearFilter,
+  onDismissHint,
   update,
 }: CardCanvasProps) {
-  const [localPositions, setLocalPositions] = useState<Record<string, CardPosition>>({});
-  const [hintDismissed, setHintDismissed] = useState(false);
+  // H1 fix: canvas ref for width measurement; initial positions seeded synchronously.
   const canvasElRef = useRef<HTMLDivElement | null>(null);
 
-  // All visible filtered reminder ids
-  const filteredIds = useMemo(
-    () => new Set([...filteredUpcoming.map((r) => r.id), ...filteredFired.map((r) => r.id)]),
-    [filteredUpcoming, filteredFired],
-  );
-
-  const maxZ = useMemo(() => {
-    let max = 0;
-    for (const r of allReminders) {
-      const pos = localPositions[r.id] ?? cardLayouts?.[r.id];
-      if (pos && pos.z > max) max = pos.z;
-    }
-    return max;
-  }, [allReminders, localPositions, cardLayouts]);
-
-  const getPosition = useCallback(
-    (id: string): CardPosition =>
-      localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 },
-    [localPositions, cardLayouts],
-  );
-
-  const ensureInitialLayout = useCallback(async () => {
-    if (!allReminders.length) return;
+  const computeInitialPositions = useCallback((): Record<string, CardPosition> => {
     const unsaved = allReminders.filter((r) => !cardLayouts?.[r.id]);
-    if (!unsaved.length) return;
+    if (!unsaved.length) return {};
     const canvasWidth = canvasElRef.current?.offsetWidth ?? 800;
-    const cascade = computeCascadeLayout(
-      unsaved.map((r) => r.id),
-      canvasWidth,
-    );
+    const cascade = computeCascadeLayout(unsaved.map((r) => r.id), canvasWidth);
+    const CARD_ROW_H = CASCADE_CARD_H + 16;
     let offsetY = 0;
     for (const r of allReminders) {
       const pos = cardLayouts?.[r.id];
-      if (pos) offsetY = Math.max(offsetY, pos.y + 150);
+      if (pos) offsetY = Math.max(offsetY, pos.y + CARD_ROW_H);
     }
     if (offsetY > 0) {
       for (const id of Object.keys(cascade)) {
@@ -319,11 +305,39 @@ function ReminderCardCanvas({
         if (entry) entry.y += offsetY;
       }
     }
-    await update((s) => ({
+    return cascade;
+  }, [allReminders, cardLayouts]);
+
+  // Pre-seed localPositions so the first paint never shows cards at (0,0).
+  const [localPositions, setLocalPositions] = useState<Record<string, CardPosition>>(
+    () => computeInitialPositions(),
+  );
+  // D7/L2: hint shown until cardHintSeen is persisted (per-extension, not per-tab).
+
+  // Persist to storage after paint (H1 fix: async after sync seed).
+  useEffect(() => {
+    const unsaved = allReminders.filter((r) => !cardLayouts?.[r.id]);
+    if (!unsaved.length) return;
+    const cascade = computeInitialPositions();
+    if (!Object.keys(cascade).length) return;
+    void update((s) => ({
       ...s,
       cardLayouts: { ...(s.cardLayouts ?? {}), ...cascade },
     }));
-  }, [allReminders, cardLayouts, update]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allReminders.map((r) => r.id).join(","), cardLayouts === undefined ? "undef" : "def"]);
+
+  // All visible filtered reminder ids
+  const filteredIds = useMemo(
+    () => new Set([...filteredUpcoming.map((r) => r.id), ...filteredFired.map((r) => r.id)]),
+    [filteredUpcoming, filteredFired],
+  );
+
+  const getPosition = useCallback(
+    (id: string): CardPosition =>
+      localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 },
+    [localPositions, cardLayouts],
+  );
 
   const canvasMinHeight = useMemo(() => {
     let maxY = 400;
@@ -338,21 +352,12 @@ function ReminderCardCanvas({
     setLocalPositions((prev) => ({ ...prev, [id]: pos }));
   }, []);
 
-  const handleDragStart = useCallback(
-    (id: string) => {
-      const newZ = maxZ + 1;
-      const current = localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 };
-      setLocalPositions((prev) => ({ ...prev, [id]: { ...current, z: newZ } }));
-    },
-    [maxZ, localPositions, cardLayouts],
-  );
-
+  // C2 fix: z-bump computed atomically inside the updater — no stale closure.
   const handleDragEnd = useCallback(
     async (id: string, pos: CardPosition) => {
-      const zPos: CardPosition = { ...pos, z: (localPositions[id]?.z ?? pos.z) };
-      await update(setCardPosition(id, zPos));
+      await update(setCardPositionToFront(id, { x: pos.x, y: pos.y }));
     },
-    [update, localPositions],
+    [update],
   );
 
   const handleResetLayout = useCallback(async () => {
@@ -377,7 +382,6 @@ function ReminderCardCanvas({
         itemId={r.id}
         position={getPosition(r.id)}
         onPositionChange={handlePositionChange}
-        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         filteredOut={isFilteredOut}
       >
@@ -448,12 +452,10 @@ function ReminderCardCanvas({
       </div>
 
       <CardCanvas ariaLabel="Reminders canvas">
+        {/* Canvas width measurement ref */}
         <div
           ref={(el) => {
             canvasElRef.current = el?.parentElement as HTMLDivElement | null;
-            if (el && allReminders.some((r) => !cardLayouts?.[r.id])) {
-              void ensureInitialLayout();
-            }
           }}
           style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
         />
@@ -476,10 +478,10 @@ function ReminderCardCanvas({
           allReminders.map(renderCard)
         )}
 
-        {!hintDismissed && allReminders.length > 0 && (
+        {!cardHintSeen && allReminders.length > 0 && (
           <div className="card-onboarding-hint">
             Drag cards to rearrange. They snap to a grid.
-            <button type="button" onClick={() => setHintDismissed(true)}>
+            <button type="button" onClick={onDismissHint}>
               Got it
             </button>
           </div>
