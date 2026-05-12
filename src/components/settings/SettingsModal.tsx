@@ -21,7 +21,9 @@ import type {
   WeekStart,
 } from "@/types";
 import { exportData, importData } from "@/storage/exportImport";
-import { SegmentedControl, ToggleSwitch } from "./SettingsControls";
+import { createTag, deleteTag, recolorTag, renameTag, TAG_COLOR_PRESETS } from "@/storage/tags";
+import { SegmentedControl, ToggleSwitch, ColorSwatchGrid } from "./SettingsControls";
+import { TagChip } from "@/components/TagChip";
 import { NanoSection } from "./NanoSection";
 import "./SettingsModal.css";
 
@@ -301,6 +303,7 @@ export function SettingsModal({ open, onClose }: Props) {
           visibility={pendingVisibility}
           setVisibility={setPendingVisibility}
         />
+        <TagsSection tags={state.tags} />
         <AccountSection name={pendingName} setName={setPendingName} />
         <NanoSection />
         <DataSection
@@ -799,6 +802,163 @@ function DashboardSection({
           </span>
         ) : null}
       </fieldset>
+    </section>
+  );
+}
+
+/* ─── Tags ────────────────────────────────────────────────────── */
+
+/**
+ * TagsSection — list all global tags with inline rename, recolor, delete.
+ *
+ * Tag mutations write-through immediately (no staging through the Settings
+ * snapshot) because they affect state outside UserSettings and do not
+ * participate in the Done/Cancel lifecycle.
+ *
+ * Rename uniqueness: renameTag() in tags.ts always writes. The UI shows an
+ * inline error when the target label already exists (cross-plan
+ * contradiction #8 resolved — UI shows error, data layer is indifferent).
+ *
+ * Delete: two-step inline confirm matching DataSection's Clear-All pattern.
+ * Cascade removal from all items happens in deleteTag().
+ */
+function TagsSection({ tags }: { tags: import("@/types").Tag[] }) {
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [renameErrors, setRenameErrors] = useState<Record<string, string>>({});
+  const [creating, setCreating] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [newColor, setNewColor] = useState(TAG_COLOR_PRESETS[0]!.value);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleRename = async (id: string, label: string) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    const duplicate = tags.find(
+      (t) => t.id !== id && t.label.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (duplicate) {
+      setRenameErrors((prev) => ({ ...prev, [id]: `A tag named "${duplicate.label}" already exists.` }));
+      return;
+    }
+    setRenameErrors((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    await renameTag(id, trimmed);
+  };
+
+  const handleCreate = async () => {
+    const trimmed = newLabel.trim();
+    if (!trimmed) return;
+    const duplicate = tags.find(
+      (t) => t.label.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (duplicate) { setCreateError(`A tag named "${duplicate.label}" already exists.`); return; }
+    setCreateError(null);
+    await createTag(trimmed, newColor);
+    setNewLabel(""); setNewColor(TAG_COLOR_PRESETS[0]!.value); setCreating(false);
+  };
+
+  return (
+    <section className="settings-section">
+      <SectionHeader>Tags</SectionHeader>
+      {tags.length === 0 && !creating ? (
+        <span className="settings-hint">
+          No tags yet. Tags are created while adding tasks or reminders, or use
+          the button below to create one here.
+        </span>
+      ) : (
+        <div className="tag-manager-list">
+          {tags.map((tag) => {
+            const isConfirmingDelete = confirmingDeleteId === tag.id;
+            const renameError = renameErrors[tag.id];
+            return (
+              <div key={tag.id} className="tag-manager-row">
+                <TagChip label={tag.label} color={tag.color} />
+                <div className="tag-manager-row-fields">
+                  <input
+                    type="text"
+                    className="tag-manager-name-input"
+                    defaultValue={tag.label}
+                    placeholder="Tag name"
+                    aria-label={`Rename tag ${tag.label}`}
+                    onBlur={(e) => { void handleRename(tag.id, e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                  />
+                  {renameError && (
+                    <span className="settings-hint settings-hint--error" role="alert">{renameError}</span>
+                  )}
+                  <ColorSwatchGrid
+                    presets={TAG_COLOR_PRESETS}
+                    value={tag.color}
+                    onChange={(hex) => { void recolorTag(tag.id, hex); }}
+                    ariaLabel={`Color for tag ${tag.label}`}
+                  />
+                </div>
+                {isConfirmingDelete ? (
+                  <div className="tag-manager-delete-confirm">
+                    <span className="settings-hint">Remove &ldquo;{tag.label}&rdquo;? Items keep their other tags.</span>
+                    <div className="tag-manager-delete-buttons">
+                      <button type="button" onClick={() => setConfirmingDeleteId(null)}>Cancel</button>
+                      <button
+                        type="button" className="btn-danger"
+                        onClick={async () => { await deleteTag(tag.id); setConfirmingDeleteId(null); }}
+                      >
+                        Remove tag
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="tag-manager-delete"
+                    aria-label={`Delete tag ${tag.label}`}
+                    onClick={() => setConfirmingDeleteId(tag.id)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {creating ? (
+        <div className="tag-manager-create-form">
+          <input
+            type="text"
+            className="tag-manager-name-input"
+            value={newLabel}
+            onChange={(e) => { setNewLabel(e.target.value); setCreateError(null); }}
+            placeholder="Tag name"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { void handleCreate(); }
+              if (e.key === "Escape") { setCreating(false); setNewLabel(""); setCreateError(null); }
+            }}
+          />
+          <ColorSwatchGrid
+            presets={TAG_COLOR_PRESETS}
+            value={newColor}
+            onChange={setNewColor}
+            ariaLabel="New tag color"
+          />
+          {createError && (
+            <span className="settings-hint settings-hint--error" role="alert">{createError}</span>
+          )}
+          <div className="tag-manager-delete-buttons">
+            <button type="button" onClick={() => { setCreating(false); setNewLabel(""); setCreateError(null); }}>Cancel</button>
+            <button
+              type="button" className="modal-btn-primary"
+              onClick={() => { void handleCreate(); }}
+              disabled={!newLabel.trim()}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="settings-action-btn" onClick={() => setCreating(true)}>
+          + Create new tag
+        </button>
+      )}
     </section>
   );
 }

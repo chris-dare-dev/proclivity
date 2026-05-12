@@ -5,8 +5,13 @@ import { Sprint } from "@/sections/Sprint";
 import { LongTerm } from "@/sections/LongTerm";
 import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
-import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useStore } from "@/storage/useStore";
+
+// SettingsModal (and NanoSection, TagsSection, tag CRUD) are only needed when
+// the user opens Settings — lazy-load to keep the initial newtab chunk slim.
+const SettingsModal = lazy(() =>
+  import("@/components/settings/SettingsModal").then((m) => ({ default: m.SettingsModal })),
+);
 import { resolvedSettings } from "@/storage/constants";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import type { ResolvedUserSettings } from "@/types";
@@ -112,10 +117,12 @@ const Header = memo(function Header() {
           </button>
         </div>
       </header>
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <SettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+        />
+      </Suspense>
       {/*
         Gate on both `chatEnabled` (feature toggle) AND `chatOpen` (user
         intent) so the ChatPanel unmounts entirely when closed — its

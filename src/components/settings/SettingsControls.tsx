@@ -136,3 +136,83 @@ export function ToggleSwitch({
     </div>
   );
 }
+
+/* ─── ColorSwatchGrid ─────────────────────────────────────────────
+ * Shared color-preset swatch grid used by Appearance (accent color)
+ * and the Tags section. Mirrors the accent-swatch-grid pattern but
+ * is parameterised over a generic onChange callback so both callers
+ * don't inline duplicate markup.
+ */
+
+export interface ColorPreset {
+  name: string;
+  value: string;
+}
+
+interface ColorSwatchGridProps {
+  /** The 8 (or N) preset colors to display. */
+  presets: ReadonlyArray<ColorPreset>;
+  /** The currently selected hex value. */
+  value: string;
+  /** Called with a hex value when a preset or custom color is chosen. */
+  onChange: (hex: string) => void;
+  /** ARIA label for the radio group. */
+  ariaLabel?: string;
+}
+
+export function ColorSwatchGrid({
+  presets,
+  value,
+  onChange,
+  ariaLabel = "Color",
+}: ColorSwatchGridProps) {
+  const isCustom = !presets.some(
+    (p) => p.value.toLowerCase() === value.toLowerCase(),
+  );
+  return (
+    <div
+      className="accent-swatch-grid"
+      role="radiogroup"
+      aria-label={ariaLabel}
+    >
+      {presets.map((color) => {
+        const checked = color.value.toLowerCase() === value.toLowerCase();
+        return (
+          <label
+            key={color.value}
+            className={`accent-swatch-label${checked ? " is-active" : ""}`}
+            title={color.name}
+          >
+            <input
+              type="radio"
+              name={`${ariaLabel}-color`}
+              value={color.value}
+              checked={checked}
+              onChange={() => onChange(color.value)}
+              className="accent-swatch-input"
+              aria-label={color.name}
+            />
+            <span
+              className="accent-swatch"
+              style={{ "--swatch-color": color.value } as React.CSSProperties}
+              aria-hidden="true"
+            />
+          </label>
+        );
+      })}
+      <label
+        className={`accent-swatch-label accent-swatch-label--custom${isCustom ? " is-active" : ""}`}
+        title="Custom color"
+      >
+        <input
+          type="color"
+          value={isCustom ? value : "#7c9cff"}
+          onChange={(e) => onChange(e.target.value)}
+          className="accent-color-input"
+          aria-label="Custom color"
+        />
+        <span className="accent-swatch accent-swatch--custom" aria-hidden="true" />
+      </label>
+    </div>
+  );
+}
