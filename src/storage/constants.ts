@@ -45,6 +45,10 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   quietHours: undefined,
   lastKnownTzOffset: undefined,
   settingsV2Seen: false,
+  geminiNano: {
+    chatEnabled: false,
+    chatPosition: "right",
+  },
 };
 
 /**
@@ -90,5 +94,13 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
     lastKnownTzOffset:
       s.lastKnownTzOffset ?? DEFAULT_SETTINGS.lastKnownTzOffset,
     settingsV2Seen: s.settingsV2Seen ?? DEFAULT_SETTINGS.settingsV2Seen,
+    geminiNano: {
+      chatEnabled:
+        s.geminiNano?.chatEnabled ??
+        DEFAULT_SETTINGS.geminiNano.chatEnabled,
+      chatPosition:
+        s.geminiNano?.chatPosition ??
+        DEFAULT_SETTINGS.geminiNano.chatPosition,
+    },
   };
 }

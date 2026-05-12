@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   availability as nanoAvailability,
   createSession as nanoCreateSession,
   NanoUnavailableError,
   type NanoAvailability,
 } from "@/llm/nano";
+import { useStore } from "@/storage/useStore";
+import { resolvedSettings } from "@/storage/constants";
+import { ToggleSwitch } from "@/components/settings/SettingsControls";
 import "./NanoSection.css";
 
 /*
@@ -51,6 +54,9 @@ const initialNanoState: NanoState = {
 };
 
 export function NanoSection() {
+  const { state, update } = useStore();
+  const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+
   const [nano, setNano] = useState<NanoState>(initialNanoState);
   // Abort handle so closing the modal mid-prompt cancels in-flight work.
   const abortRef = useRef<AbortController | null>(null);
@@ -148,6 +154,21 @@ export function NanoSection() {
   const { availability, downloadProgress, testResponse, error, testInFlight } =
     nano;
 
+  const chatEnabled = rs.geminiNano.chatEnabled;
+
+  const handleChatToggle = (checked: boolean) => {
+    void update((s) => ({
+      ...s,
+      settings: {
+        ...s.settings,
+        geminiNano: {
+          ...s.settings.geminiNano,
+          chatEnabled: checked,
+        },
+      },
+    }));
+  };
+
   return (
     <section className="settings-section">
       <SectionHeader>Gemini Nano</SectionHeader>
@@ -210,6 +231,13 @@ export function NanoSection() {
           )}
         </div>
       </div>
+
+      <ToggleSwitch
+        label="Enable chat panel"
+        checked={chatEnabled}
+        onChange={handleChatToggle}
+        hint="Adds a chat-bubble icon next to the gear. Conversations run on-device via Gemini Nano."
+      />
     </section>
   );
 }

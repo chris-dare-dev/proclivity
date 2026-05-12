@@ -17,6 +17,10 @@ const MeshBackground = lazy(() =>
   import("@/components/MeshBackground").then((m) => ({ default: m.MeshBackground })),
 );
 
+// Chat panel is code-split so it never loads for users who disable the feature.
+// Mirrors the MeshBackground lazy-load pattern (AC #6).
+const ChatPanel = lazy(() => import("@/components/chat/ChatPanel"));
+
 type Tab = "today" | "sprint" | "long" | "gantt" | "reminders";
 
 const TABS: { id: Tab; label: string }[] = [
@@ -41,6 +45,7 @@ const Header = memo(function Header() {
   const { state } = useStore();
   const [now, setNow] = useState(() => new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   useThemeSync(state.settings);
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -63,6 +68,9 @@ const Header = memo(function Header() {
         ? { hourCycle: "h23" as const }
         : {}),
   };
+
+  const chatEnabled = rs.geminiNano.chatEnabled;
+
   return (
     <>
       <header className="header">
@@ -80,6 +88,18 @@ const Header = memo(function Header() {
           <div className="clock">
             {now.toLocaleTimeString(undefined, timeOpts)}
           </div>
+          {chatEnabled && (
+            <button
+              type="button"
+              className="settings-button"
+              aria-label="Chat with Nano"
+              title="Chat with Nano"
+              aria-pressed={chatOpen}
+              onClick={() => setChatOpen((prev) => !prev)}
+            >
+              <ChatBubbleIcon />
+            </button>
+          )}
           <button
             type="button"
             className="settings-button"
@@ -96,6 +116,11 @@ const Header = memo(function Header() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+      {chatEnabled && (
+        <Suspense fallback={null}>
+          <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
+        </Suspense>
+      )}
     </>
   );
 });
@@ -115,6 +140,24 @@ function GearIcon() {
     >
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
+  );
+}
+
+function ChatBubbleIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }

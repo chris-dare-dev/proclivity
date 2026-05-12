@@ -170,6 +170,11 @@ export interface ResolvedUserSettings {
   quietHours: { from: string; to: string } | undefined;
   lastKnownTzOffset: number | undefined;
   settingsV2Seen: boolean;
+  /** Gemini Nano chat panel settings — always present with defaults in resolved form. */
+  geminiNano: {
+    chatEnabled: boolean;
+    chatPosition: "right" | "bottom";
+  };
 }
 
 export interface ProclivityState {

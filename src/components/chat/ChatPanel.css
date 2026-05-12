@@ -1,0 +1,307 @@
+/*
+ * ChatPanel.css — slide-in chat panel styles.
+ *
+ * Uses tokens from src/styles/theme.css exclusively; no hard-coded colors.
+ * BEM-ish class prefix: chat-panel, chat-message, chat-input.
+ *
+ * Default layout: fixed right-side drawer, 380px wide, full viewport height.
+ * Narrow viewport (≤ 900px): fixed bottom drawer, full width, 50vh max height.
+ */
+
+/* ── Panel container ─────────────────────────────────────────────── */
+
+.chat-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100vh;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.25);
+
+  /* Slide in from right */
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+.chat-panel--open {
+  transform: translateX(0);
+}
+
+/* ── Panel header ────────────────────────────────────────────────── */
+
+.chat-panel__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--panel-pad-y) var(--panel-pad-x);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.chat-panel__title {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.chat-panel__attribution {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chat-panel__clear {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.chat-panel__clear:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.chat-panel__clear:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.chat-panel__close:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+/* ── Message list ────────────────────────────────────────────────── */
+
+.chat-panel__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--panel-pad-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.chat-panel__empty {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  text-align: center;
+  margin-top: var(--space-5);
+}
+
+/* ── Individual messages ─────────────────────────────────────────── */
+
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 100%;
+}
+
+.chat-message--user {
+  align-items: flex-end;
+}
+
+.chat-message--assistant {
+  align-items: flex-start;
+}
+
+.chat-message--notice {
+  align-items: center;
+}
+
+.chat-message__badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.chat-message--user .chat-message__badge {
+  color: var(--accent);
+}
+
+.chat-message__text {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.chat-message--user .chat-message__text {
+  background: var(--accent);
+  color: oklch(0.10 0 0);
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message--assistant .chat-message__text {
+  background: var(--panel-2);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-message--notice .chat-message__text {
+  background: none;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-style: italic;
+  padding: 0;
+}
+
+/* ── Generating indicator ────────────────────────────────────────── */
+
+.chat-panel__thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.chat-panel__thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.chat-panel__thinking-dots span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  animation: chat-dot-bounce 1.2s ease-in-out infinite;
+}
+
+.chat-panel__thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.chat-panel__thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes chat-dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ── Input area ──────────────────────────────────────────────────── */
+
+.chat-input {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  padding: var(--space-3) var(--panel-pad-x);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.chat-input__textarea {
+  flex: 1;
+  resize: none;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: var(--space-2) var(--space-3);
+  font-family: inherit;
+  transition: border-color 0.15s;
+  min-height: 52px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.chat-input__textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.chat-input__textarea::placeholder {
+  color: var(--text-dim);
+}
+
+.chat-input__textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-input__send {
+  padding: var(--space-2) var(--space-4);
+  background: var(--accent);
+  color: oklch(0.10 0 0);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  align-self: flex-end;
+  white-space: nowrap;
+  height: 36px;
+}
+
+.chat-input__send:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.chat-input__send:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Narrow viewport — bottom drawer ─────────────────────────────── */
+
+@media (max-width: 900px) {
+  .chat-panel {
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    max-height: 50vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
+
+    /* Slide in from bottom */
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+  }
+
+  .chat-panel--open {
+    transform: translateY(0);
+  }
+}
