@@ -119,7 +119,7 @@ const COLOR_KEYS_RAW: Array<{ h: number; hex: string; label: string }> = [
   { h: 22, hex: "#9a3aff", label: "purple"       },
 ];
 
-function WarpMesh() {
+function WarpMesh({ intensity }: { intensity: number }) {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
 
   const colorKeys = useMemo(() => {
@@ -139,10 +139,19 @@ function WarpMesh() {
       uFreq: { value: 0.18 },
       uSpeed: { value: 0.035 },
       uColor: { value: new THREE.Color("#3d7eff") },
-      uAlpha: { value: 0.9 },
+      uAlpha: { value: intensity },
     }),
+    // Deps intentionally empty: uniforms hold mutable refs that we update
+    // imperatively below. Re-creating the object would dispose GL state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+
+  // Keep the alpha uniform in sync with the live prop so the slider gives
+  // an immediate visual response without remounting the canvas.
+  useEffect(() => {
+    uniforms.uAlpha.value = intensity;
+  }, [intensity, uniforms]);
 
   const colorScratch = useMemo(() => new THREE.Color(), []);
 
@@ -190,15 +199,30 @@ function WarpMesh() {
   );
 }
 
-export function MeshBackground() {
-  // Respect prefers-reduced-motion: render a static frame (single tick)
-  // rather than animating, but still show the mesh.
-  const reducedMotion = useMemo(
+interface MeshBackgroundProps {
+  /** Wire opacity, 0–1. Passed to the uAlpha uniform. */
+  intensity?: number | undefined;
+  /**
+   * When true, freezes the animation (frameloop="demand"). The OS-level
+   * prefers-reduced-motion media query is also respected — this prop
+   * lets in-app settings ADD reduced motion, never remove it.
+   */
+  reducedMotion?: boolean | undefined;
+}
+
+export function MeshBackground({
+  intensity = 0.9,
+  reducedMotion = false,
+}: MeshBackgroundProps) {
+  // OS-level preference is the strongest signal. The user setting can
+  // only add reduced-motion, never override OS-level preference.
+  const osReducedMotion = useMemo(
     () =>
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     [],
   );
+  const effectiveReduced = reducedMotion || osReducedMotion;
 
   // Pause rendering when the tab is hidden — saves battery, especially
   // because this lives on every new-tab page open.
@@ -217,9 +241,9 @@ export function MeshBackground() {
         camera={{ position: [0, 0, 11], fov: 50 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-        frameloop={reducedMotion || !active ? "demand" : "always"}
+        frameloop={effectiveReduced || !active ? "demand" : "always"}
       >
-        <WarpMesh />
+        <WarpMesh intensity={intensity} />
       </Canvas>
     </div>
   );
