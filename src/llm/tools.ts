@@ -68,6 +68,10 @@ export const TOOL_SCHEMA = {
     // ── add_gantt_task payload ─────────────────────────────
     task: {
       type: "object",
+      // tagIds intentionally omitted (rect M4): Gantt tasks have no tag
+      // surface in the UI today, and accepting them only to silently drop
+      // them was misleading. If/when tags ship for Gantt tasks, add the
+      // field back here AND wire resolveTagIds into the dispatch path.
       properties: {
         chartId: { type: "string" },
         title: { type: "string" },
@@ -75,11 +79,6 @@ export const TOOL_SCHEMA = {
         endsAt: { type: "number" },
         parentId: { type: "string" },
         progress: { type: "number" },
-        tagIds: {
-          type: "array",
-          items: { type: "string" },
-          maxItems: 10,
-        },
       },
       required: ["chartId", "title", "startsAt", "endsAt"],
       additionalProperties: false,
@@ -127,6 +126,12 @@ export interface ToolCallAddTodo {
   sprintId?: string;
   /** Raw tag ids from the model — caller validates / filters. */
   tagIds?: string[];
+  /**
+   * If the model emitted an explanatory top-level `text` field alongside
+   * the tool call, surface it here so callers can render the prose as a
+   * sibling assistant message (rect M1 — AC5 disambiguation).
+   */
+  accompanyingText?: string;
 }
 
 /** Tool call to add a new Gantt task. */
@@ -138,8 +143,10 @@ export interface ToolCallAddGanttTask {
   endsAt: number;
   parentId?: string;
   progress?: number;
-  /** Raw tag ids from the model — caller validates / filters. */
-  tagIds?: string[];
+  // No tagIds field (rect M4): the schema no longer accepts them, so
+  // this type doesn't need to carry them either.
+  /** See {@link ToolCallAddTodo.accompanyingText}. (rect M1) */
+  accompanyingText?: string;
 }
 
 /** Tool call to set a reminder. */
@@ -151,6 +158,8 @@ export interface ToolCallSetReminder {
   linkedTodoId?: string;
   /** Raw tag ids from the model — caller validates / filters. */
   tagIds?: string[];
+  /** See {@link ToolCallAddTodo.accompanyingText}. (rect M1) */
+  accompanyingText?: string;
 }
 
 /** Parse failed — the raw text was not valid JSON or had an unrecognised type. */
@@ -204,7 +213,7 @@ export function buildSystemPrompt(ctx: SystemPromptCtx): string {
 Always respond in JSON. Choose the response type based on what the user wants:
 - If the user asks a question or wants advice → { "type": "chat", "text": "your answer" }
 - If the user wants to add a to-do → { "type": "add_todo", "todo": { "title": "...", "scope": "today|sprint|long", "notes": "...", "tagIds": [] } }
-- If the user wants to add a Gantt chart task → { "type": "add_gantt_task", "task": { "chartId": "...", "title": "...", "startsAt": <ms>, "endsAt": <ms>, "progress": 0, "tagIds": [] } }
+- If the user wants to add a Gantt chart task → { "type": "add_gantt_task", "task": { "chartId": "...", "title": "...", "startsAt": <ms>, "endsAt": <ms>, "progress": 0 } }
 - If the user wants to set a reminder → { "type": "set_reminder", "reminder": { "title": "...", "fireAt": <ms>, "recurrence": "none|daily|weekly", "tagIds": [] } }
 
 Rules:
@@ -252,9 +261,13 @@ export function parseToolCall(raw: string): ParsedToolCall {
   const obj = parsed as Record<string, unknown>;
   const type = obj["type"];
 
+  // Top-level `text` (when present alongside a non-chat tool call) is
+  // surfaced as `accompanyingText` so the chat hook can render it as a
+  // sibling assistant message — see rect M1 / AC5 disambiguation.
+  const topText = typeof obj["text"] === "string" ? obj["text"] : undefined;
+
   if (type === "chat") {
-    const text = typeof obj["text"] === "string" ? obj["text"] : "";
-    return { kind: "chat", text };
+    return { kind: "chat", text: topText ?? "" };
   }
 
   if (type === "add_todo") {
@@ -278,6 +291,7 @@ export function parseToolCall(raw: string): ParsedToolCall {
     if (Array.isArray(tagIds)) {
       result.tagIds = tagIds.filter((x): x is string => typeof x === "string");
     }
+    if (topText !== undefined) result.accompanyingText = topText;
     return result;
   }
 
@@ -306,10 +320,8 @@ export function parseToolCall(raw: string): ParsedToolCall {
     };
     if (typeof t["parentId"] === "string") result.parentId = t["parentId"];
     if (typeof t["progress"] === "number") result.progress = t["progress"];
-    const tagIds = t["tagIds"];
-    if (Array.isArray(tagIds)) {
-      result.tagIds = tagIds.filter((x): x is string => typeof x === "string");
-    }
+    // No tagIds parse step (rect M4) — schema rejects them too.
+    if (topText !== undefined) result.accompanyingText = topText;
     return result;
   }
 
@@ -336,6 +348,7 @@ export function parseToolCall(raw: string): ParsedToolCall {
     if (Array.isArray(tagIds)) {
       result.tagIds = tagIds.filter((x): x is string => typeof x === "string");
     }
+    if (topText !== undefined) result.accompanyingText = topText;
     return result;
   }
 
@@ -423,10 +436,6 @@ export function applyToolCall(
     const chartExists = state.ganttCharts.some((c) => c.id === call.chartId);
     if (!chartExists) return null;
 
-    const { validTagIds, droppedTagIds } = resolveTagIds(
-      call.tagIds ?? [],
-      state.tags,
-    );
     const newTask: GanttTask = {
       id: uid(),
       chartId: call.chartId,
@@ -437,18 +446,13 @@ export function applyToolCall(
       done: false,
     };
     if (call.parentId !== undefined) newTask.parentId = call.parentId;
-    // GanttTask does not have a `tags` field in the current type.
-    // We intentionally omit tagIds from GanttTask for now.
-    // The type shape from types/index.ts shows GanttTask has no `tags` field.
-    void validTagIds; // suppress unused-var if tags not available on GanttTask
-    void droppedTagIds;
+    // No tag support for Gantt tasks (rect M4 — schema doesn't accept tagIds).
 
     const newState: ProclivityState = {
       ...state,
       ganttTasks: [...state.ganttTasks, newTask],
     };
     const summary = `Added Gantt task: "${call.title}"`;
-    // No tag support for GanttTask in the current schema.
     return {
       newState,
       payload: { type: "tool-result", summary, undoToken, snapshot, expiresAt },

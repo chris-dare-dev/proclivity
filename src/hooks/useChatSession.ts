@@ -73,6 +73,8 @@ export function useChatSession(): UseChatSessionResult {
   const abortRef = useRef<AbortController | null>(null);
   // Mirror of `messages` state kept in sync for reads outside React's update cycle.
   const messagesRef = useRef<ChatMessage[]>([]);
+  // Pending undo-expiry timer ids — cleared on clear() / unmount (rect M2).
+  const undoTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // Stable ref for the state so ensureSession / send don't rebuild on every state change.
   const stateRef = useRef(state);
   // Keep stateRef in sync on every render.
@@ -237,12 +239,28 @@ export function useChatSession(): UseChatSessionResult {
           result.payload,
         );
         toAppend.push(toolResultMsg);
+
+        // AC5 disambiguation (rect M1): when the model returns a tool call
+        // accompanied by a top-level `text` field (e.g. "Sure, I added
+        // that!"), surface it as a sibling assistant message so both the
+        // record card AND the prose render. TS knows we're in a non-chat
+        // branch here; chat already routed its `text` through the
+        // assistant-message path above.
+        if (typeof parsed.accompanyingText === "string") {
+          const proseText = parsed.accompanyingText.trim();
+          if (proseText) {
+            toAppend.push(makeMsg("assistant", proseText));
+          }
+        }
+
         appendMessages(toAppend);
 
         // Schedule the undo-button expiry: after 10 s mark the message
-        // as expired so the UI fades the button.
+        // as expired so the UI fades the button. Store the timer id so
+        // clear() and unmount can cancel it (rect M2).
         const msgId = toolResultMsg.id;
-        setTimeout(() => {
+        const timerId = setTimeout(() => {
+          undoTimersRef.current.delete(timerId);
           setMessages((prev) =>
             prev.map((m) => {
               if (m.id !== msgId || m.payload === undefined) return m;
@@ -255,6 +273,7 @@ export function useChatSession(): UseChatSessionResult {
             }),
           );
         }, 10_000);
+        undoTimersRef.current.add(timerId);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
           // Cleared during generation — the clear() handler already
@@ -285,6 +304,11 @@ export function useChatSession(): UseChatSessionResult {
    */
   const undo = useCallback(
     async (undoToken: string): Promise<void> => {
+      // Guard against racing with an in-flight prompt (rect M5). If we
+      // restored the pre-call snapshot now, the in-flight send()'s final
+      // update() would overwrite our restore and the undo would silently fail.
+      if (generating) return;
+
       const msg = messagesRef.current.find(
         (m) => m.payload?.undoToken === undoToken,
       );
@@ -294,16 +318,27 @@ export function useChatSession(): UseChatSessionResult {
       const snapshotToRestore = msg.payload.snapshot;
       const msgId = msg.id;
 
-      // Remove the tool-result message immediately on click.
-      setMessages((prev) => {
-        const next = prev.filter((m) => m.id !== msgId);
-        messagesRef.current = next;
-        return next;
-      });
-
-      await update(() => snapshotToRestore);
+      // Apply the restore FIRST. Only remove the tool-result message from the
+      // visible thread once the storage write succeeds — otherwise an
+      // update() rejection (storage error, quota, etc.) would orphan the user
+      // with no Undo affordance AND no rollback (rect M3).
+      try {
+        await update(() => snapshotToRestore);
+        setMessages((prev) => {
+          const next = prev.filter((m) => m.id !== msgId);
+          messagesRef.current = next;
+          return next;
+        });
+      } catch {
+        appendMessages([
+          makeMsg(
+            "system-notice",
+            "Undo failed — could not restore previous state. The action was not reverted.",
+          ),
+        ]);
+      }
     },
-    [update],
+    [generating, update, appendMessages],
   );
 
   /*
@@ -317,6 +352,12 @@ export function useChatSession(): UseChatSessionResult {
 
     sessionRef.current?.destroy();
     sessionRef.current = null;
+
+    // Cancel any pending undo-expiry timers — the messages they target are
+    // being removed, so their setMessages callbacks would be no-ops at best
+    // (rect M2).
+    for (const id of undoTimersRef.current) clearTimeout(id);
+    undoTimersRef.current.clear();
 
     messagesRef.current = [];
     setMessages([]);
@@ -336,6 +377,10 @@ export function useChatSession(): UseChatSessionResult {
       abortRef.current = null;
       sessionRef.current?.destroy();
       sessionRef.current = null;
+      // Also clear any pending undo-expiry timers so they don't fire
+      // setMessages on an unmounted component (rect M2).
+      for (const id of undoTimersRef.current) clearTimeout(id);
+      undoTimersRef.current.clear();
     };
   }, []);
 
