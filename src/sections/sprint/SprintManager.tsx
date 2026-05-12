@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
-import type { Sprint, Todo } from "@/types";
+import type { Sprint, Tag, Todo } from "@/types";
 import { ConfirmDialog } from "@/components/Modal";
 import { TodoItem } from "@/components/TodoItem";
+import { TodoEditModal, type TodoEditFields } from "@/components/TodoEditModal";
+import { TagFilterToolbar } from "@/components/TagFilterToolbar";
+import { filterByTags } from "@/storage/tags";
 import {
   todayMidnight,
   defaultEndsAt,
@@ -275,13 +278,22 @@ function ActiveSprintHeader({
 interface ArchivedSprintProps {
   sprint: Sprint;
   todos: Todo[];
+  /** Tags registry for chip display in archived rows (read-only, no filter). */
+  allTags: Tag[];
   onToggleTodo: (id: string) => void;
   onDeleteTodo: (id: string) => void;
 }
 
+/**
+ * Archived sprint rows show tag chips for display only.
+ * No filter toolbar and no edit button in archived rows (cross-plan
+ * contradiction #14 resolution: read-mostly archived content stays simple).
+ * Drag-reorder: absent from the codebase; no integration needed.
+ */
 function ArchivedSprintRow({
   sprint,
   todos,
+  allTags,
   onToggleTodo,
   onDeleteTodo,
 }: ArchivedSprintProps) {
@@ -315,8 +327,10 @@ function ArchivedSprintRow({
                 <TodoItem
                   key={t.id}
                   todo={t}
+                  allTags={allTags}
                   onToggle={onToggleTodo}
                   onDelete={onDeleteTodo}
+                  // No onEdit for archived rows — read-only (cross-plan #14)
                 />
               ))}
             </ul>
@@ -366,8 +380,11 @@ export function SprintManager() {
   const { state, update, loading } = useStore();
   const [mode, setMode] = useState<UIMode>("view");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Transient filter for active sprint tasks only (not archived — see ArchivedSprintRow)
+  const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const { sprints, activeSprintId, todos } = state;
+  const { sprints, activeSprintId, todos, tags: allTags } = state;
 
   // Memoize derived lists so filter+sort don't run on every render (#25).
   // These must run unconditionally — the `if (loading)` guard is below all
@@ -385,17 +402,37 @@ export function SprintManager() {
     () => sprints.filter((s) => !isArchived(s)).sort((a, b) => a.startsAt - b.startsAt),
     [sprints],
   );
-  const activeSprintTodos = useMemo(
+  const activeSprintTodosAll = useMemo(
     () =>
       activeSprintId
         ? todos.filter((t) => t.scope === "sprint" && t.sprintId === activeSprintId)
         : [],
     [todos, activeSprintId],
   );
+
+  // Prune activeTagIds when tags are deleted
+  const effectiveActiveTagIds = useMemo(() => {
+    const knownIds = new Set(allTags.map((t) => t.id));
+    return activeTagIds.filter((id) => knownIds.has(id));
+  }, [activeTagIds, allTags]);
+
+  const activeSprintTodos = useMemo(
+    () => filterByTags(activeSprintTodosAll, effectiveActiveTagIds),
+    [activeSprintTodosAll, effectiveActiveTagIds],
+  );
+
+  // Tags used in the active sprint (for filter toolbar)
+  const sprintAvailableTags = useMemo(() => {
+    const usedIds = new Set(activeSprintTodosAll.flatMap((t) => t.tags));
+    return allTags.filter((tag) => usedIds.has(tag.id));
+  }, [activeSprintTodosAll, allTags]);
+
   const unassignedSprintTodos = useMemo(
     () => todos.filter((t) => t.scope === "sprint" && !t.sprintId),
     [todos],
   );
+
+  const editingTodo = editingId ? todos.find((t) => t.id === editingId) ?? null : null;
 
   if (loading) return null;
 
@@ -481,6 +518,23 @@ export function SprintManager() {
 
   const deleteTodo = async (id: string) => {
     await update((s) => ({ ...s, todos: s.todos.filter((t) => t.id !== id) }));
+  };
+
+  const handleEditSave = async (id: string, fields: TodoEditFields) => {
+    await update((s) => ({
+      ...s,
+      todos: s.todos.map((t) => {
+        if (t.id !== id) return t;
+        return {
+          ...t,
+          title: fields.title,
+          notes: fields.notes || undefined,
+          scope: fields.scope,
+          sprintId: fields.sprintId,
+          tags: fields.tags,
+        };
+      }),
+    }));
   };
 
   const moveToActiveSprint = async (todoId: string) => {
@@ -593,9 +647,21 @@ export function SprintManager() {
             onAdd={addTask}
             placeholder="Add a task to this sprint…"
           />
+          <TagFilterToolbar
+            availableTags={sprintAvailableTags}
+            activeTagIds={effectiveActiveTagIds}
+            totalCount={activeSprintTodosAll.length}
+            filteredCount={activeSprintTodos.length}
+            onToggle={(tagId) => setActiveTagIds((prev) =>
+              prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+            )}
+            onClearAll={() => setActiveTagIds([])}
+          />
           {activeSprintTodos.length === 0 ? (
             <div className="section-empty">
-              No tasks yet. Add one above.
+              {effectiveActiveTagIds.length > 0
+                ? <>No tasks in this sprint match the selected tags. <button type="button" className="inline-clear-link" onClick={() => setActiveTagIds([])}>Clear the filter</button></>
+                : "No tasks yet. Add one above."}
             </div>
           ) : (
             <ul className="todo-list">
@@ -608,8 +674,10 @@ export function SprintManager() {
                   <TodoItem
                     key={t.id}
                     todo={t}
+                    allTags={allTags}
                     onToggle={toggleTodo}
                     onDelete={deleteTodo}
+                    onEdit={(id) => setEditingId(id)}
                   />
                 ))}
             </ul>
@@ -626,11 +694,23 @@ export function SprintManager() {
               key={s.id}
               sprint={s}
               todos={todos}
+              allTags={allTags}
               onToggleTodo={toggleTodo}
               onDeleteTodo={deleteTodo}
             />
           ))}
         </div>
+      )}
+
+      {editingTodo && (
+        <TodoEditModal
+          open={editingId !== null}
+          todo={editingTodo}
+          allTags={allTags}
+          sprints={sprints}
+          onClose={() => setEditingId(null)}
+          onSave={handleEditSave}
+        />
       )}
     </div>
   );

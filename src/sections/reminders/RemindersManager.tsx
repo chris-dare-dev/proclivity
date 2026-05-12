@@ -1,7 +1,27 @@
-import { useState, useEffect } from "react";
+/**
+ * RemindersManager — reminders section with add form, filter toolbar, and edit modal.
+ *
+ * Filter state: transient per-session useState (same rationale as TodoList).
+ *
+ * Edit modal: ReminderEditModal defined below. Concrete field signature
+ * (no Partial<>) per CRITICAL fix #2.
+ *
+ * Past-fireAt behavior (HIGH fix #14): if the user saves an edit with a past
+ * fireAt and no recurrence, the reminder is marked fired immediately.
+ * Rationale: service-worker diffAndSyncAlarms skips alarms where fireAt <= now,
+ * so the reminder would sit in "upcoming" forever. Marking fired immediately
+ * is cleaner UX than the warning-but-save footgun.
+ */
+
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
-import type { Reminder, Todo } from "@/types";
+import type { Reminder, Tag, Todo } from "@/types";
+import { Modal } from "@/components/Modal";
+import { TagPickerArea } from "@/components/TagPickerArea";
+import { TagFilterToolbar } from "@/components/TagFilterToolbar";
+import { TagChip } from "@/components/TagChip";
+import { filterByTags, createTag } from "@/storage/tags";
 import {
   relativeTime,
   tsToDatetimeLocal,
@@ -16,11 +36,10 @@ import "./reminders.css";
 interface AddReminderFormProps {
   onSave: (reminder: Omit<Reminder, "id" | "fired">) => void;
   todos: Todo[];
+  allTags: Tag[];
 }
 
-function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
-
-  // Default fire time: 1 hour from now, rounded to nearest minute
+function AddReminderForm({ onSave, todos, allTags }: AddReminderFormProps) {
   const defaultFireAt = () => {
     const d = new Date(Date.now() + 60 * 60_000);
     d.setSeconds(0, 0);
@@ -31,6 +50,7 @@ function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
   const [fireAtVal, setFireAtVal] = useState(defaultFireAt);
   const [recurrence, setRecurrence] = useState<Reminder["recurrence"]>("none");
   const [linkedTodoId, setLinkedTodoId] = useState<string>("");
+  const [tagIds, setTagIds] = useState<string[]>([]);
 
   const handleSave = () => {
     const t = title.trim();
@@ -40,12 +60,23 @@ function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
       fireAt: datetimeLocalToTs(fireAtVal),
       recurrence: recurrence ?? "none",
       linkedTodoId: linkedTodoId || undefined,
-      tags: [],
+      tags: tagIds,
     });
     setTitle("");
     setFireAtVal(defaultFireAt());
     setRecurrence("none");
     setLinkedTodoId("");
+    setTagIds([]);
+  };
+
+  const handleToggleTag = (tagId: string) => {
+    setTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+    );
+  };
+
+  const handleCreateTag = async (label: string, color: string): Promise<Tag> => {
+    return createTag(label, color);
   };
 
   return (
@@ -97,6 +128,15 @@ function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
             ))}
           </select>
         </div>
+        <div className="reminder-form-field reminder-form-field-full">
+          <label>Tags</label>
+          <TagPickerArea
+            allTags={allTags}
+            assignedTagIds={tagIds}
+            onToggle={handleToggleTag}
+            onCreate={handleCreateTag}
+          />
+        </div>
       </div>
       <div className="reminder-form-actions">
         <button onClick={handleSave}>Add Reminder</button>
@@ -105,7 +145,7 @@ function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
   );
 }
 
-/* ─── RelativeTime — owns its own 30s tick so the parent doesn't re-render (#26) */
+/* ─── RelativeTime — owns its own 30s tick so the parent doesn't re-render */
 
 function RelativeTime({ fireAt }: { fireAt: number }) {
   const [now, setNow] = useState(() => Date.now());
@@ -122,19 +162,28 @@ function RelativeTime({ fireAt }: { fireAt: number }) {
 interface ReminderItemProps {
   reminder: Reminder;
   linkedTodoTitle?: string | undefined;
+  allTags: Tag[];
   onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
 }
 
 function ReminderItem({
   reminder,
   linkedTodoTitle,
+  allTags,
   onDelete,
+  onEdit,
 }: ReminderItemProps) {
   const absolute = formatFireAt(reminder.fireAt);
   const recLabel =
     reminder.recurrence && reminder.recurrence !== "none"
       ? reminder.recurrence
       : null;
+
+  // Resolve tag objects — skip orphan ids silently
+  const tags = reminder.tags
+    .map((id) => allTags.find((t) => t.id === id))
+    .filter((t): t is Tag => t !== undefined);
 
   return (
     <div className={`reminder-item ${reminder.fired ? "fired" : ""}`}>
@@ -155,9 +204,19 @@ function ReminderItem({
               → {linkedTodoTitle}
             </span>
           )}
+          {tags.map((tag) => (
+            <TagChip key={tag.id} label={tag.label} color={tag.color} />
+          ))}
         </div>
       </div>
       <div className="reminder-item-actions">
+        <button
+          className="reminder-edit"
+          aria-label={`Edit reminder: ${reminder.title}`}
+          onClick={() => onEdit(reminder.id)}
+        >
+          ✎
+        </button>
         <button
           className="btn-danger"
           aria-label={`Delete reminder: ${reminder.title}`}
@@ -170,15 +229,182 @@ function ReminderItem({
   );
 }
 
+/* ─── Reminder Edit Modal ───────────────────────────────────── */
+
+interface ReminderEditFields {
+  title: string;
+  fireAt: number;
+  recurrence: NonNullable<Reminder["recurrence"]>;
+  linkedTodoId: string | undefined;
+  tags: string[];
+}
+
+interface ReminderEditModalProps {
+  open: boolean;
+  reminder: Reminder;
+  todos: Todo[];
+  allTags: Tag[];
+  onClose: () => void;
+  /** Concrete fields — no Partial<> per exactOptionalPropertyTypes (CRITICAL fix #2). */
+  onSave: (id: string, fields: ReminderEditFields) => void;
+}
+
+function ReminderEditModal({
+  open,
+  reminder,
+  todos,
+  allTags,
+  onClose,
+  onSave,
+}: ReminderEditModalProps) {
+  const [title, setTitle] = useState(reminder.title);
+  const [fireAtVal, setFireAtVal] = useState(tsToDatetimeLocal(reminder.fireAt));
+  const [recurrence, setRecurrence] = useState<NonNullable<Reminder["recurrence"]>>(
+    reminder.recurrence ?? "none",
+  );
+  const [linkedTodoId, setLinkedTodoId] = useState<string>(reminder.linkedTodoId ?? "");
+  const [tagIds, setTagIds] = useState<string[]>([...reminder.tags]);
+  const [titleError, setTitleError] = useState<string | null>(null);
+
+  // Reset on open with new reminder
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useMemo(() => {
+    if (open) {
+      setTitle(reminder.title);
+      setFireAtVal(tsToDatetimeLocal(reminder.fireAt));
+      setRecurrence(reminder.recurrence ?? "none");
+      setLinkedTodoId(reminder.linkedTodoId ?? "");
+      setTagIds([...reminder.tags]);
+      setTitleError(null);
+    }
+  }, [open, reminder.id]);
+
+  const fireAtTs = datetimeLocalToTs(fireAtVal);
+  const isPast = fireAtTs < Date.now();
+
+  const handleSave = () => {
+    const trimmed = title.trim();
+    if (!trimmed) { setTitleError("Title is required."); return; }
+    // On save: filter tagIds against current allTags (CRITICAL fix #6)
+    const knownIds = new Set(allTags.map((t) => t.id));
+    const validTagIds = tagIds.filter((id) => knownIds.has(id));
+    onSave(reminder.id, {
+      title: trimmed,
+      fireAt: fireAtTs,
+      recurrence,
+      linkedTodoId: linkedTodoId || undefined,
+      tags: validTagIds,
+    });
+    onClose();
+  };
+
+  const handleToggleTag = (tagId: string) => {
+    setTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+    );
+  };
+
+  const handleCreateTag = async (label: string, color: string): Promise<Tag> => {
+    return createTag(label, color);
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Edit reminder">
+      <div className="modal-body reminder-edit-form">
+        <label className="todo-edit-field">
+          <span className="todo-edit-label">Title</span>
+          <input
+            type="text"
+            value={title}
+            autoFocus
+            onChange={(e) => { setTitle(e.target.value); setTitleError(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+          />
+          {titleError && <span className="todo-edit-error" role="alert">{titleError}</span>}
+        </label>
+
+        <label className="todo-edit-field">
+          <span className="todo-edit-label">Fire at</span>
+          <input
+            type="datetime-local"
+            value={fireAtVal}
+            onChange={(e) => setFireAtVal(e.target.value)}
+          />
+          {isPast && (
+            <span className="settings-hint settings-hint--info" role="status">
+              This time is in the past.{" "}
+              {recurrence === "none"
+                ? "The reminder will be marked fired immediately on save."
+                : "The next occurrence will be scheduled automatically."}
+            </span>
+          )}
+        </label>
+
+        <label className="todo-edit-field">
+          <span className="todo-edit-label">Repeat</span>
+          <select
+            value={recurrence}
+            onChange={(e) =>
+              setRecurrence(e.target.value as NonNullable<Reminder["recurrence"]>)
+            }
+          >
+            <option value="none">None</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </label>
+
+        <label className="todo-edit-field">
+          <span className="todo-edit-label">Link to todo (optional)</span>
+          <select
+            value={linkedTodoId}
+            onChange={(e) => setLinkedTodoId(e.target.value)}
+          >
+            <option value="">— none —</option>
+            {todos.map((t) => (
+              <option key={t.id} value={t.id}>
+                [{t.scope}] {t.title}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="todo-edit-field">
+          <span className="todo-edit-label">Tags</span>
+          <TagPickerArea
+            allTags={allTags}
+            assignedTagIds={tagIds}
+            onToggle={handleToggleTag}
+            onCreate={handleCreateTag}
+          />
+        </div>
+      </div>
+
+      <div className="modal-footer">
+        <button type="button" onClick={onClose}>Cancel</button>
+        <button
+          type="button"
+          className="modal-btn-primary"
+          onClick={handleSave}
+        >
+          Save changes
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 /* ─── Main RemindersManager ─────────────────────────────────── */
 
 export function RemindersManager() {
   const { state, update, loading } = useStore();
-  // Note: the 30s tick was moved into <RelativeTime> so only that leaf re-renders (#26)
+  // Transient filter — same rationale as TodoList: ephemeral newtab state
+  const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   if (loading) return null;
 
-  const { reminders, todos } = state;
+  const { reminders, todos, tags: allTags } = state;
 
   const todoMap = new Map(todos.map((t) => [t.id, t.title]));
 
@@ -190,6 +416,36 @@ export function RemindersManager() {
     .filter((r) => r.fired)
     .sort((a, b) => b.fireAt - a.fireAt);
 
+  // Tags used in any reminder (for filter toolbar)
+  const availableTags = useMemo(() => {
+    const usedIds = new Set(reminders.flatMap((r) => r.tags));
+    return allTags.filter((tag) => usedIds.has(tag.id));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminders, allTags]);
+
+  // Prune activeTagIds when tags are deleted
+  const effectiveActiveTagIds = useMemo(() => {
+    const knownIds = new Set(allTags.map((t) => t.id));
+    return activeTagIds.filter((id) => knownIds.has(id));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTagIds, allTags]);
+
+  const filteredUpcoming = useMemo(
+    () => filterByTags(upcoming, effectiveActiveTagIds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [upcoming, effectiveActiveTagIds],
+  );
+
+  const filteredFired = useMemo(
+    () => filterByTags(fired, effectiveActiveTagIds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fired, effectiveActiveTagIds],
+  );
+
+  const editingReminder = editingId
+    ? reminders.find((r) => r.id === editingId) ?? null
+    : null;
+
   const addReminder = async (
     reminder: Omit<Reminder, "id" | "fired">,
   ) => {
@@ -200,7 +456,6 @@ export function RemindersManager() {
     }));
   };
 
-  // Single delete action: Dismiss was identical and misleadingly commented (#6)
   const deleteReminder = async (id: string) => {
     await update((s) => ({
       ...s,
@@ -208,25 +463,71 @@ export function RemindersManager() {
     }));
   };
 
+  const handleEditSave = async (id: string, fields: ReminderEditFields) => {
+    const now = Date.now();
+    // HIGH fix #14: past fireAt + no recurrence → mark fired immediately.
+    // Otherwise the reminder sits in "upcoming" but never fires.
+    const markFired =
+      fields.fireAt < now && (fields.recurrence === "none" || !fields.recurrence);
+
+    await update((s) => ({
+      ...s,
+      reminders: s.reminders.map((r) => {
+        if (r.id !== id) return r;
+        return {
+          ...r,
+          title: fields.title,
+          fireAt: fields.fireAt,
+          recurrence: fields.recurrence,
+          linkedTodoId: fields.linkedTodoId,
+          tags: fields.tags,
+          fired: markFired ? true : r.fired,
+        };
+      }),
+    }));
+  };
+
+  const toggleFilter = (tagId: string) => {
+    setActiveTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+    );
+  };
+
+  const isFiltered = effectiveActiveTagIds.length > 0;
+
   return (
     <div>
-      {/* Pass todos as prop — avoids a second useStore() in AddReminderForm (#7) */}
-      <AddReminderForm onSave={addReminder} todos={todos} />
+      <AddReminderForm onSave={addReminder} todos={todos} allTags={allTags} />
+
+      <TagFilterToolbar
+        availableTags={availableTags}
+        activeTagIds={effectiveActiveTagIds}
+        totalCount={reminders.length}
+        filteredCount={filteredUpcoming.length + filteredFired.length}
+        onToggle={toggleFilter}
+        onClearAll={() => setActiveTagIds([])}
+      />
 
       {/* Upcoming */}
       <div className="reminders-section">
         <div className="reminders-section-heading">
-          Upcoming ({upcoming.length})
+          Upcoming ({filteredUpcoming.length})
         </div>
-        {upcoming.length === 0 ? (
-          <div className="section-empty">No upcoming reminders.</div>
+        {filteredUpcoming.length === 0 ? (
+          <div className="section-empty">
+            {isFiltered
+              ? <>No upcoming reminders match the selected tags. <button type="button" className="inline-clear-link" onClick={() => setActiveTagIds([])}>Clear the filter</button></>
+              : "No upcoming reminders."}
+          </div>
         ) : (
-          upcoming.map((r) => (
+          filteredUpcoming.map((r) => (
             <ReminderItem
               key={r.id}
               reminder={r}
               linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
+              allTags={allTags}
               onDelete={deleteReminder}
+              onEdit={(id) => setEditingId(id)}
             />
           ))
         )}
@@ -236,17 +537,34 @@ export function RemindersManager() {
       {fired.length > 0 && (
         <div className="reminders-section">
           <div className="reminders-section-heading">
-            Fired ({fired.length})
+            Fired ({filteredFired.length})
           </div>
-          {fired.map((r) => (
-            <ReminderItem
-              key={r.id}
-              reminder={r}
-              linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
-              onDelete={deleteReminder}
-            />
-          ))}
+          {filteredFired.length === 0 ? (
+            <div className="section-empty">No fired reminders match the selected tags.</div>
+          ) : (
+            filteredFired.map((r) => (
+              <ReminderItem
+                key={r.id}
+                reminder={r}
+                linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
+                allTags={allTags}
+                onDelete={deleteReminder}
+                onEdit={(id) => setEditingId(id)}
+              />
+            ))
+          )}
         </div>
+      )}
+
+      {editingReminder && (
+        <ReminderEditModal
+          open={editingId !== null}
+          reminder={editingReminder}
+          todos={todos}
+          allTags={allTags}
+          onClose={() => setEditingId(null)}
+          onSave={handleEditSave}
+        />
       )}
     </div>
   );
