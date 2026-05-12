@@ -1,0 +1,351 @@
+/* ─── Card canvas ────────────────────────────────────────────────── */
+
+.card-canvas {
+  position: relative;
+  width: 100%;
+  /* min-height keeps the canvas visible even when all cards are filtered.
+   * Updated by the section component as cards are positioned. */
+  min-height: 400px;
+
+  /* CSS custom property so DraggableCard CSS can read the grid size.
+   * Must match CARD_GRID_SIZE in src/storage/constants.ts. */
+  --grid-size: 8px;
+}
+
+/* Dot grid — fades in when any card is being dragged. Pure CSS, no JS.
+ * DraggableCard adds/removes .is-dragging on its .card-canvas ancestor. */
+.card-canvas.is-dragging::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--border) 60%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: var(--grid-size) var(--grid-size);
+  opacity: 0;
+  animation: card-grid-fade-in 150ms ease forwards;
+}
+
+@keyframes card-grid-fade-in {
+  to { opacity: 1; }
+}
+
+[data-reduced-motion="true"] .card-canvas.is-dragging::before {
+  animation: none;
+  opacity: 0.4;
+}
+
+/* Narrow viewport: hide canvas; a fallback list shown in its place.
+ * Section components render both .card-canvas and .card-fallback-list,
+ * toggling visibility via this media query. */
+@media (max-width: 599px) {
+  .card-canvas { display: none; }
+  .card-fallback-list { display: flex !important; }
+}
+.card-fallback-list {
+  /* Hidden at wider viewports; the media query above reveals it. */
+  display: none;
+}
+
+/* ─── Draggable card wrapper ─────────────────────────────────────── */
+
+.draggable-card {
+  cursor: grab;
+}
+
+.draggable-card.is-dragging {
+  cursor: grabbing;
+}
+
+/* ─── Task card ──────────────────────────────────────────────────── */
+
+.task-card {
+  /* Use CSS custom property so future resize handles can override per-card */
+  --card-width: 240px;
+  --card-pad-x: var(--panel-pad-x, 20px);
+  --card-pad-y: var(--panel-pad-y, 16px);
+
+  width: var(--card-width);
+  min-width: 200px;
+  max-width: 320px;
+  min-height: 72px;
+  box-sizing: border-box;
+
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--card-pad-y) var(--card-pad-x);
+
+  box-shadow:
+    0 1px 3px 0 color-mix(in srgb, var(--border) 60%, transparent);
+
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative; /* for absolute-positioned delete button */
+
+  transition:
+    box-shadow 140ms ease,
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+/* Hover — shadow lifts */
+.task-card:hover {
+  box-shadow:
+    0 4px 12px 0 color-mix(in srgb, var(--border) 80%, transparent),
+    0 1px 3px 0 color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+/* Focus ring */
+.task-card:focus-visible,
+.task-card[data-focused="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Dragging state — DraggableCard adds is-dragging class to the wrapper,
+ * but the visual elevation lives on .task-card inside it. */
+.draggable-card.is-dragging .task-card {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px 0 color-mix(in srgb, var(--border) 90%, transparent),
+    0 2px 6px 0 color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+/* Done state */
+.task-card.is-done {
+  opacity: 0.6;
+}
+.task-card.is-done .task-card-title {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+/* Filtered-out: invisible but occupying space so canvas height stays stable */
+.task-card.is-filtered-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Reduced motion */
+[data-reduced-motion="true"] .task-card {
+  transition: none;
+}
+
+/* ─── Card header row ────────────────────────────────────────────── */
+
+.task-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.task-card-checkbox {
+  flex-shrink: 0;
+  margin-top: 2px; /* optical alignment with first line of title */
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.task-card-title {
+  flex: 1;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  line-height: var(--line-height-base);
+  color: var(--text);
+  word-break: break-word;
+}
+
+/* ─── Edit button (pencil) ───────────────────────────────────────── */
+
+/* Same opacity pattern as .todo-edit in sections.css */
+.task-card-edit {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 2px 4px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  cursor: pointer;
+  line-height: 1;
+}
+.task-card:hover .task-card-edit,
+.task-card:focus-within .task-card-edit {
+  opacity: 1;
+  pointer-events: auto;
+}
+.task-card-edit:hover { color: var(--accent); }
+.task-card-edit:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+[data-reduced-motion="true"] .task-card-edit {
+  transition: none;
+}
+
+/* ─── Notes ──────────────────────────────────────────────────────── */
+
+.task-card-notes {
+  font-size: calc(var(--font-size-base) - 1px);
+  color: var(--text-dim);
+  line-height: var(--line-height-base);
+  /* 3-line clamp: prevents unbounded height; full text in edit modal */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  margin-top: 2px;
+}
+
+/* ─── Tag chips row ──────────────────────────────────────────────── */
+
+.task-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* "+N more" overflow chip */
+.task-card-tags-overflow {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 999px;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--border) 30%, transparent);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* ─── Delete button ──────────────────────────────────────────────── */
+
+/* Absolutely positioned top-right; hidden at rest, revealed on hover/focus */
+.task-card-delete {
+  position: absolute;
+  top: var(--space-2, 8px);
+  right: var(--space-2, 8px);
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 2px 4px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: 1;
+}
+.task-card:hover .task-card-delete,
+.task-card:focus-within .task-card-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+.task-card-delete:hover { color: var(--danger); }
+[data-reduced-motion="true"] .task-card-delete {
+  transition: none;
+}
+
+/* ─── Reminder-specific card extras ─────────────────────────────── */
+
+.task-card-fireat {
+  font-size: calc(var(--font-size-base) - 2px);
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 2px;
+}
+.task-card-fireat.is-fired {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* ─── Reset layout button (per-section toolbar) ──────────────────── */
+
+.card-reset-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: color 120ms ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.card-reset-btn:hover { color: var(--text); }
+.card-reset-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+[data-reduced-motion="true"] .card-reset-btn {
+  transition: none;
+}
+
+/* ─── Toolbar row in card mode ───────────────────────────────────── */
+
+/* Wraps TagFilterToolbar + Reset layout button side by side */
+.card-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.card-toolbar-row .tag-filter-toolbar {
+  flex: 1;
+  margin-bottom: 0; /* override any bottom margin from TagFilterToolbar's own CSS */
+}
+
+/* ─── Onboarding hint ────────────────────────────────────────────── */
+
+.card-onboarding-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 200;
+  pointer-events: auto;
+}
+.card-onboarding-hint button {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ─── High contrast ──────────────────────────────────────────────── */
+
+@media (forced-colors: active) {
+  .task-card {
+    border: 1px solid ButtonText;
+    forced-color-adjust: auto;
+  }
+}
