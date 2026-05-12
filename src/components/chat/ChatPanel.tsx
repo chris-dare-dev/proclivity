@@ -1,5 +1,6 @@
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef } from "react";
 import { useChatSession } from "@/hooks/useChatSession";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import "./ChatPanel.css";
@@ -20,22 +21,6 @@ import "./ChatPanel.css";
  * Default export required for React.lazy(() => import("@/components/chat/ChatPanel")).
  */
 
-const FOCUSABLE_SELECTORS = [
-  "a[href]",
-  "area[href]",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "button:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])',
-].join(", ");
-
-function getFocusable(container: HTMLElement): HTMLElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
-  );
-}
-
 interface ChatPanelProps {
   onClose: () => void;
 }
@@ -44,6 +29,7 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
   const { messages, generating, send, clear, undo } = useChatSession();
   const panelRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const trapFocus = useFocusTrap(panelRef);
 
   // Auto-scroll to the latest message. Panel is always mounted when open
   // (gated in App.tsx), so we don't need an `open` guard here.
@@ -60,38 +46,13 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  // Focus trap on Tab — keeps keyboard navigation inside the panel while
-  // it's open. Mirrors Modal.tsx's pattern but inlined to avoid coupling
-  // to that component's internals (rect M2).
-  const handlePanelKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Tab" || !panelRef.current) return;
-    const focusable = getFocusable(panelRef.current);
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (!first || !last) {
-      e.preventDefault();
-      return;
-    }
-    if (e.shiftKey) {
-      if (document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else {
-      if (document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  };
-
   return (
     <div
       ref={panelRef}
       className="chat-panel chat-panel--open"
       role="complementary"
       aria-label="Gemini Nano chat"
-      onKeyDown={handlePanelKeyDown}
+      onKeyDown={trapFocus}
     >
       {/* Header */}
       <div className="chat-panel__header">

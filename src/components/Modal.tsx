@@ -8,24 +8,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import "./Modal.css";
-
-// ---------------------------------------------------------------------------
-// Focusable element selector (for focus-trap)
-// ---------------------------------------------------------------------------
-const FOCUSABLE_SELECTORS = [
-  "a[href]",
-  "area[href]",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  "button:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])',
-].join(", ");
-
-function getFocusable(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS));
-}
 
 // ---------------------------------------------------------------------------
 // Base Modal
@@ -48,6 +32,7 @@ export function Modal({ open, onClose, title, children, panelClassName }: ModalP
   const previousFocusRef = useRef<HTMLElement | null>(null);
   // Unique ID per modal instance so nested modals don't share aria-labelledby (#14)
   const titleId = useId();
+  const trapFocus = useFocusTrap(panelRef);
 
   // Save & restore focus
   useEffect(() => {
@@ -63,7 +48,7 @@ export function Modal({ open, onClose, title, children, panelClassName }: ModalP
     }
   }, [open]);
 
-  // Escape key closes
+  // Escape closes; Tab is delegated to the shared focus-trap hook.
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Escape") {
@@ -71,29 +56,9 @@ export function Modal({ open, onClose, title, children, panelClassName }: ModalP
         onClose();
         return;
       }
-      // Focus trap
-      if (e.key === "Tab" && panelRef.current) {
-        const focusable = getFocusable(panelRef.current);
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (!first || !last) {
-          e.preventDefault();
-          return;
-        }
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else {
-          if (document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-          }
-        }
-      }
+      trapFocus(e);
     },
-    [onClose],
+    [onClose, trapFocus],
   );
 
   if (!open) return null;
