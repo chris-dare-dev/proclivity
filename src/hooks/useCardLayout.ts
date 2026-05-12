@@ -29,7 +29,6 @@ import {
   CASCADE_CARD_H,
   resetCardPositions,
   setCardPositionToFront,
-  setCardSize,
 } from "@/storage/cardLayouts";
 
 /** Fallback card height for canvas-height computation when no h is stored. */
@@ -158,7 +157,14 @@ export function useCardLayout<T extends { id: string }>({
         const existing = prev[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 };
         return { ...prev, [id]: { ...existing, w: size.w, h: size.h } };
       });
-      await update(setCardSize(id, size));
+      // M4 fix: bump z to front on resize-end so "last touched = on top" model
+      // is consistent with drag-end. Uses setCardPositionToFront which reads the
+      // stored x/y and the new w/h, computing maxZ atomically.
+      await update((s) => {
+        const layouts = s.cardLayouts ?? {};
+        const existing = layouts[id] ?? { x: 0, y: 0, z: 0 };
+        return setCardPositionToFront(id, { x: existing.x, y: existing.y, w: size.w, h: size.h })(s);
+      });
     },
     [update, cardLayouts],
   );

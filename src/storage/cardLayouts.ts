@@ -18,7 +18,7 @@
 
 import type { CardPosition, ProclivityState } from "@/types";
 // Re-export so card-mode code can import from one place.
-export { resetCardPositions } from "./resetCardPositions";
+export { resetCardPositions, removeCardLayouts } from "./resetCardPositions";
 
 /**
  * Returns a state updater that writes (or overwrites) a single card position.

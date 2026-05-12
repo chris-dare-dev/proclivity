@@ -20,7 +20,9 @@ import {
 // bundle fix: import from the lightweight module so cardLayouts.ts (which
 // contains resize helpers) stays in the lazy card-mode chunk, keeping the
 // initial bundle under 200 kB.
-import { resetCardPositions } from "@/storage/resetCardPositions";
+// removeCardLayouts used for deletion (full wipe incl. w/h); resetCardPositions
+// is the "Reset layout" path that now preserves w/h.
+import { removeCardLayouts } from "@/storage/resetCardPositions";
 import "../sections.css";
 import "./sprint.css";
 
@@ -548,8 +550,9 @@ export function SprintManager() {
     // Clean up orphan card position on deletion (C1/H3 fix: matches TodoList.remove and
     // RemindersManager.deleteReminder). Applies for both active-sprint and archived-sprint
     // task deletion since the same helper is called from both paths.
+    // Uses removeCardLayouts (full wipe) not resetCardPositions (which preserves w/h).
     await update((s) =>
-      resetCardPositions([id])({
+      removeCardLayouts([id])({
         ...s,
         todos: s.todos.filter((t) => t.id !== id),
       }),

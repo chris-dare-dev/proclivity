@@ -359,7 +359,7 @@ function ReminderCardCanvas({
           type="button"
           className="card-reset-btn"
           onClick={() => void handlers.onResetLayout()}
-          title="Reset card positions to default"
+          title="Reset card positions to default (preserves card sizes)"
         >
           ↺ Reset layout
         </button>

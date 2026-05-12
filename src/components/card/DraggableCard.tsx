@@ -261,6 +261,8 @@ export const DraggableCard = memo(function DraggableCard({
     const snappedH = clamp(snapTo(rawH, CARD_GRID_SIZE), MIN_H, MAX_H);
 
     applySize(snappedW, snappedH);
+    // M1 fix: skip storage write on zero-delta (plain click on handle with no drag).
+    if (snappedW === rs.origW && snappedH === rs.origH) return;
     onResize?.(itemId, { w: snappedW, h: snappedH });
   };
 
@@ -356,11 +358,17 @@ export const DraggableCard = memo(function DraggableCard({
     style.pointerEvents = "none";
   }
 
+  // L2 fix: data-user-sized replaces the fragile [style*="width"] CSS selector.
+  // If any other inline style property ever contains "width" as a substring
+  // (e.g. border-width) the old selector would falsely match.
+  const userSized = position.w !== undefined || position.h !== undefined;
+
   return (
     <div
       ref={elRef}
       className={`draggable-card${className ? ` ${className}` : ""}`}
       style={style}
+      data-user-sized={userSized ? "true" : undefined}
       tabIndex={0}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
