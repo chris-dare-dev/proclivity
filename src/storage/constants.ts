@@ -22,7 +22,10 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   fontSize: "md",
   reducedMotion: false,
   meshEnabled: true,
-  meshIntensity: 0.9,
+  // Matches the legacy CSS opacity of 0.18 (≈ 20%). Controls .mesh-background
+  // opacity directly via the --mesh-intensity CSS custom property; the shader
+  // uAlpha is kept at 1.0 so this is the sole brightness control.
+  meshIntensity: 0.2,
   meshColorMode: "auto",
   meshColor: "#7c9cff",
   timeFormat: "auto",

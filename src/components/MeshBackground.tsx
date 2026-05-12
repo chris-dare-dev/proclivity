@@ -119,7 +119,7 @@ const COLOR_KEYS_RAW: Array<{ h: number; hex: string; label: string }> = [
   { h: 22, hex: "#9a3aff", label: "purple"       },
 ];
 
-function WarpMesh({ intensity }: { intensity: number }) {
+function WarpMesh() {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
 
   const colorKeys = useMemo(() => {
@@ -131,6 +131,10 @@ function WarpMesh({ intensity }: { intensity: number }) {
     return [...sorted, { h: first.h + 24, c: first.c }];
   }, []);
 
+  // Shader alpha is held at 1.0 — the visual brightness is controlled by
+  // .mesh-background's CSS opacity via the --mesh-intensity custom property,
+  // which gives a single linear control (0–1) instead of multiplying CSS
+  // opacity by a separate shader alpha.
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
@@ -139,19 +143,10 @@ function WarpMesh({ intensity }: { intensity: number }) {
       uFreq: { value: 0.18 },
       uSpeed: { value: 0.035 },
       uColor: { value: new THREE.Color("#3d7eff") },
-      uAlpha: { value: intensity },
+      uAlpha: { value: 1.0 },
     }),
-    // Deps intentionally empty: uniforms hold mutable refs that we update
-    // imperatively below. Re-creating the object would dispose GL state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-
-  // Keep the alpha uniform in sync with the live prop so the slider gives
-  // an immediate visual response without remounting the canvas.
-  useEffect(() => {
-    uniforms.uAlpha.value = intensity;
-  }, [intensity, uniforms]);
 
   const colorScratch = useMemo(() => new THREE.Color(), []);
 
@@ -211,7 +206,7 @@ interface MeshBackgroundProps {
 }
 
 export function MeshBackground({
-  intensity = 0.9,
+  intensity = 0.2,
   reducedMotion = false,
 }: MeshBackgroundProps) {
   // OS-level preference is the strongest signal. The user setting can
@@ -236,14 +231,18 @@ export function MeshBackground({
   }, []);
 
   return (
-    <div className="mesh-background" aria-hidden="true">
+    <div
+      className="mesh-background"
+      aria-hidden="true"
+      style={{ "--mesh-intensity": intensity } as React.CSSProperties}
+    >
       <Canvas
         camera={{ position: [0, 0, 11], fov: 50 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         frameloop={effectiveReduced || !active ? "demand" : "always"}
       >
-        <WarpMesh intensity={intensity} />
+        <WarpMesh />
       </Canvas>
     </div>
   );

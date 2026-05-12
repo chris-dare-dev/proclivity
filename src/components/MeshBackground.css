@@ -3,15 +3,16 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  /* Lower the visual weight so it doesn't compete with the planner UI */
-  opacity: 0.18;
+  /* Lower the visual weight so it doesn't compete with the planner UI.
+   * Driven by --mesh-intensity (0–1) which Settings writes inline. */
+  opacity: var(--mesh-intensity, 0.2);
   /* Fade in once three.js has loaded (lazy-import path) */
   animation: mesh-fade-in 800ms ease-out both;
 }
 
 @keyframes mesh-fade-in {
   from { opacity: 0; }
-  to   { opacity: 0.18; }
+  to   { opacity: var(--mesh-intensity, 0.2); }
 }
 
 @media (prefers-reduced-motion: reduce) {
