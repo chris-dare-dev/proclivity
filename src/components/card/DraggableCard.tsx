@@ -10,10 +10,20 @@
  * - On pointer-up: snaps to CARD_GRID_SIZE, calls onPositionChange with
  *   the snapped position (live preview update), then calls onDragEnd with
  *   the same position for the parent to persist.
- * - Keyboard: arrow keys nudge by gridSize; Escape cancels drag in progress.
+ * - Keyboard: arrow keys nudge by gridSize; Shift+Arrow resizes by one
+ *   grid unit; Escape cancels drag in progress.
+ *   Note: Shift+Arrow for resize was chosen over Alt+Arrow to keep the
+ *   convention consistent with "modifier = larger action". It can conflict
+ *   with text-selection shortcuts in system inputs, but cards contain no
+ *   editable text — buttons and checkboxes only — so the conflict is
+ *   theoretical.
+ * - Resize handle: bottom-right 14×14 px wedge. Its onPointerDown sets
+ *   pointer capture on the handle element itself and sets resizeRef. The
+ *   card body's onPointerDown guard (`target.closest("button, input…")`)
+ *   does NOT cover the handle — the handle calls e.stopPropagation() to
+ *   prevent the card drag from also starting.
  * - z-order: managed by the parent (useCardLayout) via setCardPositionToFront
- *   inside the storage updater — no z bump needed here (A3 fix removes
- *   onDragStart which was the old z-bump hook, now replaced by C2 fix).
+ *   inside the storage updater — no z bump needed here.
  *
  * The component is wrapped in React.memo so siblings don't re-render while
  * one card is being dragged.
@@ -37,16 +47,31 @@ interface DragState {
   origY: number;
 }
 
+interface ResizeState {
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  origW: number;
+  origH: number;
+}
+
+const MIN_W = 140;
+const MIN_H = 80;
+const MAX_W = 600;
+const MAX_H = 500;
+
 interface Props {
   itemId: string;
   position: CardPosition;
   onPositionChange: (id: string, pos: CardPosition) => void;
   /**
    * Called on pointer-up with the final snapped position — write to storage here.
-   * A3 fix: onDragStart removed. z-order is managed atomically in setCardPositionToFront
-   * inside the state updater called by onDragEnd (no stale-closure race).
    */
   onDragEnd?: ((id: string, pos: CardPosition) => void) | undefined;
+  /**
+   * Called on resize-end with the final snapped { w, h } — write to storage here.
+   */
+  onResize?: ((id: string, size: { w: number; h: number }) => void) | undefined;
   /** Whether this card should be visually hidden (filtered out) but stay in DOM. */
   filteredOut?: boolean | undefined;
   children: ReactNode;
@@ -57,21 +82,26 @@ function snapTo(value: number, grid: number): number {
   return Math.round(value / grid) * grid;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 export const DraggableCard = memo(function DraggableCard({
   itemId,
   position,
   onPositionChange,
   onDragEnd,
+  onResize,
   filteredOut,
   children,
   className,
 }: Props) {
   const dragRef = useRef<DragState | null>(null);
+  const resizeRef = useRef<ResizeState | null>(null);
   const elRef = useRef<HTMLDivElement | null>(null);
+  const resizeHandleRef = useRef<HTMLDivElement | null>(null);
 
   // Apply position via style (not state) during drag for perf.
-  // The parent's `position` prop drives initial render; live updates during drag
-  // go direct to the DOM element. On pointer-up the parent state updates once.
   function applyPosition(x: number, y: number) {
     const el = elRef.current;
     if (!el) return;
@@ -79,11 +109,28 @@ export const DraggableCard = memo(function DraggableCard({
     el.style.top = `${y}px`;
   }
 
+  // Apply size via style during resize for perf.
+  function applySize(w: number, h: number) {
+    const el = elRef.current;
+    if (!el) return;
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+  }
+
+  // Read current rendered size of the card element (for resize origin).
+  function currentSize(): { w: number; h: number } {
+    const el = elRef.current;
+    if (!el) return { w: position.w ?? MIN_W, h: position.h ?? MIN_H };
+    return { w: el.offsetWidth, h: el.offsetHeight };
+  }
+
+  // ── Position drag ────────────────────────────────────────────────
+
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return; // left-button only
     // Don't start drag if user clicked on a button/input child
     const target = e.target as HTMLElement;
-    if (target.closest("button, input, a, select, textarea")) return;
+    if (target.closest("button, input, a, select, textarea, .card-resize-handle")) return;
 
     e.currentTarget.setPointerCapture(e.pointerId);
     e.preventDefault();
@@ -98,7 +145,6 @@ export const DraggableCard = memo(function DraggableCard({
 
     document.body.style.userSelect = "none";
 
-    // Add is-dragging class to card and to parent canvas
     const el = elRef.current;
     if (el) {
       el.classList.add("is-dragging");
@@ -111,7 +157,6 @@ export const DraggableCard = memo(function DraggableCard({
     const drag = dragRef.current;
     if (!drag) return;
 
-    // Direct DOM update — no React state during move (O(1) regardless of card count)
     const rawX = drag.origX + (e.clientX - drag.startClientX);
     const rawY = drag.origY + (e.clientY - drag.startClientY);
     const clampedX = Math.max(0, rawX);
@@ -138,11 +183,11 @@ export const DraggableCard = memo(function DraggableCard({
       x: Math.max(0, snapTo(rawX, CARD_GRID_SIZE)),
       y: Math.max(0, snapTo(rawY, CARD_GRID_SIZE)),
       z: position.z,
+      w: position.w,
+      h: position.h,
     };
 
-    // Apply snapped position to DOM before React reconciles
     applyPosition(snapped.x, snapped.y);
-    // Notify parent — parent writes to storage and updates React state
     onPositionChange(itemId, snapped);
     onDragEnd?.(itemId, snapped);
   };
@@ -151,7 +196,6 @@ export const DraggableCard = memo(function DraggableCard({
   const handlePointerCancel = (e: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag) return;
-    // Revert to original position on cancel
     dragRef.current = null;
     document.body.style.userSelect = "";
 
@@ -163,10 +207,76 @@ export const DraggableCard = memo(function DraggableCard({
     }
 
     applyPosition(drag.origX, drag.origY);
-    onPositionChange(itemId, { x: drag.origX, y: drag.origY, z: position.z });
-    // Don't call onDragEnd on cancel — no storage write
+    onPositionChange(itemId, { x: drag.origX, y: drag.origY, z: position.z, w: position.w, h: position.h });
     void e;
   };
+
+  // ── Resize handle pointer events ─────────────────────────────────
+
+  const handleResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation(); // prevent card drag from also firing
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const { w, h } = currentSize();
+    resizeRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      origW: w,
+      origH: h,
+    };
+
+    document.body.style.userSelect = "none";
+
+    const el = elRef.current;
+    if (el) el.classList.add("is-resizing");
+  };
+
+  const handleResizePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const rs = resizeRef.current;
+    if (!rs) return;
+
+    const rawW = rs.origW + (e.clientX - rs.startClientX);
+    const rawH = rs.origH + (e.clientY - rs.startClientY);
+    applySize(clamp(rawW, MIN_W, MAX_W), clamp(rawH, MIN_H, MAX_H));
+  };
+
+  const commitResize = (e: PointerEvent<HTMLDivElement>) => {
+    const rs = resizeRef.current;
+    if (!rs) return;
+    resizeRef.current = null;
+    document.body.style.userSelect = "";
+
+    const el = elRef.current;
+    if (el) el.classList.remove("is-resizing");
+
+    const rawW = rs.origW + (e.clientX - rs.startClientX);
+    const rawH = rs.origH + (e.clientY - rs.startClientY);
+    const snappedW = clamp(snapTo(rawW, CARD_GRID_SIZE), MIN_W, MAX_W);
+    const snappedH = clamp(snapTo(rawH, CARD_GRID_SIZE), MIN_H, MAX_H);
+
+    applySize(snappedW, snappedH);
+    onResize?.(itemId, { w: snappedW, h: snappedH });
+  };
+
+  const handleResizePointerUp = (e: PointerEvent<HTMLDivElement>) => commitResize(e);
+  const handleResizePointerCancel = (e: PointerEvent<HTMLDivElement>) => {
+    const rs = resizeRef.current;
+    if (!rs) return;
+    resizeRef.current = null;
+    document.body.style.userSelect = "";
+
+    const el = elRef.current;
+    if (el) el.classList.remove("is-resizing");
+
+    // Revert to original size
+    applySize(rs.origW, rs.origH);
+    void e;
+  };
+
+  // ── Keyboard handling ────────────────────────────────────────────
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (dragRef.current) {
@@ -184,13 +294,31 @@ export const DraggableCard = memo(function DraggableCard({
         }
 
         applyPosition(drag.origX, drag.origY);
-        onPositionChange(itemId, { x: drag.origX, y: drag.origY, z: position.z });
+        onPositionChange(itemId, { x: drag.origX, y: drag.origY, z: position.z, w: position.w, h: position.h });
       }
       return;
     }
 
-    // Keyboard nudge — one grid unit per press, 10 grid units with Shift
-    const nudge = e.shiftKey ? CARD_GRID_SIZE * 10 : CARD_GRID_SIZE;
+    // Shift+Arrow: resize by one grid unit.
+    // Arrow alone: nudge position by one grid unit (10 with Ctrl).
+    if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const { w: curW, h: curH } = currentSize();
+      let newW = curW;
+      let newH = curH;
+
+      if (e.key === "ArrowRight") newW = clamp(curW + CARD_GRID_SIZE, MIN_W, MAX_W);
+      else if (e.key === "ArrowLeft") newW = clamp(curW - CARD_GRID_SIZE, MIN_W, MAX_W);
+      else if (e.key === "ArrowDown") newH = clamp(curH + CARD_GRID_SIZE, MIN_H, MAX_H);
+      else if (e.key === "ArrowUp") newH = clamp(curH - CARD_GRID_SIZE, MIN_H, MAX_H);
+
+      applySize(newW, newH);
+      onResize?.(itemId, { w: newW, h: newH });
+      return;
+    }
+
+    // Plain Arrow: nudge position
+    const nudge = CARD_GRID_SIZE;
     let newX = position.x;
     let newY = position.y;
 
@@ -200,19 +328,25 @@ export const DraggableCard = memo(function DraggableCard({
     else if (e.key === "ArrowDown") { e.preventDefault(); newY = position.y + nudge; }
     else return;
 
-    const newPos: CardPosition = { x: newX, y: newY, z: position.z };
+    const newPos: CardPosition = { x: newX, y: newY, z: position.z, w: position.w, h: position.h };
     applyPosition(newX, newY);
     onPositionChange(itemId, newPos);
     onDragEnd?.(itemId, newPos);
   };
+
+  // ── Styles ───────────────────────────────────────────────────────
 
   const style: React.CSSProperties = {
     position: "absolute",
     left: position.x,
     top: position.y,
     zIndex: position.z,
-    touchAction: "none", // required for pointer capture on touch
+    touchAction: "none",
   };
+
+  // Apply persisted size when present
+  if (position.w !== undefined) style.width = position.w;
+  if (position.h !== undefined) style.height = position.h;
 
   if (filteredOut) {
     style.opacity = 0;
@@ -232,6 +366,19 @@ export const DraggableCard = memo(function DraggableCard({
       onKeyDown={handleKeyDown}
     >
       {children}
+      {/* Resize handle — bottom-right wedge */}
+      <div
+        ref={resizeHandleRef}
+        className="card-resize-handle"
+        role="separator"
+        aria-label="Resize card"
+        aria-orientation="horizontal"
+        tabIndex={-1}
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={handleResizePointerMove}
+        onPointerUp={handleResizePointerUp}
+        onPointerCancel={handleResizePointerCancel}
+      />
     </div>
   );
 });

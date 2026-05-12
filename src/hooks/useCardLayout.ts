@@ -6,6 +6,10 @@
  * handlePositionChange, handleDragEnd, handleResetLayout, canvasMinHeight,
  * computeInitialPositions + useEffect persistence, canvasElRef).
  *
+ * resize-m1: added commitSize / getSize and updated canvasMinHeight to
+ * account for user-set card heights so the canvas bottom never clips a
+ * resized card.
+ *
  * Usage:
  *   const layout = useCardLayout({ items, cardLayouts, update });
  *   // then:
@@ -15,6 +19,7 @@
  *   layout.handlers.onPositionChange(id, pos)  // live drag
  *   layout.handlers.onDragEnd(id, pos)         // commit + bring-to-front
  *   layout.handlers.onResetLayout()            // wipe section positions
+ *   layout.handlers.commitSize(id, {w, h})     // commit resize to storage
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -24,7 +29,11 @@ import {
   CASCADE_CARD_H,
   resetCardPositions,
   setCardPositionToFront,
+  setCardSize,
 } from "@/storage/cardLayouts";
+
+/** Fallback card height for canvas-height computation when no h is stored. */
+const CARD_DEFAULT_HEIGHT = 180;
 
 interface UseCardLayoutOptions<T extends { id: string }> {
   /** All items in this section (used for cascade layout and canvasMinHeight). */
@@ -49,6 +58,8 @@ interface UseCardLayoutResult {
     onDragEnd: (id: string, pos: CardPosition) => Promise<void>;
     /** Wipe all positions for this section and reset local state. */
     onResetLayout: () => Promise<void>;
+    /** Commit resize dimensions to storage (called on pointer-up / keyboard). */
+    commitSize: (id: string, size: { w: number; h: number }) => Promise<void>;
   };
 }
 
@@ -108,11 +119,16 @@ export function useCardLayout<T extends { id: string }>({
     [localPositions, cardLayouts],
   );
 
+  // Canvas height accounts for explicit card h (from resize) so the bottom of
+  // a tall resized card is never clipped.
   const canvasMinHeight = useMemo(() => {
     let maxY = 400;
     for (const item of items) {
       const pos = localPositions[item.id] ?? cardLayouts?.[item.id];
-      if (pos) maxY = Math.max(maxY, pos.y + 180);
+      if (pos) {
+        const cardH = pos.h ?? CARD_DEFAULT_HEIGHT;
+        maxY = Math.max(maxY, pos.y + cardH);
+      }
     }
     return maxY;
   }, [items, localPositions, cardLayouts]);
@@ -134,10 +150,22 @@ export function useCardLayout<T extends { id: string }>({
     await update(resetCardPositions(items.map((t) => t.id)));
   }, [items, update]);
 
+  const commitSize = useCallback(
+    async (id: string, size: { w: number; h: number }) => {
+      // Update local state so canvasMinHeight recalculates immediately.
+      setLocalPositions((prev) => {
+        const existing = prev[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 };
+        return { ...prev, [id]: { ...existing, w: size.w, h: size.h } };
+      });
+      await update(setCardSize(id, size));
+    },
+    [update, cardLayouts],
+  );
+
   return {
     getPosition,
     canvasMinHeight,
     canvasElRef,
-    handlers: { onPositionChange, onDragEnd, onResetLayout },
+    handlers: { onPositionChange, onDragEnd, onResetLayout, commitSize },
   };
 }

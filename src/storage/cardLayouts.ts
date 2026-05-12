@@ -62,6 +62,34 @@ export function setCardPositionToFront(
 }
 
 /**
+ * Returns a state updater that writes (or updates) just the w/h dimensions for
+ * a card, preserving the existing x/y/z. Called on resize-end with the final
+ * snapped width and height.
+ *
+ * Snapping to CARD_GRID_SIZE is done in DraggableCard on pointer-up; only the
+ * final snapped values flow here.
+ *
+ * Usage:
+ *   await update(setCardSize(itemId, { w, h }));
+ */
+export function setCardSize(
+  itemId: string,
+  size: { w: number; h: number },
+): (s: ProclivityState) => ProclivityState {
+  return (s) => {
+    const layouts = s.cardLayouts ?? {};
+    const existing = layouts[itemId] ?? { x: 0, y: 0, z: 0 };
+    return {
+      ...s,
+      cardLayouts: {
+        ...layouts,
+        [itemId]: { ...existing, w: size.w, h: size.h },
+      },
+    };
+  };
+}
+
+/**
  * Returns a state updater that removes all card positions for the given item
  * ids. Used by the "Reset layout" button (per-section) and by deletion
  * handlers to clean up orphan entries.

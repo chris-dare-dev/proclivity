@@ -317,6 +317,7 @@ function ReminderCardCanvas({
         position={getPosition(r.id)}
         onPositionChange={handlers.onPositionChange}
         onDragEnd={handlers.onDragEnd}
+        onResize={(id, size) => void handlers.commitSize(id, size)}
         filteredOut={isFilteredOut}
       >
         {/* A1+D3: shared TaskCard with role="article" + aria-label */}

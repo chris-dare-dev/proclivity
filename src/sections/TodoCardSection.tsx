@@ -86,6 +86,7 @@ export function TodoCardSection({
         position={getPosition(t.id)}
         onPositionChange={handlers.onPositionChange}
         onDragEnd={handlers.onDragEnd}
+        onResize={(id, size) => void handlers.commitSize(id, size)}
         filteredOut={isFilteredOut}
       >
         {/* A1+D3: shared TaskCard primitive with role="article" + aria-label */}
