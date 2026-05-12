@@ -12,3 +12,6 @@ vite.config.js
 vite.config.d.ts
 manifest.config.js
 manifest.config.d.ts
+
+plans/
+plans/*.md

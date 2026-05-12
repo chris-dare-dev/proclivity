@@ -147,7 +147,10 @@
 
 .calendar-grid__header {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* minmax(0, 1fr) — a bare 1fr resolves to minmax(auto, 1fr), letting any
+   * column with intrinsic content (e.g. a long todo chip) push past its
+   * fair share and collapse sibling columns. The 0 floor pins each track. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   background: var(--panel-2);
   border-bottom: 1px solid var(--border);
 }
@@ -167,7 +170,10 @@
 
 .calendar-grid__cells {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* minmax(0, 1fr) — a bare 1fr resolves to minmax(auto, 1fr), letting any
+   * column with intrinsic content (e.g. a long todo chip) push past its
+   * fair share and collapse sibling columns. The 0 floor pins each track. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-template-rows: repeat(6, minmax(110px, 1fr));
 }
 
@@ -268,9 +274,10 @@
   padding: 2px 4px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--panel-2) 70%, transparent);
-  white-space: nowrap;
+  /* Truncation tokens live on .calendar-chip__label below — text-overflow
+   * is silently ignored on flex containers, so applying nowrap here would
+   * inflate the chip's min-content width and feed it into the grid track. */
   overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 .calendar-chip.is-done .calendar-chip__label {
@@ -311,8 +318,10 @@
 }
 
 .calendar-chip__label {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   flex: 1 1 auto;
   min-width: 0;
 }

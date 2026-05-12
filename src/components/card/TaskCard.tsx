@@ -52,6 +52,7 @@ export function TaskCard({
   onDelete,
   itemId,
 }: TaskCardProps) {
+  const hasActions = onEdit !== undefined || onDelete !== undefined;
   return (
     <article
       className={`task-card${done ? " is-done" : ""}`}
@@ -69,15 +70,29 @@ export function TaskCard({
           />
         )}
         <span className="task-card-title">{title}</span>
-        {onEdit && (
-          <button
-            className="task-card-edit"
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            aria-label={`Edit: ${title}`}
-            tabIndex={0}
-          >
-            ✎
-          </button>
+        {hasActions && (
+          <div className="task-card-actions">
+            {onEdit && (
+              <button
+                className="task-card-edit"
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                aria-label={`Edit: ${title}`}
+                tabIndex={0}
+              >
+                ✎
+              </button>
+            )}
+            {onDelete && (
+              <button
+                className="task-card-delete"
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                aria-label={`Delete: ${title}`}
+                tabIndex={0}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         )}
       </div>
       {extra}
@@ -95,16 +110,6 @@ export function TaskCard({
             <span className="task-card-tags-overflow">+{tags.length - 3}</span>
           )}
         </div>
-      )}
-      {onDelete && (
-        <button
-          className="task-card-delete"
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          aria-label={`Delete: ${title}`}
-          tabIndex={0}
-        >
-          ✕
-        </button>
       )}
     </article>
   );
