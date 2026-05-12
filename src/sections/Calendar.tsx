@@ -1,0 +1,184 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { MonthGrid } from "./calendar/MonthGrid";
+import {
+  addMonths,
+  isCurrentMonth,
+  monthLabel,
+  startOfMonth,
+} from "./calendar/calendarUtils";
+import { startOfDay } from "@/lib/dateUtils";
+import { useStore } from "@/storage/useStore";
+import "./calendar/calendar.css";
+
+/**
+ * Calendar — month-grid view of the user's reminders, today-scope
+ * todos, long-term todos (with `dueAt`), and sprints (as multi-day
+ * bars).
+ *
+ * Default export so the section can be wired up with `React.lazy`
+ * from App.tsx — keeps the initial newtab chunk slim.
+ *
+ * Read-only by design in v1: editing items still happens in their
+ * native tabs (Today, Sprint, Long-term, Reminders). The Calendar
+ * is a cross-cutting overview, not a duplicate of those CRUD UIs.
+ */
+export default function Calendar() {
+  const { state } = useStore();
+
+  // L5: only weekStart is used from settings — inline rather than resolvedSettings.
+  const weekStart = state.settings.weekStart ?? "mon";
+
+  // The currently-focused month. Initialized to "today's month" so the
+  // user always lands on something useful; navigation is purely local
+  // state — no need to persist this between sessions.
+  const [monthStart, setMonthStart] = useState<number>(() =>
+    startOfMonth(Date.now()),
+  );
+
+  // H3: live "today" timestamp updated at each local midnight so new-tab
+  // pages that survive the rollover show the correct Today cell.
+  const [today, setToday] = useState<number>(() => startOfDay(Date.now()));
+  useEffect(() => {
+    // Schedule the next tick just after local midnight.
+    const msUntilMidnight = startOfDay(Date.now()) + 86_400_000 - Date.now();
+    const t = setTimeout(() => setToday(startOfDay(Date.now())), msUntilMidnight + 1000);
+    return () => clearTimeout(t);
+  }, [today]);
+
+  const goPrev = useCallback(
+    () => setMonthStart((ts) => addMonths(ts, -1)),
+    [],
+  );
+  const goNext = useCallback(
+    () => setMonthStart((ts) => addMonths(ts, 1)),
+    [],
+  );
+  const goToday = useCallback(
+    () => setMonthStart(startOfMonth(Date.now())),
+    [],
+  );
+
+  const showingCurrent = isCurrentMonth(monthStart);
+  const label = useMemo(() => monthLabel(monthStart), [monthStart]);
+
+  return (
+    <section className="calendar-section" aria-label="Calendar">
+      <header className="calendar-header">
+        <div className="calendar-header__nav">
+          <button
+            type="button"
+            className="calendar-nav-btn"
+            onClick={goPrev}
+            aria-label="Previous month"
+            title="Previous month"
+          >
+            <ChevronLeft />
+          </button>
+          {/* M3: visible heading without aria-live (to avoid SR double-announce).
+              A visually-hidden live region below announces month changes. */}
+          <h2 className="calendar-header__title">
+            {label}
+          </h2>
+          <button
+            type="button"
+            className="calendar-nav-btn"
+            onClick={goNext}
+            aria-label="Next month"
+            title="Next month"
+          >
+            <ChevronRight />
+          </button>
+        </div>
+
+        <div className="calendar-header__right">
+          <button
+            type="button"
+            className="calendar-today-btn"
+            onClick={goToday}
+            disabled={showingCurrent}
+            aria-label="Jump to current month"
+          >
+            Today
+          </button>
+        </div>
+      </header>
+
+      {/* M3: visually-hidden live region announces month changes without
+          re-triggering on heading focus navigation. */}
+      <span className="sr-only" aria-live="polite">{label}</span>
+
+      <Legend />
+
+      <MonthGrid
+        monthStart={monthStart}
+        weekStart={weekStart}
+        today={today}
+        reminders={state.reminders}
+        todos={state.todos}
+        sprints={state.sprints}
+        tags={state.tags}
+        {...(state.activeSprintId !== undefined
+          ? { activeSprintId: state.activeSprintId }
+          : {})}
+      />
+    </section>
+  );
+}
+
+function Legend() {
+  return (
+    <ul className="calendar-legend" aria-label="Legend">
+      <li>
+        <span className="calendar-legend__bar" /> Sprint
+      </li>
+      <li>
+        <span className="calendar-legend__dot calendar-legend__dot--reminder" />{" "}
+        Reminder
+      </li>
+      <li>
+        <span className="calendar-legend__dot calendar-legend__dot--today" />{" "}
+        Today todo
+      </li>
+      <li>
+        <span className="calendar-legend__dot calendar-legend__dot--long" />{" "}
+        Long-term
+      </li>
+    </ul>
+  );
+}
+
+function ChevronLeft() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}

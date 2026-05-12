@@ -13,20 +13,21 @@
  * is cleaner UX than the warning-but-save footgun.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { lazy, Suspense, useState, useMemo } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Reminder, Tag, Todo } from "@/types";
 import { Modal } from "@/components/Modal";
 import { TagPickerArea } from "@/components/TagPickerArea";
-import { TagFilterToolbar } from "@/components/TagFilterToolbar";
-import { TagChip } from "@/components/TagChip";
-import { filterByTags, createTag } from "@/storage/tags";
+import { createTag } from "@/storage/tags";
+
+/* ─── Lazy card/list section — only loaded on first render ───── */
+const RemindersCardSection = lazy(() =>
+  import("./RemindersCardSection").then((m) => ({ default: m.RemindersCardSection })),
+);
 import {
-  relativeTime,
   tsToDatetimeLocal,
   datetimeLocalToTs,
-  formatFireAt,
 } from "./reminderUtils";
 import "../sections.css";
 import "./reminders.css";
@@ -140,90 +141,6 @@ function AddReminderForm({ onSave, todos, allTags }: AddReminderFormProps) {
       </div>
       <div className="reminder-form-actions">
         <button onClick={handleSave}>Add Reminder</button>
-      </div>
-    </div>
-  );
-}
-
-/* ─── RelativeTime — owns its own 30s tick so the parent doesn't re-render */
-
-function RelativeTime({ fireAt }: { fireAt: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-  const absolute = formatFireAt(fireAt);
-  return <span title={absolute}>{relativeTime(fireAt, now)}</span>;
-}
-
-/* ─── Reminder Item ─────────────────────────────────────────── */
-
-interface ReminderItemProps {
-  reminder: Reminder;
-  linkedTodoTitle?: string | undefined;
-  allTags: Tag[];
-  onDelete: (id: string) => void;
-  onEdit: (id: string) => void;
-}
-
-function ReminderItem({
-  reminder,
-  linkedTodoTitle,
-  allTags,
-  onDelete,
-  onEdit,
-}: ReminderItemProps) {
-  const absolute = formatFireAt(reminder.fireAt);
-  const recLabel =
-    reminder.recurrence && reminder.recurrence !== "none"
-      ? reminder.recurrence
-      : null;
-
-  // Resolve tag objects — skip orphan ids silently
-  const tags = reminder.tags
-    .map((id) => allTags.find((t) => t.id === id))
-    .filter((t): t is Tag => t !== undefined);
-
-  return (
-    <div className={`reminder-item ${reminder.fired ? "fired" : ""}`}>
-      <div className="reminder-item-body">
-        <div className="reminder-item-title">{reminder.title}</div>
-        <div className="reminder-item-meta">
-          <RelativeTime fireAt={reminder.fireAt} />
-          <span>·</span>
-          <span>{absolute}</span>
-          {recLabel && (
-            <span className="reminder-badge">{recLabel}</span>
-          )}
-          {reminder.fired && (
-            <span className="reminder-badge fired">fired</span>
-          )}
-          {linkedTodoTitle && (
-            <span className="reminder-linked-todo">
-              → {linkedTodoTitle}
-            </span>
-          )}
-          {tags.map((tag) => (
-            <TagChip key={tag.id} label={tag.label} color={tag.color} />
-          ))}
-        </div>
-      </div>
-      <div className="reminder-item-actions">
-        <button
-          className="reminder-edit"
-          aria-label={`Edit reminder: ${reminder.title}`}
-          onClick={() => onEdit(reminder.id)}
-        >
-          ✎
-        </button>
-        <button
-          className="btn-danger"
-          aria-label={`Delete reminder: ${reminder.title}`}
-          onClick={() => onDelete(reminder.id)}
-        >
-          Delete
-        </button>
       </div>
     </div>
   );
@@ -405,7 +322,9 @@ export function RemindersManager() {
   // All hooks must run unconditionally — the `if (loading)` guard sits below
   // them. Otherwise React error #310 ("rendered more hooks than the previous
   // render") fires when loading flips from true to false.
-  const { reminders, todos, tags: allTags } = state;
+  const { reminders, todos, tags: allTags, cardLayouts } = state;
+
+  const layoutMode = state.settings.layoutMode ?? "list";
 
   const upcoming = useMemo(
     () => reminders.filter((r) => !r.fired).sort((a, b) => a.fireAt - b.fireAt),
@@ -429,16 +348,6 @@ export function RemindersManager() {
     return activeTagIds.filter((id) => knownIds.has(id));
   }, [activeTagIds, allTags]);
 
-  const filteredUpcoming = useMemo(
-    () => filterByTags(upcoming, effectiveActiveTagIds),
-    [upcoming, effectiveActiveTagIds],
-  );
-
-  const filteredFired = useMemo(
-    () => filterByTags(fired, effectiveActiveTagIds),
-    [fired, effectiveActiveTagIds],
-  );
-
   if (loading) return null;
 
   const todoMap = new Map(todos.map((t) => [t.id, t.title]));
@@ -461,6 +370,14 @@ export function RemindersManager() {
     await update((s) => ({
       ...s,
       reminders: s.reminders.filter((r) => r.id !== id),
+      // Clean up orphan card position on deletion
+      cardLayouts: s.cardLayouts
+        ? (() => {
+            const next = { ...s.cardLayouts };
+            delete next[id];
+            return Object.keys(next).length > 0 ? next : undefined;
+          })()
+        : undefined,
     }));
   };
 
@@ -494,68 +411,27 @@ export function RemindersManager() {
     );
   };
 
-  const isFiltered = effectiveActiveTagIds.length > 0;
-
   return (
     <div>
       <AddReminderForm onSave={addReminder} todos={todos} allTags={allTags} />
 
-      <TagFilterToolbar
-        availableTags={availableTags}
-        activeTagIds={effectiveActiveTagIds}
-        totalCount={reminders.length}
-        filteredCount={filteredUpcoming.length + filteredFired.length}
-        onToggle={toggleFilter}
-        onClearAll={() => setActiveTagIds([])}
-      />
-
-      {/* Upcoming */}
-      <div className="reminders-section">
-        <div className="reminders-section-heading">
-          Upcoming ({filteredUpcoming.length})
-        </div>
-        {filteredUpcoming.length === 0 ? (
-          <div className="section-empty">
-            {isFiltered
-              ? <>No upcoming reminders match the selected tags. <button type="button" className="inline-clear-link" onClick={() => setActiveTagIds([])}>Clear the filter</button></>
-              : "No upcoming reminders."}
-          </div>
-        ) : (
-          filteredUpcoming.map((r) => (
-            <ReminderItem
-              key={r.id}
-              reminder={r}
-              linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
-              allTags={allTags}
-              onDelete={deleteReminder}
-              onEdit={(id) => setEditingId(id)}
-            />
-          ))
-        )}
-      </div>
-
-      {/* Fired */}
-      {fired.length > 0 && (
-        <div className="reminders-section">
-          <div className="reminders-section-heading">
-            Fired ({filteredFired.length})
-          </div>
-          {filteredFired.length === 0 ? (
-            <div className="section-empty">No fired reminders match the selected tags.</div>
-          ) : (
-            filteredFired.map((r) => (
-              <ReminderItem
-                key={r.id}
-                reminder={r}
-                linkedTodoTitle={r.linkedTodoId ? todoMap.get(r.linkedTodoId) : undefined}
-                allTags={allTags}
-                onDelete={deleteReminder}
-                onEdit={(id) => setEditingId(id)}
-              />
-            ))
-          )}
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <RemindersCardSection
+          layoutMode={layoutMode}
+          upcoming={upcoming}
+          fired={fired}
+          allTags={allTags}
+          effectiveActiveTagIds={effectiveActiveTagIds}
+          availableTags={availableTags}
+          todoMap={todoMap}
+          cardLayouts={cardLayouts}
+          onDelete={deleteReminder}
+          onEdit={(id) => setEditingId(id)}
+          onToggleFilter={toggleFilter}
+          onClearFilter={() => setActiveTagIds([])}
+          update={update}
+        />
+      </Suspense>
 
       {editingReminder && (
         <ReminderEditModal
