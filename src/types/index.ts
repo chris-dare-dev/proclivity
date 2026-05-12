@@ -57,6 +57,16 @@ export interface Reminder {
   linkedTodoId?: string | undefined;
 }
 
+/**
+ * User-configurable preferences. Surface area is small today (just `name`);
+ * intended to grow as Settings adds more fields (work hours, theme overrides,
+ * LLM-connection state, etc.).
+ */
+export interface UserSettings {
+  /** Display name appended to the greeting, e.g. "Good evening, Chris". */
+  name?: string | undefined;
+}
+
 export interface ProclivityState {
   todos: Todo[];
   sprints: Sprint[];
@@ -64,6 +74,7 @@ export interface ProclivityState {
   ganttCharts: GanttChart[];
   ganttTasks: GanttTask[];
   reminders: Reminder[];
+  settings: UserSettings;
 }
 
 export const EMPTY_STATE: ProclivityState = {
@@ -72,4 +83,5 @@ export const EMPTY_STATE: ProclivityState = {
   ganttCharts: [],
   ganttTasks: [],
   reminders: [],
+  settings: {},
 };

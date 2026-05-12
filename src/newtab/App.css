@@ -22,11 +22,40 @@
   color: var(--text-dim);
   margin-top: 4px;
 }
+.header-right {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
 .clock {
   font-size: 56px;
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+.settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 8px;
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+.settings-button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.settings-button svg {
+  display: block;
 }
 
 .tabs {

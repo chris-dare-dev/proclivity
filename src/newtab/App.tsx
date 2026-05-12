@@ -5,6 +5,8 @@ import { Sprint } from "@/sections/Sprint";
 import { LongTerm } from "@/sections/LongTerm";
 import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
+import { SettingsModal } from "@/components/SettingsModal";
+import { useStore } from "@/storage/useStore";
 
 // Three.js is ~800kB minified — keep it out of the initial chunk so the
 // planner UI renders without waiting on it. The mesh fades in once loaded.
@@ -33,32 +35,74 @@ function greetingFor(d: Date) {
 // Header owns its own 1-second tick so the rest of App doesn't re-render
 // on each clock update (Pattern F).
 const Header = memo(function Header() {
+  const { state } = useStore();
   const [now, setNow] = useState(() => new Date());
+  const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+  const name = state.settings.name?.trim();
   return (
-    <header className="header">
-      <div className="header-left">
-        <div className="greeting">{greetingFor(now)}.</div>
-        <div className="date">
-          {now.toLocaleDateString(undefined, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          })}
+    <>
+      <header className="header">
+        <div className="header-left">
+          <div className="greeting">
+            {greetingFor(now)}
+            {name ? `, ${name}` : ""}.
+          </div>
+          <div className="date">
+            {now.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </div>
         </div>
-      </div>
-      <div className="clock">
-        {now.toLocaleTimeString(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </div>
-    </header>
+        <div className="header-right">
+          <div className="clock">
+            {now.toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+          <button
+            type="button"
+            className="settings-button"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <GearIcon />
+          </button>
+        </div>
+      </header>
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+    </>
   );
 });
+
+function GearIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
+  );
+}
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
