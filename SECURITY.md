@@ -27,12 +27,19 @@ Declared in [`manifest.config.ts`](manifest.config.ts):
 | `storage` | Persist todos, sprints, Gantt tasks, and reminders in `chrome.storage.local`. |
 | `alarms` | Schedule reminder firings without keeping the extension page open. |
 | `notifications` | Surface system-level reminder popups when an alarm fires. |
+| `identity` | Required for `chrome.identity.getAuthToken` — the OAuth path for linking a Google account to use Gemini without an API key. Added in `gemini-m1` for the upcoming Gemini integration. |
 
-No `host_permissions` are declared. The extension cannot make credentialed cross-origin requests or inject content scripts into arbitrary pages.
+### Narrow `host_permissions`
+
+Single declared host: `https://generativelanguage.googleapis.com/*`. This is the only origin the extension is allowed to fetch from. It exists exclusively for the Gemini integration (`gemini-m2`/`m3`). The extension still cannot read or write any other origin, cannot inject content scripts into arbitrary pages, and cannot intercept cross-origin requests outside this one host.
+
+### `oauth2` block
+
+The manifest declares an `oauth2 { client_id, scopes }` block tied to a Google Cloud OAuth Client ID of type "Chrome Extension". The Client ID is **public** information (Chrome Extension client IDs have no client_secret); it is paired with the extension's stable ID (via the `key` field) as the security boundary. The scope list is intentionally narrow: `generative-language.retriever` only. See [`plans/gemini-setup.md`](plans/gemini-setup.md) for the registration flow.
 
 `chrome_url_overrides: { newtab: "src/newtab/index.html" }` replaces only the new-tab page. It does not grant access to any existing tab, does not inject into browsing tabs, and cannot read or write any page's DOM.
 
-**Policy:** every permission added in the future must be documented in this section and justified in the commit message before it ships. No permission should be added "just in case".
+**Policy:** every permission added in the future must be documented in this section and justified in the commit message before it ships. `host_permissions` must remain narrow — no `<all_urls>`, no broad domain patterns. No permission should be added "just in case".
 
 ---
 
@@ -44,7 +51,9 @@ All state is stored under a single key (`proclivity:state:v1`) in `chrome.storag
 
 **PII boundary:** the only PII is whatever the user types as todo/reminder titles. Nothing is processed, transmitted, or replicated.
 
-**No data leaves the device.** As of the current codebase, `grep -rn "fetch\|XMLHttpRequest" src/` returns zero hits. The newtab bundle and service worker contain no outbound network calls. Verify this remains true after every significant change (see audit checklist).
+**No data leaves the device today.** As of the current codebase, `grep -rn "fetch\|XMLHttpRequest" src/` returns zero hits. The newtab bundle and service worker contain no outbound network calls.
+
+**Planned change:** `gemini-m2`/`m3` will add `fetch` calls to `https://generativelanguage.googleapis.com` for the Gemini integration. When that lands, this section must be updated to describe exactly what is sent (the user's typed prompt plus minimal context — not the entire stored state), what is returned (structured JSON), and what is persisted (the parsed records, not the raw prompt/response). Until then, the audit-checklist item below treats any non-Gemini outbound call as a regression.
 
 **Storage cap:** `chrome.storage.local` is capped at approximately 10 MB. Designs that accumulate unbounded history (e.g., keeping all fired reminders forever, storing large Gantt-task bodies) need explicit pruning logic before merging.
 
@@ -119,9 +128,9 @@ Do not add `unsafe-eval`, `wasm-unsafe-eval`, or any remote script source to the
 The following rules apply to any agent (or human) making code changes. They extend the constraints in [`CLAUDE.md`](CLAUDE.md) with security-specific rationale.
 
 - **Never disable strict mode.** Do not remove `strict: true`, `exactOptionalPropertyTypes`, or `noUncheckedIndexedAccess` from `tsconfig.json`. Do not disable React strict mode. These catch real bugs; "it passes with strict off" is not a fix.
-- **Never add `host_permissions: "<all_urls>"`** or any broad host pattern. The extension has no legitimate need to access arbitrary websites.
+- **Never add `host_permissions: "<all_urls>"`** or any broad host pattern. Today the manifest declares exactly one narrow host (`https://generativelanguage.googleapis.com/*`); broadening it requires an entry in §2 and a commit-message justification.
 - **Never add `unsafe-eval` or `wasm-unsafe-eval` to the CSP.** If a library requires either, it is not suitable for this extension.
-- **Never introduce `fetch()`, `XMLHttpRequest`, or any remote-network call** from the newtab bundle or the service worker. This extension is local-only by design.
+- **Never introduce new outbound `fetch()` / `XMLHttpRequest` calls** from the newtab bundle or the service worker to anything outside `https://generativelanguage.googleapis.com/*`. The Gemini host is the only sanctioned destination; everything else stays local.
 - **Never add content scripts or the `tabs` permission** without explicit authorization from the user. Content scripts dramatically expand the attack surface; they can read and modify every page the user visits.
 - **Never use `dangerouslySetInnerHTML` on user-typed content.** React escapes rendered strings by default — do not bypass that. If rich rendering of user input is ever needed, sanitize with a vetted library first.
 - **Never commit secrets.** There are no API keys, tokens, or credentials in this project. Keep it that way. If a future feature requires an API key, store it only in `chrome.storage.local` (user-entered) and never hardcode it in source.
@@ -142,9 +151,10 @@ If you find a genuine security issue, open an issue in the repository at `git@gi
 
 Run through the following on each significant change before committing:
 
-- `grep -rn "fetch\|XMLHttpRequest" src/` returns no hits (or only intentional ones with documented justification).
-- `manifest.config.ts` permissions are unchanged, or any new permission is justified in this file and in the commit message.
-- No `host_permissions` have been introduced.
+- `grep -rn "fetch\|XMLHttpRequest" src/` returns no hits except for sanctioned Gemini calls to `https://generativelanguage.googleapis.com/*`. Any other origin is a regression.
+- `manifest.config.ts` permissions are unchanged, or any new permission is justified in this file (§2) and in the commit message.
+- `host_permissions` in `manifest.config.ts` is limited to the declared narrow set (currently a single entry for the Gemini API host). Broadening requires a §2 update.
+- The `oauth2.scopes` array in `manifest.config.ts` has not silently widened — any scope addition must be justified in §2.
 - No `dangerouslySetInnerHTML` has been introduced on any user-controlled content.
 - `npm audit` output has been reviewed. New high/critical findings must be acknowledged before merging.
 - Any user input that flows into a URL, shell-like context, or DOM insertion point (other than normal React rendering) is validated or escaped at the point of use.

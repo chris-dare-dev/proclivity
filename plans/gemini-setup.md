@@ -26,8 +26,10 @@ The private key stays on your machine forever. The public key is committed in `m
 
 ```bash
 # from the repo root
-openssl genrsa -out .proclivity-key.pem 2048
+openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt -out .proclivity-key.pem
 ```
+
+This produces a PKCS8-format private key, matching the convention used in [`plans/gemini-integration-research.md`](gemini-integration-research.md) §1.3. PKCS8 and the older PKCS1 format (`openssl genrsa -out …`) produce **identical public keys** when exported with `-pubout -outform DER`, so the derived extension ID is the same either way — but standardizing on PKCS8 keeps this doc consistent with the research doc and avoids confusion if you later cross-reference the two.
 
 `.proclivity-key.pem` is in `.gitignore` (via the `*.pem` rule) — verify with `git status` that it does NOT appear.
 
@@ -82,7 +84,8 @@ These steps happen entirely in your browser at <https://console.cloud.google.com
   - **App name**: `Proclivity` (or whatever you want — only you will see it).
   - **User support email**: your email.
   - **Developer contact**: your email.
-- Skip Scopes, Test users, etc. for now → **Save and Continue** through each page.
+- On the **Scopes** page, click **Add or Remove Scopes** → in the filter, paste `https://www.googleapis.com/auth/generative-language.retriever` → tick the matching row → click **Update**. (If you can't find it via the filter, scroll the list under "Generative Language API". The scope must be added here so Google can populate the consent dialog when `chrome.identity.getAuthToken({ interactive: true })` first runs — skipping this step is the most common reason for a blank or "unregistered scope" consent flow.) → **Save and Continue**.
+- Skip the Optional info page → **Save and Continue**.
 - Land on the **Summary** page.
 - Go to **Test users** in the left rail → **Add users** → add your own Google account email → **Save**.
 
