@@ -1,0 +1,85 @@
+/* ─── Gemini Nano status block ────────────────────────────────────
+ *
+ * Recovered from `b99a92b:src/components/SettingsModal.css` (the m1
+ * Nano styles) and rehomed under the v2 Settings folder. Token names
+ * (--ok, --danger, --panel, --panel-2, --accent, --bg, --border,
+ * --text, --text-dim) all exist in `src/styles/theme.css` for both
+ * light and dark variants.
+ */
+
+.settings-nano {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-nano-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-nano-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.04);
+}
+.settings-nano-badge.checking {
+  color: var(--text-dim);
+}
+.settings-nano-badge.ready {
+  color: var(--ok);
+}
+.settings-nano-badge.downloading,
+.settings-nano-badge.downloadable {
+  color: var(--warn);
+}
+.settings-nano-badge.unavailable {
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+.settings-nano-response {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-nano-response p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.settings-nano-error {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-nano code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: var(--panel-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.settings-nano a {
+  color: var(--accent);
+  text-decoration: underline;
+}

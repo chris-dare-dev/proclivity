@@ -122,6 +122,18 @@ export interface UserSettings {
   lastKnownTzOffset?: number | undefined;
   /** Internal: set to true on first open of the v2 Settings modal. Drives the "new" badge. */
   settingsV2Seen?: boolean | undefined;
+
+  /**
+   * Gemini Nano (on-device LLM) preferences. Reserved fields pre-declared
+   * here so `gemini-nano-m2`'s chat panel can land without a separate
+   * type-shape commit. `chatEnabled` defaults to false until m2 ships.
+   */
+  geminiNano?:
+    | {
+        chatEnabled?: boolean | undefined;
+        chatPosition?: "right" | "bottom" | undefined;
+      }
+    | undefined;
 }
 
 /**

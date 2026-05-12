@@ -22,6 +22,7 @@ import type {
 } from "@/types";
 import { exportData, importData } from "@/storage/exportImport";
 import { SegmentedControl, ToggleSwitch } from "./SettingsControls";
+import { NanoSection } from "./NanoSection";
 import "./SettingsModal.css";
 
 interface Props {
@@ -300,6 +301,7 @@ export function SettingsModal({ open, onClose }: Props) {
           setVisibility={setPendingVisibility}
         />
         <AccountSection name={pendingName} setName={setPendingName} />
+        <NanoSection />
         <DataSection
           exportFlash={exportFlash}
           importError={importError}
