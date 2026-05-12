@@ -41,7 +41,7 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanel({ onClose }: ChatPanelProps) {
-  const { messages, generating, send, clear } = useChatSession();
+  const { messages, generating, send, clear, undo } = useChatSession();
   const panelRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -135,7 +135,11 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
         ) : null}
 
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} role={msg.role} text={msg.text} />
+          <ChatMessage
+            key={msg.id}
+            msg={msg}
+            onUndo={msg.payload !== undefined ? undo : undefined}
+          />
         ))}
 
         {generating ? (

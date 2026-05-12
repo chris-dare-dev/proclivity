@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSession as nanoCreateSession } from "@/llm/nano";
+import {
+  TOOL_SCHEMA,
+  buildSystemPrompt,
+  parseToolCall,
+  applyToolCall,
+  type ToolResultPayload,
+} from "@/llm/tools";
+import { useStore } from "@/storage/useStore";
 
 /*
  * Chat message shape. `system-notice` is used for trimmed-history notices
@@ -11,6 +19,11 @@ export interface ChatMessage {
   id: number;
   role: ChatRole;
   text: string;
+  /**
+   * Present only on assistant messages that resulted from a successful tool
+   * call. Carries the Undo affordance data and pre-call snapshot.
+   */
+  payload?: ToolResultPayload | undefined;
 }
 
 /*
@@ -18,6 +31,8 @@ export interface ChatMessage {
  * ChatPanel.
  *
  * - Session is created lazily on first `send()` call (AC #3).
+ * - System prompt injected via `initialPrompts` at session-create time (m3).
+ * - `responseConstraint: TOOL_SCHEMA` passed on every `prompt()` call (m3).
  * - `contextoverflow` listener trims the oldest user+assistant pair and
  *   inserts a notice (AC #4).
  * - `clear()` aborts any in-flight prompt before destroying the session,
@@ -29,8 +44,14 @@ export interface ChatMessage {
 const MAX_MESSAGES = 100;
 let nextId = 0;
 
-function makeMsg(role: ChatRole, text: string): ChatMessage {
-  return { id: nextId++, role, text };
+function makeMsg(
+  role: ChatRole,
+  text: string,
+  payload?: ToolResultPayload,
+): ChatMessage {
+  const msg: ChatMessage = { id: nextId++, role, text };
+  if (payload !== undefined) msg.payload = payload;
+  return msg;
 }
 
 export interface UseChatSessionResult {
@@ -38,14 +59,24 @@ export interface UseChatSessionResult {
   generating: boolean;
   send: (text: string) => Promise<void>;
   clear: () => void;
+  /** Undo a tool call by restoring the pre-call snapshot.
+   *  No-op if the undo window has expired or the token is unknown. */
+  undo: (undoToken: string) => Promise<void>;
 }
 
 export function useChatSession(): UseChatSessionResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [generating, setGenerating] = useState(false);
+  const { state, update } = useStore();
 
   const sessionRef = useRef<LanguageModel | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Mirror of `messages` state kept in sync for reads outside React's update cycle.
+  const messagesRef = useRef<ChatMessage[]>([]);
+  // Stable ref for the state so ensureSession / send don't rebuild on every state change.
+  const stateRef = useRef(state);
+  // Keep stateRef in sync on every render.
+  stateRef.current = state;
 
   /*
    * Bind the contextoverflow listener once per new session. When it fires
@@ -66,26 +97,60 @@ export function useChatSession(): UseChatSessionResult {
         }
         // Insert a notice at the top of the visible list.
         const notice = makeMsg("system-notice", "(older messages trimmed)");
-        return [notice, ...next];
+        const result = [notice, ...next];
+        messagesRef.current = result;
+        return result;
       });
     });
   }, []);
 
   /*
    * Ensure a live session exists; create one if not.
+   * The system prompt (tool-call instructions + available tags/charts) is
+   * injected via `initialPrompts` at session-create time and is guaranteed
+   * never to be evicted when the context window fills.
    */
   const ensureSession = useCallback(async (): Promise<LanguageModel> => {
     if (sessionRef.current) return sessionRef.current;
-    const session = await nanoCreateSession();
+    // Read from stateRef at session-create time so this callback has a stable
+    // reference (no state.tags / state.ganttCharts in the dep array).
+    const systemContent = buildSystemPrompt({
+      tags: stateRef.current.tags,
+      ganttCharts: stateRef.current.ganttCharts,
+    });
+    const session = await nanoCreateSession({
+      initialPrompts: [{ role: "system", content: systemContent }],
+    });
     bindOverflowListener(session);
     sessionRef.current = session;
     return session;
   }, [bindOverflowListener]);
 
   /*
+   * Append messages helper — enforces the MAX_MESSAGES cap and keeps messagesRef in sync.
+   */
+  const appendMessages = useCallback(
+    (newMsgs: ChatMessage[]) => {
+      setMessages((prev) => {
+        let next = [...prev, ...newMsgs];
+        if (next.length > MAX_MESSAGES) {
+          next = next.slice(next.length - MAX_MESSAGES);
+        }
+        messagesRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
+
+  /*
    * Send a user message. Appends user message immediately, then awaits
    * the assistant reply. Handles QuotaExceededError (single message too
    * large) as a distinct inline error (AC #4).
+   *
+   * m3: passes `responseConstraint: TOOL_SCHEMA` on every prompt() call,
+   * parses the JSON response, dispatches to the appropriate tool action,
+   * and emits a tool-result message with Undo affordance.
    */
   const send = useCallback(
     async (userText: string): Promise<void> => {
@@ -98,31 +163,98 @@ export function useChatSession(): UseChatSessionResult {
 
       // Append user message to visible history.
       const userMsg = makeMsg("user", trimmed);
-      setMessages((prev) => {
-        const next = [...prev, userMsg];
-        // Enforce visible cap: drop oldest messages beyond MAX_MESSAGES.
-        if (next.length > MAX_MESSAGES) {
-          return next.slice(next.length - MAX_MESSAGES);
-        }
-        return next;
-      });
+      appendMessages([userMsg]);
 
-      // Per-prompt AbortController (AC #7 / brief-2 §1).
+      // Per-prompt AbortController.
       const controller = new AbortController();
       abortRef.current = controller;
       const signal = controller.signal;
 
       try {
         const session = await ensureSession();
-        const reply = await session.prompt(trimmed, { signal });
-        const assistantMsg = makeMsg("assistant", reply.trim());
-        setMessages((prev) => {
-          const next = [...prev, assistantMsg];
-          if (next.length > MAX_MESSAGES) {
-            return next.slice(next.length - MAX_MESSAGES);
-          }
-          return next;
+        const raw = await session.prompt(trimmed, {
+          signal,
+          responseConstraint: TOOL_SCHEMA,
         });
+
+        const parsed = parseToolCall(raw.trim());
+
+        if (parsed.kind === "chat") {
+          // Plain conversational response — existing path.
+          appendMessages([makeMsg("assistant", parsed.text)]);
+          return;
+        }
+
+        if (parsed.kind === "parse-failed") {
+          // Could not parse JSON or unrecognised type — demote to system-notice.
+          appendMessages([
+            makeMsg(
+              "system-notice",
+              `(Could not parse response — showing raw output: ${parsed.raw.slice(0, 200)})`,
+            ),
+          ]);
+          return;
+        }
+
+        // Tool call — capture pre-snapshot, validate, apply.
+        const preSnapshot = stateRef.current;
+        const result = applyToolCall(parsed, preSnapshot);
+
+        if (result === null) {
+          // Validation failed (bad chartId, past fireAt, etc.)
+          let notice: string;
+          if (parsed.kind === "add_gantt_task") {
+            const available = stateRef.current.ganttCharts
+              .map((c) => `"${c.name}"`)
+              .join(", ");
+            notice =
+              `Couldn't find chart "${parsed.chartId}". Available charts: ${available || "(none)"}`;
+          } else if (parsed.kind === "set_reminder") {
+            notice =
+              "Reminder time must be in the future. Please try again with a future date/time.";
+          } else {
+            notice = "Tool call validation failed — please try again.";
+          }
+          appendMessages([makeMsg("system-notice", notice)]);
+          return;
+        }
+
+        // Write the new state.
+        await update(() => result.newState);
+
+        // Build messages to append.
+        const toAppend: ChatMessage[] = [];
+
+        // Optional system-notice for dropped tags.
+        if (result.systemNotice !== null) {
+          toAppend.push(makeMsg("system-notice", result.systemNotice));
+        }
+
+        // Tool-result message with the Undo payload.
+        const toolResultMsg = makeMsg(
+          "assistant",
+          result.payload.summary,
+          result.payload,
+        );
+        toAppend.push(toolResultMsg);
+        appendMessages(toAppend);
+
+        // Schedule the undo-button expiry: after 10 s mark the message
+        // as expired so the UI fades the button.
+        const msgId = toolResultMsg.id;
+        setTimeout(() => {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== msgId || m.payload === undefined) return m;
+              // Rebuild with an expired token — set expiresAt to now so the
+              // UI check (payload.expiresAt <= Date.now()) becomes true.
+              return {
+                ...m,
+                payload: { ...m.payload, expiresAt: 0 },
+              };
+            }),
+          );
+        }, 10_000);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
           // Cleared during generation — the clear() handler already
@@ -137,14 +269,41 @@ export function useChatSession(): UseChatSessionResult {
           : err instanceof Error
             ? `Error: ${err.message}`
             : "Unknown error — try again.";
-        const errorMsg = makeMsg("system-notice", errorText);
-        setMessages((prev) => [...prev, errorMsg]);
+        appendMessages([makeMsg("system-notice", errorText)]);
       } finally {
         abortRef.current = null;
         setGenerating(false);
       }
     },
-    [generating, ensureSession],
+    [generating, ensureSession, update, appendMessages],
+  );
+
+  /*
+   * Undo a tool call by restoring the pre-call snapshot. No-op if the
+   * undo window has expired (expiresAt <= Date.now()) or the token is unknown.
+   * Reads from messagesRef to avoid the functional-updater side-effect anti-pattern.
+   */
+  const undo = useCallback(
+    async (undoToken: string): Promise<void> => {
+      const msg = messagesRef.current.find(
+        (m) => m.payload?.undoToken === undoToken,
+      );
+      if (!msg || msg.payload === undefined) return;
+      if (msg.payload.expiresAt <= Date.now()) return; // expired
+
+      const snapshotToRestore = msg.payload.snapshot;
+      const msgId = msg.id;
+
+      // Remove the tool-result message immediately on click.
+      setMessages((prev) => {
+        const next = prev.filter((m) => m.id !== msgId);
+        messagesRef.current = next;
+        return next;
+      });
+
+      await update(() => snapshotToRestore);
+    },
+    [update],
   );
 
   /*
@@ -159,6 +318,7 @@ export function useChatSession(): UseChatSessionResult {
     sessionRef.current?.destroy();
     sessionRef.current = null;
 
+    messagesRef.current = [];
     setMessages([]);
     setGenerating(false);
   }, []);
@@ -179,5 +339,5 @@ export function useChatSession(): UseChatSessionResult {
     };
   }, []);
 
-  return { messages, generating, send, clear };
+  return { messages, generating, send, clear, undo };
 }

@@ -281,6 +281,52 @@
   cursor: not-allowed;
 }
 
+/* ── Tool-result card (m3) ──────────────────────────────────────── */
+
+.chat-panel__tool-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-panel__tool-summary {
+  flex: 1;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.chat-panel__undo-btn {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: opacity 0.6s ease, color 0.15s, border-color 0.15s;
+  opacity: 1;
+}
+
+.chat-panel__undo-btn:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.chat-panel__undo-btn--expired {
+  opacity: 0.25;
+  cursor: not-allowed;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
 /* ── Narrow viewport — bottom drawer ─────────────────────────────── */
 
 @media (max-width: 900px) {
