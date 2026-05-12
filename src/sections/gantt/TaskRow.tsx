@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GanttTask } from "@/types";
 import {
   ROW_H,
@@ -10,7 +10,11 @@ import {
 
 interface Props {
   row: FlatRow;
-  onUpdate: (id: string, patch: Partial<GanttTask>) => Promise<void>;
+  /**
+   * Returns true on commit, false when the central validator rejected the
+   * patch. Callers may use the result to revert local UI state.
+   */
+  onUpdate: (id: string, patch: Partial<GanttTask>) => Promise<boolean>;
   onDelete: (id: string) => void | Promise<void>;
   onToggleCollapse: (id: string) => void | Promise<void>;
   /** Show a chart-level error toast when the user attempts an out-of-bounds edit. */
@@ -54,22 +58,44 @@ export function TaskRow({
   );
   const endMax = parent ? toDateInput(parent.endsAt) : undefined;
 
-  const handleStartChange = (raw: string) => {
+  // Refs to imperatively revert the visible input value when the central
+  // validator rejects. The prop `value` doesn't change on rejection, so
+  // React's controlled-input reconciliation wouldn't otherwise fire and
+  // the user-typed (invalid) date would linger in the DOM until the next
+  // unrelated re-render.
+  const startInputRef = useRef<HTMLInputElement>(null);
+  const endInputRef = useRef<HTMLInputElement>(null);
+
+  const handleStartChange = async (raw: string) => {
     const start = fromDateInput(raw);
     // Preserve the existing auto-bump behavior: if start moves past end,
     // drag the end with it. The validation runs against the resulting span.
     const end = start > task.endsAt ? start : task.endsAt;
-    const violation = checkBounds({ startsAt: start, endsAt: end }, parent, childrenSpan);
+
+    // Fast-path: pre-check against the FlatRow's precomputed bounds so we
+    // can surface a clean error without a round-trip. The central validator
+    // in ChartView's updateTask is the authoritative safety net.
+    const violation = checkBounds(
+      { startsAt: start, endsAt: end },
+      parent,
+      childrenSpan,
+    );
     if (violation) {
       onBoundsError(violation.message);
+      if (startInputRef.current) {
+        startInputRef.current.value = toDateInput(task.startsAt);
+      }
       return;
     }
     const patch: Partial<GanttTask> = { startsAt: start };
     if (start > task.endsAt) patch.endsAt = start;
-    onUpdate(task.id, patch);
+    const ok = await onUpdate(task.id, patch);
+    if (!ok && startInputRef.current) {
+      startInputRef.current.value = toDateInput(task.startsAt);
+    }
   };
 
-  const handleEndChange = (raw: string) => {
+  const handleEndChange = async (raw: string) => {
     const end = fromDateInput(raw);
     const violation = checkBounds(
       { startsAt: task.startsAt, endsAt: end },
@@ -78,9 +104,15 @@ export function TaskRow({
     );
     if (violation) {
       onBoundsError(violation.message);
+      if (endInputRef.current) {
+        endInputRef.current.value = toDateInput(task.endsAt);
+      }
       return;
     }
-    onUpdate(task.id, { endsAt: end });
+    const ok = await onUpdate(task.id, { endsAt: end });
+    if (!ok && endInputRef.current) {
+      endInputRef.current.value = toDateInput(task.endsAt);
+    }
   };
 
   return (
@@ -126,6 +158,7 @@ export function TaskRow({
       />
 
       <input
+        ref={startInputRef}
         type="date"
         className="gantt-task-date"
         value={toDateInput(task.startsAt)}
@@ -134,6 +167,7 @@ export function TaskRow({
         onChange={(e) => handleStartChange(e.target.value)}
       />
       <input
+        ref={endInputRef}
         type="date"
         className="gantt-task-date"
         value={toDateInput(task.endsAt)}

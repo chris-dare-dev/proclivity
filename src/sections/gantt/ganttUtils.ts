@@ -159,6 +159,43 @@ export function directChildrenSpan(
   return any ? { startsAt: min, endsAt: max } : undefined;
 }
 
+/**
+ * Look up parent and direct-children-span from a tasks list, then evaluate
+ * the parent/child date-containment invariant for a candidate edit.
+ *
+ * This is the single chokepoint for the invariant — callers in ChartView
+ * run it INSIDE the storage updater so the parent/children read is atomic
+ * with the write. Drag clamping and HTML min/max attributes are UX-level
+ * fast paths; if either is buggy or bypassed (typed values, programmatic
+ * mutation), this central check still rejects.
+ *
+ * Pass `candidate.id` so the function can locate the candidate's own
+ * children. Pass `candidate.parentId` so it can locate the parent. Either
+ * may be omitted for new tasks (which have no children yet) or top-level
+ * tasks (which have no parent).
+ */
+export function findBoundsViolation(
+  tasks: GanttTask[],
+  candidate: {
+    id?: string | undefined;
+    parentId?: string | undefined;
+    startsAt: number;
+    endsAt: number;
+  },
+): BoundsViolation | null {
+  const parent = candidate.parentId
+    ? tasks.find((t) => t.id === candidate.parentId)
+    : undefined;
+  const childrenSpan = candidate.id
+    ? directChildrenSpan(tasks, candidate.id)
+    : undefined;
+  return checkBounds(
+    { startsAt: candidate.startsAt, endsAt: candidate.endsAt },
+    parent,
+    childrenSpan,
+  );
+}
+
 export interface ChartBounds {
   start: number;
   end: number;

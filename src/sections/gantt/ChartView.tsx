@@ -8,15 +8,15 @@ import {
   ROW_H,
   addDays,
   chartBounds,
-  checkBounds,
   collectDescendants,
   daysBetween,
-  directChildrenSpan,
+  findBoundsViolation,
   flattenTasks,
   fromDateInput,
   monthSpans,
   startOfDay,
   toDateInput,
+  type FlatRow,
   type TaskSpan,
 } from "./ganttUtils";
 import { TaskRow } from "./TaskRow";
@@ -89,12 +89,48 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
   >({});
   const dragRef = useRef<DragState | null>(null);
 
-  // Memoize updateTask so callbacks depending on it stay stable (finding #8)
+  // Central enforcement point for the parent/child date-containment invariant.
+  //
+  // Validation runs INSIDE the storage updater so the parent/children read is
+  // atomic with the candidate write — no race, no stale closure, no way for
+  // a caller to bypass by sending bad dates. Drag clamping, HTML min/max,
+  // and the per-row JS guard in TaskRow are UX fast paths layered on top;
+  // this is the safety net that guarantees correctness.
+  //
+  // Non-date patches (title, done, collapsed, etc.) skip the bounds check so
+  // an existing-but-already-invalid state (created before validation existed)
+  // can still have its title edited without being held hostage.
   const updateTask = useCallback(async (id: string, patch: Partial<GanttTask>) => {
-    await update((s) => ({
-      ...s,
-      ganttTasks: s.ganttTasks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    }));
+    let violationMsg: string | null = null;
+    await update((s) => {
+      const current = s.ganttTasks.find((t) => t.id === id);
+      if (!current) return s;
+      const datesChanging =
+        patch.startsAt !== undefined || patch.endsAt !== undefined;
+      if (datesChanging) {
+        const violation = findBoundsViolation(s.ganttTasks, {
+          id: current.id,
+          parentId: current.parentId,
+          startsAt: patch.startsAt ?? current.startsAt,
+          endsAt: patch.endsAt ?? current.endsAt,
+        });
+        if (violation) {
+          violationMsg = violation.message;
+          return s;
+        }
+      }
+      return {
+        ...s,
+        ganttTasks: s.ganttTasks.map((t) =>
+          t.id === id ? { ...t, ...patch } : t,
+        ),
+      };
+    });
+    if (violationMsg !== null) {
+      setEditError(violationMsg);
+      return false as const;
+    }
+    return true as const;
   }, [update]);
 
   const deleteTask = async (id: string) => {
@@ -121,37 +157,47 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
       setAddError("End date must be on or after start date.");
       return;
     }
-    // Parent-containment: if newParent is set, the new sub-task must fit
-    // inside its parent. New tasks have no children, so only the parent
-    // side of the invariant applies here.
-    if (newParent) {
-      const parent = tasks.find((t) => t.id === newParent);
-      const violation = checkBounds({ startsAt: start, endsAt: end }, parent, undefined);
-      if (violation) {
-        setAddError(violation.message);
-        return;
+    // Parent-containment validated atomically inside the updater so the read
+    // is never stale (mirrors updateTask). New tasks have no children yet.
+    const parentId = newParent || undefined;
+    let violationMsg: string | null = null;
+    await update((s) => {
+      if (parentId) {
+        const violation = findBoundsViolation(s.ganttTasks, {
+          parentId,
+          startsAt: start,
+          endsAt: end,
+        });
+        if (violation) {
+          violationMsg = violation.message;
+          return s;
+        }
       }
+      return {
+        ...s,
+        ganttTasks: [
+          ...s.ganttTasks,
+          {
+            id: uid(),
+            chartId,
+            parentId,
+            title,
+            startsAt: start,
+            endsAt: end,
+            progress: 0,
+            done: false,
+          },
+        ],
+      };
+    });
+    if (violationMsg !== null) {
+      setAddError(violationMsg);
+      return;
     }
     setAddError(null);
     setNewTitle("");
     // Reset newParent so subsequent tasks aren't silently parented (finding #13)
     setNewParent("");
-    await update((s) => ({
-      ...s,
-      ganttTasks: [
-        ...s.ganttTasks,
-        {
-          id: uid(),
-          chartId,
-          parentId: newParent || undefined,
-          title,
-          startsAt: start,
-          endsAt: end,
-          progress: 0,
-          done: false,
-        },
-      ],
-    }));
   };
 
   const renameChart = () => {
@@ -160,13 +206,15 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
 
   // ---- Drag handlers ----
 
+  // The FlatRow carries parent and childrenSpan computed from this render's
+  // tasks list, so passing `row` (not just `task`) keeps drag bounds in sync
+  // with current state even though this callback is memoized with empty deps.
   const onBarPointerDown = useCallback(
-    (
-      e: React.PointerEvent<HTMLDivElement>,
-      task: GanttTask,
-    ) => {
+    (e: React.PointerEvent<HTMLDivElement>, row: FlatRow) => {
       // Don't initiate drag on right-click
       if (e.button !== 0) return;
+
+      const { task, parent, childrenSpan } = row;
 
       const rect = e.currentTarget.getBoundingClientRect();
       const localX = e.clientX - rect.left;
@@ -184,13 +232,9 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
       e.currentTarget.setPointerCapture(e.pointerId);
       e.preventDefault();
 
-      const parent = task.parentId
-        ? tasks.find((t) => t.id === task.parentId)
-        : undefined;
       const parentSpan: TaskSpan | undefined = parent
         ? { startsAt: parent.startsAt, endsAt: parent.endsAt }
         : undefined;
-      const childrenSpan = directChildrenSpan(tasks, task.id);
 
       dragRef.current = {
         taskId: task.id,
@@ -255,16 +299,21 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
       } else if (drag.mode === "resize-start") {
         // Only start moves. Upper bound is the lesser of (origEnd - 1day)
         // and the earliest child start. Lower bound is the parent start.
+        //
+        // Span constraint: origStart + delta ≤ origEnd − 1, so
+        //   delta ≤ (origEnd − origStart) − 1 = durationDays − 1.
+        const durationDays = daysBetween(drag.origStartsAt, drag.origEndsAt);
         const minDelta = parentStartDelta;
-        const maxDeltaFromSpan = -1; // origStart + delta ≤ origEnd − 1
-        const maxDelta = Math.min(maxDeltaFromSpan, childStartDelta);
+        const maxDelta = Math.min(durationDays - 1, childStartDelta);
         const clamped = Math.max(minDelta, Math.min(maxDelta, deltaDays));
         newStartsAt = addDays(drag.origStartsAt, clamped);
         newEndsAt = drag.origEndsAt;
       } else {
         // resize-end — only end moves.
-        const minDeltaFromSpan = 1; // origEnd + delta ≥ origStart + 1
-        const minDelta = Math.max(minDeltaFromSpan, childEndDelta);
+        // Span constraint: origEnd + delta ≥ origStart + 1, so
+        //   delta ≥ (origStart + 1) − origEnd = 1 − durationDays.
+        const durationDays = daysBetween(drag.origStartsAt, drag.origEndsAt);
+        const minDelta = Math.max(1 - durationDays, childEndDelta);
         const maxDelta = parentEndDelta;
         const clamped = Math.max(minDelta, Math.min(maxDelta, deltaDays));
         newEndsAt = addDays(drag.origEndsAt, clamped);
@@ -539,7 +588,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
                         role="button"
                         aria-label={`Task: ${r.task.title}, drag to reschedule`}
                         // Pointer events for drag
-                        onPointerDown={(e) => onBarPointerDown(e, r.task)}
+                        onPointerDown={(e) => onBarPointerDown(e, r)}
                         onPointerMove={onBarPointerMove}
                         onPointerUp={onBarPointerUp}
                         onKeyDown={onBarKeyDown}
