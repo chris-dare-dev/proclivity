@@ -3,6 +3,13 @@ import type {
   UserSettings,
 } from "@/types";
 
+/**
+ * Fixed grid size for card-view snap-to-grid.
+ * Aligns with --space-2 (8px) in theme.css.
+ * Not user-configurable in v1 — per design plan §6.
+ */
+export const CARD_GRID_SIZE = 8;
+
 /** The single chrome.storage.local / localStorage key for all persisted state. */
 export const STORAGE_KEY = "proclivity:state:v1";
 
@@ -49,6 +56,7 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
     chatEnabled: false,
     chatPosition: "right",
   },
+  layoutMode: "list",
 };
 
 /**
@@ -102,5 +110,6 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
         s.geminiNano?.chatPosition ??
         DEFAULT_SETTINGS.geminiNano.chatPosition,
     },
+    layoutMode: s.layoutMode ?? DEFAULT_SETTINGS.layoutMode,
   };
 }

@@ -76,6 +76,23 @@ export interface Reminder {
   tags: string[];
 }
 
+/* ── Card view types ─────────────────────────────────────────────────── */
+
+/**
+ * Absolute position of a card on its section canvas.
+ * `z` is the stacking order — higher = on top.
+ * Written only on drag-end; never on pointer-move.
+ */
+export interface CardPosition {
+  x: number;
+  y: number;
+  /** Stacking order — bump to maxZ+1 on drag-start for "last-touched on top". */
+  z: number;
+}
+
+/** Map from item id (todo.id or reminder.id) to its saved card position. */
+export type CardLayoutMap = Record<string, CardPosition>;
+
 /* ── Settings auxiliary unions ──────────────────────────────────────── */
 
 export type ThemeMode = "light" | "dark" | "system";
@@ -85,6 +102,7 @@ export type MeshColorMode = "auto" | "manual";
 export type TimeFormat = "auto" | "12h" | "24h";
 export type WeekStart = "sun" | "mon" | "sat";
 export type GreetingStyle = "none" | "time-of-day";
+export type LayoutMode = "list" | "card";
 export type LeadMinutes = 0 | 5 | 10 | 15 | 30 | 60;
 export type SnoozeMinutes = 10 | 30 | 60;
 export type RecurrenceDefault = "none" | "daily" | "weekly";
@@ -128,6 +146,7 @@ export interface UserSettings {
         longTerm?: boolean | undefined;
         gantt?: boolean | undefined;
         reminders?: boolean | undefined;
+        calendar?: boolean | undefined;
       }
     | undefined;
 
@@ -153,6 +172,9 @@ export interface UserSettings {
         chatPosition?: "right" | "bottom" | undefined;
       }
     | undefined;
+
+  /** Card view layout mode. Default "list" (existing behavior). */
+  layoutMode?: LayoutMode | undefined;
 }
 
 /**
@@ -194,6 +216,8 @@ export interface ResolvedUserSettings {
     chatEnabled: boolean;
     chatPosition: "right" | "bottom";
   };
+  /** Card view layout mode — always present with default "list". */
+  layoutMode: LayoutMode;
 }
 
 export interface ProclivityState {
@@ -206,6 +230,12 @@ export interface ProclivityState {
   settings: UserSettings;
   /** Global tag registry. Items reference entries here by id. */
   tags: Tag[];
+  /**
+   * Saved card positions keyed by item id (todo.id or reminder.id).
+   * Absent means no positions saved yet (list mode or first-ever card-mode
+   * activation). Lazily populated the first time a section renders in card mode.
+   */
+  cardLayouts?: CardLayoutMap | undefined;
 }
 
 export const EMPTY_STATE: ProclivityState = {
