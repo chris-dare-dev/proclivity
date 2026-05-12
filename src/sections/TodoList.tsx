@@ -41,6 +41,7 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
           scope,
           done: false,
           createdAt: Date.now(),
+          tags: [],
         },
       ],
     }));

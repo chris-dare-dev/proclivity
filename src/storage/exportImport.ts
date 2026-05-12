@@ -1,4 +1,4 @@
-import { EMPTY_STATE, type ProclivityState } from "@/types";
+import { EMPTY_STATE, type ProclivityState, type Reminder, type Todo } from "@/types";
 import { storage } from "./storage";
 
 /** Current export envelope schema. Bump when ProclivityState changes shape. */
@@ -96,7 +96,38 @@ export async function importData(file: File): Promise<ImportResult> {
 
   // For schemaVersion === 1 the shape matches ProclivityState directly.
   // Future migration logic would live here.
-  const merged: ProclivityState = { ...EMPTY_STATE, ...(data as Partial<ProclivityState>) };
+  const raw = data as Partial<ProclivityState>;
+  const merged: ProclivityState = { ...EMPTY_STATE, ...raw };
+
+  // The import path calls storage.set() directly, bypassing storage.get()'s
+  // backfill logic. We must normalise tags here too, otherwise code that runs
+  // before the next page reload will hit `todo.tags.includes(...)` on undefined.
+  //
+  // Additionally, drop any tag-id references in items that don't exist in the
+  // imported state.tags array, and warn so the user can diagnose import issues.
+  const knownTagIds = new Set((merged.tags ?? []).map((t) => t.id));
+
+  merged.todos = merged.todos.map((t) => {
+    const raw = t as Todo & { tags?: string[] };
+    const existingTags = raw.tags ?? [];
+    const validTags = existingTags.filter((id) => {
+      if (knownTagIds.has(id)) return true;
+      console.warn(`[proclivity] import: dropping unknown tag id "${id}" from todo "${t.id}"`);
+      return false;
+    });
+    return { ...t, tags: validTags };
+  });
+
+  merged.reminders = merged.reminders.map((r) => {
+    const raw = r as Reminder & { tags?: string[] };
+    const existingTags = raw.tags ?? [];
+    const validTags = existingTags.filter((id) => {
+      if (knownTagIds.has(id)) return true;
+      console.warn(`[proclivity] import: dropping unknown tag id "${id}" from reminder "${r.id}"`);
+      return false;
+    });
+    return { ...r, tags: validTags };
+  });
 
   await storage.set(merged);
   return { ok: true };

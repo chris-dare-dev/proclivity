@@ -458,6 +458,7 @@ export function SprintManager() {
           done: false,
           createdAt: Date.now(),
           sprintId: activeSprintId,
+          tags: [],
         },
       ],
     }));

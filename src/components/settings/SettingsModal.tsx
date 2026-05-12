@@ -242,6 +242,7 @@ export function SettingsModal({ open, onClose }: Props) {
       ganttTasks: [],
       reminders: [],
       settings: { settingsV2Seen: true },
+      tags: [],
     }));
     onClose();
   };

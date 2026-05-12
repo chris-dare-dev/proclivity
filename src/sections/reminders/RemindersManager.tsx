@@ -40,6 +40,7 @@ function AddReminderForm({ onSave, todos }: AddReminderFormProps) {
       fireAt: datetimeLocalToTs(fireAtVal),
       recurrence: recurrence ?? "none",
       linkedTodoId: linkedTodoId || undefined,
+      tags: [],
     });
     setTitle("");
     setFireAtVal(defaultFireAt());

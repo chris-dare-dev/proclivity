@@ -7,6 +7,21 @@ export type TodoScope = "today" | "sprint" | "long";
  * to `undefined` (e.g., clearing completedAt when un-checking a todo).
  */
 
+/**
+ * A reusable label that can be attached to Todos and Reminders.
+ * `color` is a CSS hex string (e.g. "#7c9cff"). Using hex matches the
+ * existing ACCENT_PRESETS convention and is compatible with both
+ * `<input type="color">` and `color-mix(in srgb, …)`.
+ * Never use an empty string sentinel here — callers should use a real default
+ * hex (e.g. the first ACCENT_PRESET) if no color has been chosen.
+ */
+export interface Tag {
+  id: string;
+  label: string;
+  /** Hex color, e.g. "#7c9cff". Must be a non-empty valid CSS hex string. */
+  color: string;
+}
+
 export interface Todo {
   id: string;
   title: string;
@@ -18,6 +33,8 @@ export interface Todo {
   /** Reserved — no UI surface yet. Keep field shape stable for future due-date work. */
   dueAt?: number | undefined;
   sprintId?: string | undefined;
+  /** Tag ids referencing ProclivityState.tags. Always present; empty array = untagged. */
+  tags: string[];
 }
 
 export interface Sprint {
@@ -55,6 +72,8 @@ export interface Reminder {
   recurrence?: "daily" | "weekly" | "none" | undefined;
   fired?: boolean | undefined;
   linkedTodoId?: string | undefined;
+  /** Tag ids referencing ProclivityState.tags. Always present; empty array = untagged. */
+  tags: string[];
 }
 
 /* ── Settings auxiliary unions ──────────────────────────────────────── */
@@ -185,6 +204,8 @@ export interface ProclivityState {
   ganttTasks: GanttTask[];
   reminders: Reminder[];
   settings: UserSettings;
+  /** Global tag registry. Items reference entries here by id. */
+  tags: Tag[];
 }
 
 export const EMPTY_STATE: ProclivityState = {
@@ -194,4 +215,5 @@ export const EMPTY_STATE: ProclivityState = {
   ganttTasks: [],
   reminders: [],
   settings: {},
+  tags: [],
 };

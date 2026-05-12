@@ -1,4 +1,4 @@
-import { EMPTY_STATE, type ProclivityState } from "@/types";
+import { EMPTY_STATE, type ProclivityState, type Reminder, type Todo } from "@/types";
 import { STORAGE_KEY } from "./constants";
 
 type Listener = (state: ProclivityState) => void;
@@ -32,7 +32,23 @@ let writeChain: Promise<void> = Promise.resolve();
 export const storage = {
   async get(): Promise<ProclivityState> {
     const s = await readRaw();
-    return { ...EMPTY_STATE, ...s };
+    const base = { ...EMPTY_STATE, ...s };
+    // Backfill `tags: []` on Todo and Reminder items that predate this feature.
+    // Stored JSON from before the tags field was introduced will be missing the
+    // key at runtime even though the TypeScript type requires it. This one-time
+    // normalisation pass in get() is the canonical enforcement boundary — all
+    // consumers downstream can rely on tags always being a string[].
+    return {
+      ...base,
+      todos: base.todos.map((t) => {
+        const raw = t as Todo & { tags?: string[] };
+        return raw.tags !== undefined ? t : { ...t, tags: [] };
+      }),
+      reminders: base.reminders.map((r) => {
+        const raw = r as Reminder & { tags?: string[] };
+        return raw.tags !== undefined ? r : { ...r, tags: [] };
+      }),
+    };
   },
   async set(state: ProclivityState): Promise<void> {
     await writeRaw(state);
