@@ -5,23 +5,25 @@
  * behind a lazy boundary. RemindersManager only renders the add-form and this
  * lazy boundary; no card/list branching logic in the hot path.
  *
+ * A1 fix: card-mode uses shared <TaskCard> primitive.
+ * A2 fix: uses useCardLayout hook for position management.
+ * A3 fix: DraggableCard onDragStart removed — z managed in useCardLayout.
+ * D3 fix: cards rendered as <article> with aria-label via TaskCard.
+ * H1 fix: positions seeded synchronously via useCardLayout.
+ *
  * Loaded only on first render of the reminders section.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"; // useEffect used for H1 fix and RelativeTime
-import type { Reminder, Tag, CardLayoutMap, CardPosition } from "@/types";
+import { useEffect, useMemo, useState } from "react";
+import type { Reminder, Tag, CardLayoutMap } from "@/types";
 import type { ProclivityState } from "@/types";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 import { TagChip } from "@/components/TagChip";
 import { filterByTags } from "@/storage/tags";
-import {
-  setCardPositionToFront,
-  resetCardPositions,
-  computeCascadeLayout,
-  CASCADE_CARD_H,
-} from "@/storage/cardLayouts";
 import { CardCanvas } from "@/components/card/CardCanvas";
 import { DraggableCard } from "@/components/card/DraggableCard";
+import { TaskCard } from "@/components/card/TaskCard";
+import { useCardLayout } from "@/hooks/useCardLayout";
 import { formatFireAt, relativeTime } from "./reminderUtils";
 
 /* ─── Inline RelativeTime (no state leak from parent) ──────────── */
@@ -184,7 +186,7 @@ export function RemindersCardSection({
   );
 }
 
-/* ─── List-mode reminder item (inline, same shape as RemindersManager.ReminderItem) */
+/* ─── List-mode reminder item ──────────────────────────────────── */
 
 interface ReminderListItemProps {
   reminder: Reminder;
@@ -250,7 +252,7 @@ function ReminderListItem({
 
 /* ─── Card-mode canvas ──────────────────────────────────────────── */
 
-interface CardCanvasProps {
+interface CardCanvasInternalProps {
   allReminders: Reminder[];
   filteredUpcoming: Reminder[];
   filteredFired: Reminder[];
@@ -284,87 +286,19 @@ function ReminderCardCanvas({
   onClearFilter,
   onDismissHint,
   update,
-}: CardCanvasProps) {
-  // H1 fix: canvas ref for width measurement; initial positions seeded synchronously.
-  const canvasElRef = useRef<HTMLDivElement | null>(null);
-
-  const computeInitialPositions = useCallback((): Record<string, CardPosition> => {
-    const unsaved = allReminders.filter((r) => !cardLayouts?.[r.id]);
-    if (!unsaved.length) return {};
-    const canvasWidth = canvasElRef.current?.offsetWidth ?? 800;
-    const cascade = computeCascadeLayout(unsaved.map((r) => r.id), canvasWidth);
-    const CARD_ROW_H = CASCADE_CARD_H + 16;
-    let offsetY = 0;
-    for (const r of allReminders) {
-      const pos = cardLayouts?.[r.id];
-      if (pos) offsetY = Math.max(offsetY, pos.y + CARD_ROW_H);
-    }
-    if (offsetY > 0) {
-      for (const id of Object.keys(cascade)) {
-        const entry = cascade[id];
-        if (entry) entry.y += offsetY;
-      }
-    }
-    return cascade;
-  }, [allReminders, cardLayouts]);
-
-  // Pre-seed localPositions so the first paint never shows cards at (0,0).
-  const [localPositions, setLocalPositions] = useState<Record<string, CardPosition>>(
-    () => computeInitialPositions(),
-  );
-  // D7/L2: hint shown until cardHintSeen is persisted (per-extension, not per-tab).
-
-  // Persist to storage after paint (H1 fix: async after sync seed).
-  useEffect(() => {
-    const unsaved = allReminders.filter((r) => !cardLayouts?.[r.id]);
-    if (!unsaved.length) return;
-    const cascade = computeInitialPositions();
-    if (!Object.keys(cascade).length) return;
-    void update((s) => ({
-      ...s,
-      cardLayouts: { ...(s.cardLayouts ?? {}), ...cascade },
-    }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allReminders.map((r) => r.id).join(","), cardLayouts === undefined ? "undef" : "def"]);
+}: CardCanvasInternalProps) {
+  // A2: all position management in one hook
+  const { getPosition, canvasMinHeight, canvasElRef, handlers } = useCardLayout({
+    items: allReminders,
+    cardLayouts,
+    update,
+  });
 
   // All visible filtered reminder ids
   const filteredIds = useMemo(
     () => new Set([...filteredUpcoming.map((r) => r.id), ...filteredFired.map((r) => r.id)]),
     [filteredUpcoming, filteredFired],
   );
-
-  const getPosition = useCallback(
-    (id: string): CardPosition =>
-      localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 },
-    [localPositions, cardLayouts],
-  );
-
-  const canvasMinHeight = useMemo(() => {
-    let maxY = 400;
-    for (const r of allReminders) {
-      const pos = localPositions[r.id] ?? cardLayouts?.[r.id];
-      if (pos) maxY = Math.max(maxY, pos.y + 180);
-    }
-    return maxY;
-  }, [allReminders, localPositions, cardLayouts]);
-
-  const handlePositionChange = useCallback((id: string, pos: CardPosition) => {
-    setLocalPositions((prev) => ({ ...prev, [id]: pos }));
-  }, []);
-
-  // C2 fix: z-bump computed atomically inside the updater — no stale closure.
-  const handleDragEnd = useCallback(
-    async (id: string, pos: CardPosition) => {
-      await update(setCardPositionToFront(id, { x: pos.x, y: pos.y }));
-    },
-    [update],
-  );
-
-  const handleResetLayout = useCallback(async () => {
-    const ids = allReminders.map((r) => r.id);
-    setLocalPositions({});
-    await update(resetCardPositions(ids));
-  }, [allReminders, update]);
 
   const renderCard = (r: Reminder) => {
     const isFilteredOut =
@@ -381,51 +315,30 @@ function ReminderCardCanvas({
         key={r.id}
         itemId={r.id}
         position={getPosition(r.id)}
-        onPositionChange={handlePositionChange}
-        onDragEnd={handleDragEnd}
+        onPositionChange={handlers.onPositionChange}
+        onDragEnd={handlers.onDragEnd}
         filteredOut={isFilteredOut}
       >
-        <div className={`task-card${r.fired ? " is-done" : ""}`} data-item-id={r.id}>
-          <div className="task-card-header">
-            <span className="task-card-title">{r.title}</span>
-            <button
-              className="task-card-edit"
-              onClick={(e) => { e.stopPropagation(); onEdit(r.id); }}
-              aria-label={`Edit: ${r.title}`}
-              tabIndex={0}
-            >
-              ✎
-            </button>
-          </div>
-          <p className="task-card-fireat">
-            <RelativeTime fireAt={r.fireAt} />
-            {recLabel && <span className="reminder-badge">{recLabel}</span>}
-            {r.fired && <span className="reminder-badge fired">fired</span>}
-          </p>
-          {linkedTodoTitle && (
-            <p className="task-card-notes" title={linkedTodoTitle}>
-              → {linkedTodoTitle}
-            </p>
-          )}
-          {resolvedTags.length > 0 && (
-            <div className="task-card-tags">
-              {resolvedTags.slice(0, 3).map((tag) => (
-                <TagChip key={tag.id} label={tag.label} color={tag.color} />
-              ))}
-              {resolvedTags.length > 3 && (
-                <span className="task-card-tags-overflow">+{resolvedTags.length - 3}</span>
+        {/* A1+D3: shared TaskCard with role="article" + aria-label */}
+        <TaskCard
+          title={r.title}
+          done={r.fired}
+          tags={resolvedTags}
+          itemId={r.id}
+          ariaLabel={`${r.title}${r.fired ? " (fired)" : ""}`}
+          onEdit={() => onEdit(r.id)}
+          onDelete={() => void onDelete(r.id)}
+          extra={
+            <div className="task-card-fireat">
+              <RelativeTime fireAt={r.fireAt} />
+              {recLabel && <span className="reminder-badge">{recLabel}</span>}
+              {r.fired && <span className="reminder-badge fired">fired</span>}
+              {linkedTodoTitle && (
+                <span className="task-card-notes">→ {linkedTodoTitle}</span>
               )}
             </div>
-          )}
-          <button
-            className="task-card-delete"
-            onClick={(e) => { e.stopPropagation(); void onDelete(r.id); }}
-            aria-label={`Delete: ${r.title}`}
-            tabIndex={0}
-          >
-            ✕
-          </button>
-        </div>
+          }
+        />
       </DraggableCard>
     );
   };
@@ -444,7 +357,7 @@ function ReminderCardCanvas({
         <button
           type="button"
           className="card-reset-btn"
-          onClick={() => void handleResetLayout()}
+          onClick={() => void handlers.onResetLayout()}
           title="Reset card positions to default"
         >
           ↺ Reset layout

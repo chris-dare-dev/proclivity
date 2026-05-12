@@ -5,6 +5,7 @@ import type { Sprint, Tag, Todo } from "@/types";
 import { ConfirmDialog } from "@/components/Modal";
 import { TodoItem } from "@/components/TodoItem";
 import { TodoEditModal, type TodoEditFields } from "@/components/TodoEditModal";
+import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 
 import { filterByTags } from "@/storage/tags";
 import { resolvedSettings } from "@/storage/constants";
@@ -20,9 +21,11 @@ import { resetCardPositions } from "@/storage/cardLayouts";
 import "../sections.css";
 import "./sprint.css";
 
-/* ─── Lazy card section — only loaded when layoutMode === "card" ── */
-const SprintCardSection = lazy(() =>
-  import("./SprintCardSection").then((m) => ({ default: m.SprintCardSection })),
+// A4 fix: SprintCardSection deleted — TodoCardSection used directly for card mode.
+// List mode inlined below (was duplicated in SprintCardSection). This removes
+// a 115-line dispatcher with no sprint-specific logic.
+const TodoCardSection = lazy(() =>
+  import("../TodoCardSection").then((m) => ({ default: m.TodoCardSection })),
 );
 
 /* ─── helpers ──────────────────────────────────────────────────── */
@@ -678,32 +681,80 @@ export function SprintManager() {
             placeholder="Add a task to this sprint…"
           />
 
-          <Suspense fallback={null}>
-            <SprintCardSection
-              layoutMode={layoutMode}
-              sortedItems={sortedActiveSprintTodos}
-              filteredItems={activeSprintTodos}
-              allTags={allTags}
-              effectiveActiveTagIds={effectiveActiveTagIds}
-              availableTags={sprintAvailableTags}
-              cardLayouts={state.cardLayouts}
-              cardHintSeen={resolvedSettings(state.settings).cardHintSeen}
-              onToggle={(id) => void toggleTodo(id)}
-              onDelete={deleteTodo}
-              onEdit={(id) => setEditingId(id)}
-              onToggleFilter={(tagId) => setActiveTagIds((prev) =>
-                prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+          {/* A4 fix: card mode uses TodoCardSection directly; list mode inlined. */}
+          {layoutMode === "card" ? (
+            <Suspense fallback={null}>
+              <TodoCardSection
+                scope="sprint"
+                scopedItems={sortedActiveSprintTodos}
+                filteredItems={activeSprintTodos}
+                allTags={allTags}
+                effectiveActiveTagIds={effectiveActiveTagIds}
+                availableTags={sprintAvailableTags}
+                cardLayouts={state.cardLayouts}
+                emptyHint="No tasks yet. Add one above."
+                cardHintSeen={resolvedSettings(state.settings).cardHintSeen}
+                onToggle={(id) => void toggleTodo(id)}
+                onDelete={deleteTodo}
+                onEdit={(id) => setEditingId(id)}
+                onToggleFilter={(tagId) => setActiveTagIds((prev) =>
+                  prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+                )}
+                onClearFilter={() => setActiveTagIds([])}
+                onDismissHint={() => {
+                  void update((s) => ({
+                    ...s,
+                    settings: { ...s.settings, cardHintSeen: true },
+                  }));
+                }}
+                update={update}
+              />
+            </Suspense>
+          ) : (
+            <>
+              <TagFilterToolbar
+                availableTags={sprintAvailableTags}
+                activeTagIds={effectiveActiveTagIds}
+                totalCount={sortedActiveSprintTodos.length}
+                filteredCount={activeSprintTodos.length}
+                onToggle={(tagId) => setActiveTagIds((prev) =>
+                  prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+                )}
+                onClearAll={() => setActiveTagIds([])}
+              />
+              {activeSprintTodos.length === 0 ? (
+                <div className="section-empty">
+                  {effectiveActiveTagIds.length > 0 ? (
+                    <>
+                      No tasks in this sprint match the selected tags.{" "}
+                      <button
+                        type="button"
+                        className="inline-clear-link"
+                        onClick={() => setActiveTagIds([])}
+                      >
+                        Clear the filter
+                      </button>
+                    </>
+                  ) : (
+                    "No tasks yet. Add one above."
+                  )}
+                </div>
+              ) : (
+                <ul className="todo-list">
+                  {activeSprintTodos.map((t) => (
+                    <TodoItem
+                      key={t.id}
+                      todo={t}
+                      allTags={allTags}
+                      onToggle={(id) => void toggleTodo(id)}
+                      onDelete={deleteTodo}
+                      onEdit={(id) => setEditingId(id)}
+                    />
+                  ))}
+                </ul>
               )}
-              onClearFilter={() => setActiveTagIds([])}
-              onDismissHint={() => {
-                void update((s) => ({
-                  ...s,
-                  settings: { ...s.settings, cardHintSeen: true },
-                }));
-              }}
-              update={update}
-            />
-          </Suspense>
+            </>
+          )}
         </>
       )}
 

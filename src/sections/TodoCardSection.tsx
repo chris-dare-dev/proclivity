@@ -2,23 +2,24 @@
  * TodoCardSection — lazy-loaded card-mode render for TodoList sections.
  *
  * This file is ONLY loaded when layoutMode === "card". It imports DraggableCard,
- * CardCanvas, card.css, and the cardLayouts helpers. All of that stays out of
- * the initial newtab bundle when the user is in the default list mode.
+ * CardCanvas, TaskCard, card.css, and the cardLayouts helpers. All of that stays
+ * out of the initial newtab bundle when the user is in the default list mode.
+ *
+ * A1 fix: uses shared <TaskCard> primitive instead of duplicated card JSX.
+ * A2 fix: uses useCardLayout hook for position management instead of ~90
+ *   lines of duplicated state/callbacks.
+ * A3 fix: DraggableCard onDragStart removed — z managed in useCardLayout
+ *   hook via setCardPositionToFront inside the updater (C2 fix).
+ * D3 fix: cards rendered as <article> with aria-label via TaskCard.
  *
  * Props mirror the slice of TodoList state/handlers that card mode needs.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CardCanvas } from "@/components/card/CardCanvas";
 import { DraggableCard } from "@/components/card/DraggableCard";
-import {
-  setCardPositionToFront,
-  resetCardPositions,
-  computeCascadeLayout,
-  CASCADE_CARD_H,
-} from "@/storage/cardLayouts";
-import type { CardPosition, CardLayoutMap, Tag, Todo } from "@/types";
-import { TagChip } from "@/components/TagChip";
+import { TaskCard } from "@/components/card/TaskCard";
+import { useCardLayout } from "@/hooks/useCardLayout";
+import type { CardLayoutMap, Tag, Todo } from "@/types";
 import { TodoItem } from "@/components/TodoItem";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 
@@ -61,95 +62,12 @@ export function TodoCardSection({
   onDismissHint,
   update,
 }: Props) {
-  // Live drag positions — pure local state, no storage writes during drag.
-  // H1 fix: pre-seeded with the cascade layout for un-positioned items so the
-  // first paint never shows cards stacked at (0,0). Storage persistence happens
-  // asynchronously in the useEffect below.
-  const canvasElRef = useRef<HTMLDivElement | null>(null);
-
-  const computeInitialPositions = useCallback((): Record<string, CardPosition> => {
-    const unsaved = scopedItems.filter((t) => !cardLayouts?.[t.id]);
-    if (!unsaved.length) return {};
-    const canvasWidth = canvasElRef.current?.offsetWidth ?? 800;
-    const cascade = computeCascadeLayout(unsaved.map((t) => t.id), canvasWidth);
-    // Offset new cards below already-placed ones.
-    const CARD_ROW_H = CASCADE_CARD_H + 16;
-    let offsetY = 0;
-    for (const t of scopedItems) {
-      const pos = cardLayouts?.[t.id];
-      if (pos) offsetY = Math.max(offsetY, pos.y + CARD_ROW_H);
-    }
-    if (offsetY > 0) {
-      for (const id of Object.keys(cascade)) {
-        const entry = cascade[id];
-        if (entry) entry.y += offsetY;
-      }
-    }
-    return cascade;
-  }, [scopedItems, cardLayouts]);
-
-  const [localPositions, setLocalPositions] = useState<Record<string, CardPosition>>(
-    () => computeInitialPositions(),
-  );
-
-  // D7/L2: hint shown until cardHintSeen is persisted (no more per-tab state).
-
-  // Persist the cascade to storage (once, when there are un-positioned items).
-  // This runs after paint so the user never sees the (0,0) flash.
-  useEffect(() => {
-    const unsaved = scopedItems.filter((t) => !cardLayouts?.[t.id]);
-    if (!unsaved.length) return;
-    const cascade = computeInitialPositions();
-    if (!Object.keys(cascade).length) return;
-    void update((s) => ({
-      ...s,
-      cardLayouts: { ...(s.cardLayouts ?? {}), ...cascade },
-    }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedItems.map((t) => t.id).join(","), cardLayouts === undefined ? "undef" : "def"]);
-
-  // Position resolver: live drag → persisted → fallback 0,0
-  const getPosition = useCallback(
-    (id: string): CardPosition =>
-      localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 },
-    [localPositions, cardLayouts],
-  );
-
-  // Canvas height: expand to fit the tallest placed card
-  const canvasMinHeight = useMemo(() => {
-    let maxY = 400;
-    for (const t of scopedItems) {
-      const pos = localPositions[t.id] ?? cardLayouts?.[t.id];
-      if (pos) maxY = Math.max(maxY, pos.y + 180);
-    }
-    return maxY;
-  }, [scopedItems, localPositions, cardLayouts]);
-
-  // ── Drag handlers ──────────────────────────────────────────────
-
-  const handlePositionChange = useCallback(
-    (id: string, pos: CardPosition) => {
-      setLocalPositions((prev) => ({ ...prev, [id]: pos }));
-    },
-    [],
-  );
-
-  // C2 fix: z-bump is computed atomically inside the state updater so it is
-  // never lost to stale-closure capture. onDragStart is only used for the
-  // DOM is-dragging class (handled in DraggableCard itself) — no z work here.
-  const handleDragEnd = useCallback(
-    async (id: string, pos: CardPosition) => {
-      // setCardPositionToFront reads current maxZ from s.cardLayouts atomically.
-      await update(setCardPositionToFront(id, { x: pos.x, y: pos.y }));
-    },
-    [update],
-  );
-
-  const handleResetLayout = useCallback(async () => {
-    const ids = scopedItems.map((t) => t.id);
-    setLocalPositions({});
-    await update(resetCardPositions(ids));
-  }, [scopedItems, update]);
+  // A2: all position management in one hook
+  const { getPosition, canvasMinHeight, canvasElRef, handlers } = useCardLayout({
+    items: scopedItems,
+    cardLayouts,
+    update,
+  });
 
   const showHint = !cardHintSeen;
 
@@ -166,58 +84,26 @@ export function TodoCardSection({
         key={t.id}
         itemId={t.id}
         position={getPosition(t.id)}
-        onPositionChange={handlePositionChange}
-        onDragEnd={handleDragEnd}
+        onPositionChange={handlers.onPositionChange}
+        onDragEnd={handlers.onDragEnd}
         filteredOut={isFilteredOut}
       >
-        <div
-          className={`task-card${t.done ? " is-done" : ""}`}
-          data-item-id={t.id}
-        >
-          <div className="task-card-header">
-            <input
-              type="checkbox"
-              className="task-card-checkbox"
-              checked={t.done}
-              onChange={(e) => { e.stopPropagation(); onToggle(t.id); }}
-              aria-label={t.done ? `Mark incomplete: ${t.title}` : `Mark complete: ${t.title}`}
-            />
-            <span className="task-card-title">{t.title}</span>
-            <button
-              className="task-card-edit"
-              onClick={(e) => { e.stopPropagation(); onEdit(t.id); }}
-              aria-label={`Edit: ${t.title}`}
-              tabIndex={0}
-            >
-              ✎
-            </button>
-          </div>
-          {t.notes && (
-            <p className="task-card-notes" title={t.notes}>
-              {t.notes}
-            </p>
-          )}
-          {resolvedTags.length > 0 && (
-            <div className="task-card-tags">
-              {resolvedTags.slice(0, 3).map((tag) => (
-                <TagChip key={tag.id} label={tag.label} color={tag.color} />
-              ))}
-              {resolvedTags.length > 3 && (
-                <span className="task-card-tags-overflow">
-                  +{resolvedTags.length - 3}
-                </span>
-              )}
-            </div>
-          )}
-          <button
-            className="task-card-delete"
-            onClick={(e) => { e.stopPropagation(); void onDelete(t.id); }}
-            aria-label={`Delete: ${t.title}`}
-            tabIndex={0}
-          >
-            ✕
-          </button>
-        </div>
+        {/* A1+D3: shared TaskCard primitive with role="article" + aria-label */}
+        <TaskCard
+          title={t.title}
+          done={t.done}
+          notes={t.notes}
+          tags={resolvedTags}
+          itemId={t.id}
+          ariaLabel={`${t.title}${t.done ? " (done)" : ""}`}
+          checkboxProps={{
+            checked: t.done,
+            onChange: () => onToggle(t.id),
+            ariaLabel: t.done ? `Mark incomplete: ${t.title}` : `Mark complete: ${t.title}`,
+          }}
+          onEdit={() => onEdit(t.id)}
+          onDelete={() => void onDelete(t.id)}
+        />
       </DraggableCard>
     );
   };
@@ -237,7 +123,7 @@ export function TodoCardSection({
         <button
           type="button"
           className="card-reset-btn"
-          onClick={() => void handleResetLayout()}
+          onClick={() => void handlers.onResetLayout()}
           title="Reset card positions to default"
         >
           ↺ Reset layout
@@ -246,7 +132,7 @@ export function TodoCardSection({
 
       {/* Canvas */}
       <CardCanvas ariaLabel={`${scope} tasks canvas`}>
-        {/* Canvas width measurement ref — used by computeInitialPositions */}
+        {/* Canvas width measurement ref */}
         <div
           ref={(el) => {
             canvasElRef.current = el?.parentElement as HTMLDivElement | null;

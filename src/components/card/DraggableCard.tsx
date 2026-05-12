@@ -7,10 +7,13 @@
  * CONTRACT:
  * - During drag: updates live position via direct style mutation on the
  *   element (no React state on every pointer-move → O(1) per event).
- * - On pointer-up: snaps to CARD_GRID_SIZE, writes final position to parent
- *   via onDragEnd, which is responsible for storage.update().
+ * - On pointer-up: snaps to CARD_GRID_SIZE, calls onPositionChange with
+ *   the snapped position (live preview update), then calls onDragEnd with
+ *   the same position for the parent to persist.
  * - Keyboard: arrow keys nudge by gridSize; Escape cancels drag in progress.
- * - z-order: parent increments pos.z to maxZ+1 on drag-start via onDragStart.
+ * - z-order: managed by the parent (useCardLayout) via setCardPositionToFront
+ *   inside the storage updater — no z bump needed here (A3 fix removes
+ *   onDragStart which was the old z-bump hook, now replaced by C2 fix).
  *
  * The component is wrapped in React.memo so siblings don't re-render while
  * one card is being dragged.
@@ -38,9 +41,11 @@ interface Props {
   itemId: string;
   position: CardPosition;
   onPositionChange: (id: string, pos: CardPosition) => void;
-  /** Called when drag starts — used by parent to bump z-order. */
-  onDragStart?: ((id: string) => void) | undefined;
-  /** Called on pointer-up with the final snapped position — write to storage here. */
+  /**
+   * Called on pointer-up with the final snapped position — write to storage here.
+   * A3 fix: onDragStart removed. z-order is managed atomically in setCardPositionToFront
+   * inside the state updater called by onDragEnd (no stale-closure race).
+   */
   onDragEnd?: ((id: string, pos: CardPosition) => void) | undefined;
   /** Whether this card should be visually hidden (filtered out) but stay in DOM. */
   filteredOut?: boolean | undefined;
@@ -56,7 +61,6 @@ export const DraggableCard = memo(function DraggableCard({
   itemId,
   position,
   onPositionChange,
-  onDragStart,
   onDragEnd,
   filteredOut,
   children,
@@ -92,7 +96,6 @@ export const DraggableCard = memo(function DraggableCard({
       origY: position.y,
     };
 
-    onDragStart?.(itemId);
     document.body.style.userSelect = "none";
 
     // Add is-dragging class to card and to parent canvas
