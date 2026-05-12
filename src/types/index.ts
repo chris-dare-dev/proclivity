@@ -89,15 +89,21 @@ export interface Reminder {
 /* ── Card view types ─────────────────────────────────────────────────── */
 
 /**
- * Absolute position of a card on its section canvas.
+ * Absolute position (and optional explicit size) of a card on its section canvas.
  * `z` is the stacking order — higher = on top.
- * Written only on drag-end; never on pointer-move.
+ * `w` / `h` are the user-set dimensions in px, snapped to CARD_GRID_SIZE.
+ * When absent the card falls back to its CSS min/auto size.
+ * Written only on drag-end / resize-end; never on pointer-move.
  */
 export interface CardPosition {
   x: number;
   y: number;
   /** Stacking order — bump to maxZ+1 on drag-start for "last-touched on top". */
   z: number;
+  /** Explicit card width in px (snapped to CARD_GRID_SIZE). Absent = CSS default. */
+  w?: number | undefined;
+  /** Explicit card height in px (snapped to CARD_GRID_SIZE). Absent = CSS default. */
+  h?: number | undefined;
 }
 
 /** Map from item id (todo.id or reminder.id) to its saved card position. */
@@ -190,6 +196,22 @@ export interface UserSettings {
    * Persisted per-extension so the hint doesn't reappear on new tabs.
    */
   cardHintSeen?: boolean | undefined;
+
+  /**
+   * Observability / developer debug toggle. Drives the runtime verbosity
+   * of `src/observability/logger.ts`. When `enabled` is false, only
+   * `info`/`warn`/`error` reach the console — `trace`/`debug` are
+   * suppressed. When true, `trace`/`debug` emit for namespaces matching
+   * the comma-separated DEBUG-style glob (e.g. `"nano:*,storage:*"`
+   * or just `"*"`). Phase 1 of the observability rollout —
+   * see plans/observability-plan.md.
+   */
+  debug?:
+    | {
+        enabled?: boolean | undefined;
+        namespaces?: string | undefined;
+      }
+    | undefined;
 }
 
 /**
@@ -236,6 +258,11 @@ export interface ResolvedUserSettings {
   layoutMode: LayoutMode;
   /** Whether the card-mode onboarding hint has been dismissed (per-extension). */
   cardHintSeen: boolean;
+  /** Observability config — always present with defaults `{ enabled: false, namespaces: "*" }`. */
+  debug: {
+    enabled: boolean;
+    namespaces: string;
+  };
 }
 
 export interface ProclivityState {

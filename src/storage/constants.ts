@@ -59,6 +59,12 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   },
   layoutMode: "list",
   cardHintSeen: false,
+  // Observability defaults: off by default; namespaces wide-open when on.
+  // See plans/observability-plan.md (phase 1).
+  debug: {
+    enabled: false,
+    namespaces: "*",
+  },
 };
 
 /**
@@ -115,5 +121,9 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
     },
     layoutMode: s.layoutMode ?? DEFAULT_SETTINGS.layoutMode,
     cardHintSeen: s.cardHintSeen ?? DEFAULT_SETTINGS.cardHintSeen,
+    debug: {
+      enabled: s.debug?.enabled ?? DEFAULT_SETTINGS.debug.enabled,
+      namespaces: s.debug?.namespaces ?? DEFAULT_SETTINGS.debug.namespaces,
+    },
   };
 }

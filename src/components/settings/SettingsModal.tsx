@@ -328,6 +328,11 @@ export function SettingsModal({ open, onClose }: Props) {
           fileInputRef={fileInputRef}
           onFileSelected={handleFileSelected}
         />
+        <DeveloperSection
+          debugEnabled={rs.debug.enabled}
+          debugNamespaces={rs.debug.namespaces}
+          live={live}
+        />
       </div>
       <div className="settings-footer">
         <button type="button" onClick={handleCancel}>
@@ -1116,5 +1121,75 @@ function DataSection({
         )}
       </div>
     </section>
+  );
+}
+
+/* ─── Developer (observability) ──────────────────────────────────────── */
+
+function DeveloperSection({
+  debugEnabled,
+  debugNamespaces,
+  live,
+}: {
+  debugEnabled: boolean;
+  debugNamespaces: string;
+  live: LiveUpdater;
+}) {
+  /*
+   * Disclosed by default (collapsed) so it doesn't clutter the normal
+   * Settings flow. Phase 1 of plans/observability-plan.md. The toggle
+   * controls trace/debug emission across the codebase; the glob input
+   * is a comma-separated namespace filter (e.g. "nano:*,storage:*"
+   * or "*" for everything). info/warn/error are always emitted.
+   */
+  const updateDebug = (next: { enabled: boolean; namespaces: string }) => {
+    live("debug", next);
+  };
+  return (
+    <details className="settings-section settings-developer">
+      <summary className="settings-section-heading">Developer</summary>
+      <ToggleSwitch
+        label="Verbose debug logging"
+        checked={debugEnabled}
+        onChange={(checked) =>
+          updateDebug({ enabled: checked, namespaces: debugNamespaces })
+        }
+        hint={
+          <>
+            When on, <code>trace</code> and <code>debug</code> logs from
+            matching namespaces print to the DevTools console.{" "}
+            <code>info</code>/<code>warn</code>/<code>error</code> always
+            emit. No data is persisted yet — phase 3 of the observability
+            rollout (see <code>plans/observability-plan.md</code>) adds the
+            ring buffer.
+          </>
+        }
+      />
+      <div className="settings-field">
+        <label
+          className="settings-label"
+          htmlFor="settings-debug-namespaces"
+        >
+          Namespace filter
+        </label>
+        <input
+          id="settings-debug-namespaces"
+          type="text"
+          value={debugNamespaces}
+          onChange={(e) =>
+            updateDebug({ enabled: debugEnabled, namespaces: e.target.value })
+          }
+          placeholder="*"
+          spellCheck={false}
+        />
+        <span className="settings-hint">
+          Comma-separated DEBUG-style globs.{" "}
+          <code>"*"</code> matches everything,{" "}
+          <code>"nano:*"</code> matches the LLM namespaces only,{" "}
+          <code>"nano:*,!nano:download"</code> matches all of <code>nano:</code>{" "}
+          except <code>nano:download</code>.
+        </span>
+      </div>
+    </details>
   );
 }

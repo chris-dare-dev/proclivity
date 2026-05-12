@@ -510,3 +510,36 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+
+/* ── Developer section (collapsible) ────────────────────────────── */
+
+.settings-developer {
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+  margin-top: 6px;
+}
+
+/* The <summary> for <details> needs explicit cursor + alignment */
+details.settings-developer > summary {
+  cursor: pointer;
+  list-style: revert;
+  user-select: none;
+}
+details.settings-developer > summary::marker {
+  color: var(--text-dim);
+}
+details.settings-developer[open] > summary {
+  margin-bottom: 8px;
+}
+
+.settings-developer input[type="text"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.settings-developer code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: var(--panel-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+}

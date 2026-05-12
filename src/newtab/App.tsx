@@ -6,6 +6,7 @@ import { LongTerm } from "@/sections/LongTerm";
 import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
 import { useStore } from "@/storage/useStore";
+import { configure as configureObservability } from "@/observability/logger";
 
 // SettingsModal (and NanoSection, TagsSection, tag CRUD) are only needed when
 // the user opens Settings — lazy-load to keep the initial newtab chunk slim.
@@ -63,6 +64,15 @@ const Header = memo(function Header() {
     return () => clearInterval(id);
   }, []);
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+  // Phase 1 of the observability rollout — propagate the user's debug
+  // preferences into the logger module whenever they change.
+  // See plans/observability-plan.md.
+  useEffect(() => {
+    configureObservability({
+      enabled: rs.debug.enabled,
+      namespaces: rs.debug.namespaces,
+    });
+  }, [rs.debug.enabled, rs.debug.namespaces]);
   const name = rs.name.trim();
   const greeting =
     rs.greetingStyle === "none"
