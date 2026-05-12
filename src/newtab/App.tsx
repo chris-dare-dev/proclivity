@@ -1,12 +1,15 @@
-import { lazy, memo, Suspense, useEffect, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { Today } from "@/sections/Today";
 import { Sprint } from "@/sections/Sprint";
 import { LongTerm } from "@/sections/LongTerm";
 import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
-import { SettingsModal } from "@/components/SettingsModal";
+import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useStore } from "@/storage/useStore";
+import { resolvedSettings } from "@/storage/constants";
+import { useThemeSync } from "@/hooks/useThemeSync";
+import type { ResolvedUserSettings } from "@/types";
 
 // Three.js is ~800kB minified — keep it out of the initial chunk so the
 // planner UI renders without waiting on it. The mesh fades in once loaded.
@@ -28,7 +31,7 @@ function greetingFor(d: Date) {
   const h = d.getHours();
   if (h < 5) return "Still up";
   if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
+  if (h < 17) return "Good afternoon";
   return "Good evening";
 }
 
@@ -38,19 +41,33 @@ const Header = memo(function Header() {
   const { state } = useStore();
   const [now, setNow] = useState(() => new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  useThemeSync(state.settings);
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const name = state.settings.name?.trim();
+  const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+  const name = rs.name.trim();
+  const greeting =
+    rs.greetingStyle === "none"
+      ? name
+        ? `${name}.`
+        : ""
+      : `${greetingFor(now)}${name ? `, ${name}` : ""}.`;
+  const timeOpts: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(rs.timeFormat === "12h"
+      ? { hourCycle: "h12" as const }
+      : rs.timeFormat === "24h"
+        ? { hourCycle: "h23" as const }
+        : {}),
+  };
   return (
     <>
       <header className="header">
         <div className="header-left">
-          <div className="greeting">
-            {greetingFor(now)}
-            {name ? `, ${name}` : ""}.
-          </div>
+          <div className="greeting">{greeting}</div>
           <div className="date">
             {now.toLocaleDateString(undefined, {
               weekday: "long",
@@ -61,14 +78,12 @@ const Header = memo(function Header() {
         </div>
         <div className="header-right">
           <div className="clock">
-            {now.toLocaleTimeString(undefined, {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {now.toLocaleTimeString(undefined, timeOpts)}
           </div>
           <button
             type="button"
             className="settings-button"
+            data-new={rs.settingsV2Seen ? undefined : "true"}
             aria-label="Settings"
             title="Settings"
             onClick={() => setSettingsOpen(true)}
@@ -104,19 +119,49 @@ function GearIcon() {
   );
 }
 
+const TAB_KEY: Record<Tab, keyof ResolvedUserSettings["sectionVisibility"]> = {
+  today: "today",
+  sprint: "sprint",
+  long: "longTerm",
+  gantt: "gantt",
+  reminders: "reminders",
+};
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
+  const { state } = useStore();
+  const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+
+  const visibleTabs = useMemo(
+    () => TABS.filter((t) => rs.sectionVisibility[TAB_KEY[t.id]]),
+    [rs.sectionVisibility],
+  );
+
+  // If the active tab gets hidden via settings, fall back to the first
+  // visible one so the dashboard never renders an "invisible" section.
+  useEffect(() => {
+    if (visibleTabs.length === 0) return;
+    if (!rs.sectionVisibility[TAB_KEY[tab]]) {
+      const firstVisible = visibleTabs[0];
+      if (firstVisible) setTab(firstVisible.id);
+    }
+  }, [rs.sectionVisibility, tab, visibleTabs]);
 
   return (
     <>
-      <Suspense fallback={null}>
-        <MeshBackground />
-      </Suspense>
+      {rs.meshEnabled && (
+        <Suspense fallback={null}>
+          <MeshBackground
+            intensity={rs.meshIntensity}
+            reducedMotion={rs.reducedMotion}
+          />
+        </Suspense>
+      )}
       <div className="app">
         <Header />
 
         <nav className="tabs" role="tablist">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t.id}
               role="tab"
@@ -132,24 +177,39 @@ export default function App() {
         {/*
           Keep all sections mounted (#39) — switching tabs preserves
           local state (drafts, expanded archived sprints, etc.). Inactive
-          sections are hidden via inert + display:none.
+          and hidden sections are skipped via the visible-section gate.
         */}
         <main className="content">
-          <div hidden={tab !== "today"}>
-            <Today />
-          </div>
-          <div hidden={tab !== "sprint"}>
-            <Sprint />
-          </div>
-          <div hidden={tab !== "long"}>
-            <LongTerm />
-          </div>
-          <div hidden={tab !== "gantt"}>
-            <Gantt />
-          </div>
-          <div hidden={tab !== "reminders"}>
-            <Reminders />
-          </div>
+          {rs.sectionVisibility.today && (
+            <div hidden={tab !== "today"}>
+              <Today />
+            </div>
+          )}
+          {rs.sectionVisibility.sprint && (
+            <div hidden={tab !== "sprint"}>
+              <Sprint />
+            </div>
+          )}
+          {rs.sectionVisibility.longTerm && (
+            <div hidden={tab !== "long"}>
+              <LongTerm />
+            </div>
+          )}
+          {rs.sectionVisibility.gantt && (
+            <div hidden={tab !== "gantt"}>
+              <Gantt />
+            </div>
+          )}
+          {rs.sectionVisibility.reminders && (
+            <div hidden={tab !== "reminders"}>
+              <Reminders />
+            </div>
+          )}
+          {visibleTabs.length === 0 && (
+            <div className="section-empty">
+              All sections are hidden. Open Settings to re-enable one.
+            </div>
+          )}
         </main>
       </div>
     </>

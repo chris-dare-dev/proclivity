@@ -35,9 +35,15 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /**
+   * Optional extra class on `.modal-panel`. SettingsModal uses this to
+   * replace the default padding with its own three-region layout
+   * (sticky header / scrollable body / sticky footer).
+   */
+  panelClassName?: string;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, panelClassName }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   // Unique ID per modal instance so nested modals don't share aria-labelledby (#14)
@@ -102,7 +108,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       onKeyDown={handleKeyDown}
     >
       <div
-        className="modal-panel"
+        className={`modal-panel${panelClassName ? ` ${panelClassName}` : ""}`}
         ref={panelRef}
         role="dialog"
         aria-modal="true"
