@@ -1,8 +1,19 @@
-# Gemini LLM integration — Roadmap
+# Gemini LLM integration — Roadmap (DEPRECATED)
+
+> **⚠ Deprecated 2026-05-12.** This roadmap targeted the Google Cloud **Gemini API**
+> (`generativelanguage.googleapis.com` via `chrome.identity.getAuthToken`). The user's
+> Google AI Premium subscription doesn't unlock that API — Cloud uses separate billing,
+> with its own free tier — and the user explicitly does not want a Cloud project.
+> The work is pivoting to **on-device Gemini Nano** via Chrome's Prompt API; see
+> [`plans/gemini-nano-roadmap.md`](gemini-nano-roadmap.md). The implementation
+> commits (`1cdcd4f`, `4de1a03`) were reverted in `9547cd6`. The aborted
+> `gemini-m1` milestone state remains at `.claude/notes/milestones/gemini-m1/`.
+>
+> Most of this doc is no longer load-bearing. Keep it for the audit trail.
 
 **Slug:** `gemini`
 **Created:** 2026-05-12T01:21:28Z
-**Status:** init
+**Status:** deprecated (pivoted to `gemini-nano`)
 
 <!--
 This roadmap is itself the state. Re-invoking the `roadmap` skill on
