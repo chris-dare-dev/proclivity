@@ -150,6 +150,44 @@ function nextFireAt(reminder: Reminder): number | null {
   return reminder.fireAt + delta;
 }
 
+/* ─── Quiet hours ────────────────────────────────────────────
+ * If the user has a quiet-hours window set and the current local
+ * time falls inside it, the notification is deferred to the end of
+ * the window rather than firing immediately.
+ */
+
+function parseHM(value: string): { h: number; m: number } {
+  const parts = value.split(":");
+  const h = Number(parts[0] ?? 0);
+  const m = Number(parts[1] ?? 0);
+  return {
+    h: Number.isFinite(h) ? h : 0,
+    m: Number.isFinite(m) ? m : 0,
+  };
+}
+
+function isInQuietHours(qh: { from: string; to: string }, ref: Date): boolean {
+  const nowMin = ref.getHours() * 60 + ref.getMinutes();
+  const from = parseHM(qh.from);
+  const to = parseHM(qh.to);
+  const fromMin = from.h * 60 + from.m;
+  const toMin = to.h * 60 + to.m;
+  if (fromMin === toMin) return false;
+  if (fromMin < toMin) return nowMin >= fromMin && nowMin < toMin;
+  // crosses midnight
+  return nowMin >= fromMin || nowMin < toMin;
+}
+
+function quietHoursEndAt(qh: { from: string; to: string }, ref: Date): number {
+  const to = parseHM(qh.to);
+  const candidate = new Date(ref);
+  candidate.setHours(to.h, to.m, 0, 0);
+  if (candidate.getTime() <= ref.getTime()) {
+    candidate.setDate(candidate.getDate() + 1);
+  }
+  return candidate.getTime();
+}
+
 /* ─── Alarm fired handler ───────────────────────────────────── */
 
 async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
@@ -162,13 +200,23 @@ async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   const reminder = state.reminders.find((r) => r.id === id);
   if (!reminder) return;
 
-  // Fire a notification
+  // ── Quiet hours: defer to end of window ───────────────────
+  const qh = state.settings.quietHours;
+  if (qh && isInQuietHours(qh, new Date())) {
+    const deferUntil = quietHoursEndAt(qh, new Date());
+    chrome.alarms.create(alarm.name, { when: deferUntil });
+    return;
+  }
+
+  // ── Fire the notification ─────────────────────────────────
+  const snoozeMinutes = state.settings.snoozeMinutes ?? 10;
   chrome.notifications.create(alarm.name, {
     type: "basic",
     iconUrl: "icon-128.png",
     title: "Proclivity",
     message: reminder.title,
     priority: 2,
+    buttons: [{ title: `Snooze ${snoozeMinutes} min` }],
   });
 
   const next = nextFireAt(reminder);
@@ -250,6 +298,23 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.alarms.onAlarm.addListener((alarm) => {
   handleAlarm(alarm);
 });
+
+/* ─── Notification action: snooze ───────────────────────────── */
+
+chrome.notifications.onButtonClicked.addListener(
+  (notificationId: string, buttonIndex: number) => {
+    if (buttonIndex !== 0) return;
+    if (!notificationId.startsWith(ALARM_PREFIX)) return;
+    readState().then((state) => {
+      if (!state) return;
+      const minutes = state.settings.snoozeMinutes ?? 10;
+      chrome.alarms.create(notificationId, {
+        when: Date.now() + minutes * 60_000,
+      });
+      chrome.notifications.clear(notificationId);
+    });
+  },
+);
 
 chrome.storage.onChanged.addListener(
   (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
