@@ -212,13 +212,25 @@ async function runClosedPurge(): Promise<void> {
 
 /** Fire a notification for a reminder that was missed while the SW was dead. */
 async function fireMissedReminder(reminder: Reminder): Promise<void> {
-  chrome.notifications.create(alarmName(reminder.id), {
-    type: "basic",
-    iconUrl: "icon-128.png",
-    title: "Proclivity (missed)",
-    message: reminder.title,
-    priority: 2,
-  });
+  // Without await + catch any failure here (denied OS-level notification
+  // permission, missing iconUrl, runtime error) is silently dropped — the
+  // SW just continues on as if the notification had fired, leaving the
+  // user to wonder why nothing showed up. Surface it instead.
+  try {
+    await chrome.notifications.create(alarmName(reminder.id), {
+      type: "basic",
+      iconUrl: "icon-128.png",
+      title: "Proclivity (missed)",
+      message: reminder.title,
+      priority: 2,
+    });
+  } catch (err: unknown) {
+    swLog.error("notifications.create.failed", {
+      kind: "missed",
+      reminderId: reminder.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   const next = nextFireAt(reminder);
   await swUpdate((s) => ({
@@ -330,15 +342,29 @@ async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   }
 
   // ── Fire the notification ─────────────────────────────────
+  // Awaited + try/catch so OS-level permission denials and other API
+  // failures (e.g. missing iconUrl) actually show up in the SW log
+  // instead of vanishing silently.
   const snoozeMinutes = state.settings.snoozeMinutes ?? 10;
-  chrome.notifications.create(alarm.name, {
-    type: "basic",
-    iconUrl: "icon-128.png",
-    title: "Proclivity",
-    message: reminder.title,
-    priority: 2,
-    buttons: [{ title: `Snooze ${snoozeMinutes} min` }],
-  });
+  try {
+    await chrome.notifications.create(alarm.name, {
+      type: "basic",
+      iconUrl: "icon-128.png",
+      title: "Proclivity",
+      message: reminder.title,
+      priority: 2,
+      buttons: [{ title: `Snooze ${snoozeMinutes} min` }],
+    });
+    swLog.info("notifications.create.ok", {
+      reminderId: reminder.id,
+      title: reminder.title,
+    });
+  } catch (err: unknown) {
+    swLog.error("notifications.create.failed", {
+      reminderId: reminder.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   const next = nextFireAt(reminder);
 
