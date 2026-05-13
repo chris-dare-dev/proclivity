@@ -100,26 +100,19 @@ export function closeTodo(id: string): (s: ProclivityState) => ProclivityState {
     ...s,
     todos: s.todos.map((t) => {
       if (t.id !== id) return t;
-      // Capture restore checkpoints **only on the active→closed transition**.
-      // If we're idempotently re-closing an already-closed todo, leave the
-      // existing checkpoints in place so reopen still restores the original
-      // (pre-close) placement, not the post-close fields.
-      const wasActive = !t.done;
       const next: Todo = {
         ...t,
         done: true,
         closedAt: now,
         completedAt: t.completedAt ?? now,
       };
-      if (wasActive) {
+      // Capture restore checkpoints **only on the active→closed transition**.
+      // Idempotent re-close preserves existing checkpoints (so reopen still
+      // restores the pre-close placement, not the post-close fields).
+      if (!t.done) {
         next.closedFromScope = t.scope;
-        // Conditionally set sprintId so exactOptionalPropertyTypes is satisfied
-        // when `t.sprintId` is genuinely undefined.
-        if (t.sprintId !== undefined) {
-          next.closedFromSprintId = t.sprintId;
-        } else {
-          delete next.closedFromSprintId;
-        }
+        if (t.sprintId !== undefined) next.closedFromSprintId = t.sprintId;
+        else delete next.closedFromSprintId;
       }
       return next;
     }),
@@ -148,42 +141,41 @@ export function closeTodo(id: string): (s: ProclivityState) => ProclivityState {
 export function reopenTodo(
   id: string,
 ): (s: ProclivityState) => ProclivityState {
-  return (s) => {
-    const sprintIds = new Set(s.sprints.map((sp) => sp.id));
-    return {
-      ...s,
-      todos: s.todos.map((t) => {
-        if (t.id !== id) return t;
-        let scope: TodoScope = t.closedFromScope ?? t.scope;
-        let sprintId: string | undefined;
-        if (t.closedFromSprintId && sprintIds.has(t.closedFromSprintId)) {
-          sprintId = t.closedFromSprintId;
-        } else if (scope === "sprint") {
-          // Original sprint no longer exists. Don't strand the todo in a
-          // sprint scope with no sprint binding — promote it to long-term so
-          // the user can find it.
-          scope = "long";
-          sprintId = undefined;
-        } else {
-          sprintId = t.sprintId;
-        }
-        // Build the next todo defensively for exactOptionalPropertyTypes —
-        // omit optional fields rather than write `undefined` literals.
-        const next: Todo = {
-          id: t.id,
-          title: t.title,
-          scope,
-          done: false,
-          createdAt: t.createdAt,
-          tags: t.tags,
-        };
-        if (t.notes !== undefined) next.notes = t.notes;
-        if (t.dueAt !== undefined) next.dueAt = t.dueAt;
-        if (sprintId !== undefined) next.sprintId = sprintId;
-        return next;
-      }),
-    };
-  };
+  return (s) => ({
+    ...s,
+    todos: s.todos.map((t) => {
+      if (t.id !== id) return t;
+      let scope: TodoScope = t.closedFromScope ?? t.scope;
+      // Resolve target sprint:
+      //   1. Prefer the closure checkpoint when its sprint still exists.
+      //   2. Else if scope is "sprint" the sprint is gone — promote to long
+      //      so the todo doesn't strand in an unreachable bucket.
+      //   3. Else keep whatever sprintId the todo carried (covers legacy data
+      //      with no checkpoint and a still-valid scope).
+      let sprintId: string | undefined;
+      if (
+        t.closedFromSprintId &&
+        s.sprints.some((sp) => sp.id === t.closedFromSprintId)
+      ) {
+        sprintId = t.closedFromSprintId;
+      } else if (scope === "sprint") {
+        scope = "long";
+      } else {
+        sprintId = t.sprintId;
+      }
+      // Build next defensively (exactOptionalPropertyTypes): start from `t`,
+      // overwrite the flipped fields, and explicitly delete the closure
+      // checkpoints so a future re-close re-captures fresh values.
+      const next: Todo = { ...t, scope, done: false, tags: t.tags };
+      if (sprintId !== undefined) next.sprintId = sprintId;
+      else delete next.sprintId;
+      delete next.closedAt;
+      delete next.completedAt;
+      delete next.closedFromScope;
+      delete next.closedFromSprintId;
+      return next;
+    }),
+  });
 }
 
 /**
