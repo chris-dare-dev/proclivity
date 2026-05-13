@@ -1,7 +1,12 @@
 /// <reference types="chrome" />
 
 import type { ProclivityState, Reminder } from "@/types";
-import { STORAGE_KEY } from "@/storage/constants";
+import {
+  CLOSED_PURGE_ALARM,
+  CLOSED_PURGE_INTERVAL_MINUTES,
+  STORAGE_KEY,
+} from "@/storage/constants";
+import { purgeOldClosed } from "@/storage/closedTodos";
 import {
   configure as configureObservability,
   getLogger,
@@ -141,6 +146,56 @@ async function reconcileAlarms(): Promise<void> {
     cleared,
     missedFired,
   });
+
+  // Ensure the closed-todos purge alarm exists. Chrome alarms persist across
+  // SW restarts so this is mostly a no-op after install; we re-create it
+  // defensively on every reconcile in case the alarm was lost (e.g. extension
+  // update truncated the alarm store, or onInstalled fired for a fresh
+  // install with no prior alarms). The handler is idempotent.
+  await ensureClosedPurgeAlarm();
+}
+
+/**
+ * Idempotent: creates the daily closed-todos purge alarm if missing, leaves
+ * it alone if already scheduled. We do NOT clear-and-recreate every reconcile
+ * because that would reset the periodic timer back to "fires N minutes from
+ * now" each time the SW wakes — defeating the every-24h cadence on long-idle
+ * profiles.
+ */
+async function ensureClosedPurgeAlarm(): Promise<void> {
+  const existing = await chrome.alarms.get(CLOSED_PURGE_ALARM);
+  if (existing) return;
+  // `delayInMinutes` provides the first fire offset so we don't pile up onto
+  // a freshly-installed extension's first second. `periodInMinutes` keeps it
+  // repeating every 24h thereafter.
+  chrome.alarms.create(CLOSED_PURGE_ALARM, {
+    delayInMinutes: CLOSED_PURGE_INTERVAL_MINUTES,
+    periodInMinutes: CLOSED_PURGE_INTERVAL_MINUTES,
+  });
+  swLog.info("closed.purge.alarm.created", {
+    delayMinutes: CLOSED_PURGE_INTERVAL_MINUTES,
+    periodMinutes: CLOSED_PURGE_INTERVAL_MINUTES,
+  });
+}
+
+/**
+ * Run the closed-todos purge through the SW write queue. The updater is
+ * idempotent — a second consecutive call is a no-op besides the log entry.
+ *
+ * We measure before/after closed-todo counts so users with debug logging on
+ * can see the purge land. Pure observation; not load-bearing.
+ */
+async function runClosedPurge(): Promise<void> {
+  const before = await readState();
+  const beforeClosed = (before?.todos ?? []).filter((t) => t.done).length;
+  await swUpdate(purgeOldClosed());
+  const after = await readState();
+  const afterClosed = (after?.todos ?? []).filter((t) => t.done).length;
+  swLog.info("closed.purge", {
+    before: beforeClosed,
+    after: afterClosed,
+    purged: beforeClosed - afterClosed,
+  });
 }
 
 /** Fire a notification for a reminder that was missed while the SW was dead. */
@@ -231,6 +286,20 @@ function quietHoursEndAt(qh: { from: string; to: string }, ref: Date): number {
 /* ─── Alarm fired handler ───────────────────────────────────── */
 
 async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
+  // Dispatch by alarm name. The closed-todos purge is in its own namespace so
+  // the reminder reconciler's orphan-detection never confuses it for an
+  // abandoned reminder alarm.
+  if (alarm.name === CLOSED_PURGE_ALARM) {
+    try {
+      await runClosedPurge();
+    } catch (err: unknown) {
+      swLog.error("closed.purge.failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return;
+  }
+
   const id = reminderIdFromAlarm(alarm.name);
   if (!id) return;
 
