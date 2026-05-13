@@ -101,24 +101,28 @@
   container-name: card;
 }
 
-/* < 150px tall: notes hide. The user-sized "display: block" rule above is
- * overridden by `display: none` here (same specificity, later rule wins). */
-@container card (max-height: 150px) {
+/* < 200px tall: notes hide. Picked high enough that notes don't squeeze
+ * the title/tags as the card shrinks — once the card is at-or-below
+ * "comfortably fits 2 lines of title + 1 line of notes + tags" it's
+ * better to drop notes than crush everything. The user-sized
+ * "display: block" rule above is overridden by `display: none` here
+ * (same specificity, later rule wins). */
+@container card (max-height: 200px) {
   .task-card-notes {
     display: none;
   }
 }
 
-/* < 130px tall: reminders' fire-at metadata also hides. Tags + title remain. */
-@container card (max-height: 130px) {
+/* < 170px tall: reminders' fire-at metadata also hides. Tags + title remain. */
+@container card (max-height: 170px) {
   .task-card-fireat {
     display: none;
   }
 }
 
-/* < 112px tall: title collapses to single-line ellipsis so the card still
- * fits title + tags + padding at MIN_H = 96px. */
-@container card (max-height: 112px) {
+/* < 152px tall: title collapses to single-line ellipsis so even at the
+ * MIN_H = 136px floor the title + tags + padding fit cleanly. */
+@container card (max-height: 152px) {
   .task-card-title {
     -webkit-line-clamp: 1;
   }

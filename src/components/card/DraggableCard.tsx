@@ -60,10 +60,10 @@ interface ResizeState {
 // making titles wrap character-by-character at ~10px wide.
 const MIN_W = 200;
 // MIN_H sized so a card at its minimum always fits a one-line title +
-// one row of tag chips + vertical padding. Below this you'd start losing
-// the labels, which the design requires to ALWAYS be visible. 96 = 12
-// grid units, a clean snap multiple.
-const MIN_H = 96;
+// one row of tag chips + vertical padding. The labels MUST stay visible
+// at every size (design requirement). 136 = 17 grid units, a clean
+// snap multiple just above the user-specified ~132 floor.
+const MIN_H = 136;
 const MAX_W = 600;
 const MAX_H = 500;
 
