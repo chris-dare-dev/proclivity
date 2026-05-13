@@ -14,6 +14,15 @@ export const CARD_GRID_SIZE = 8;
 export const STORAGE_KEY = "proclivity:state:v1";
 
 /**
+ * Observability ring-buffer key. Stores up to ~500 LogEntry records
+ * appended by the logger when persisted levels (warn/error always,
+ * info when debug is on) fire. Separate from STORAGE_KEY so the app's
+ * import / export / clear-all flows never touch it. Phase 3 of the
+ * observability rollout — see plans/observability-plan.md.
+ */
+export const LOG_STORAGE_KEY = "proclivity:logs:v1";
+
+/**
  * Canonical default values for every user-configurable preference. The
  * UI reads from `resolvedSettings(state.settings)` so that absent fields
  * fall back to these values without scattering `?? fallback` across the

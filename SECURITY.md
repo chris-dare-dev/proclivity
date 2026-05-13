@@ -38,17 +38,24 @@ No `host_permissions` are declared. The extension cannot make credentialed cross
 
 ## 3. Data handling
 
-All state is stored under a single key (`proclivity:state:v1`) in `chrome.storage.local`, defined in [`src/storage/constants.ts`](src/storage/constants.ts).
+State lives under **two** keys in `chrome.storage.local`, both defined in [`src/storage/constants.ts`](src/storage/constants.ts):
 
-**What is stored:** todo items (title, scope, completion state), sprint metadata, Gantt charts and tasks, and reminders (title, fire time, recurrence, optional linked-todo ID). No passwords, tokens, or authentication credentials are stored or needed.
+| Key | Purpose | Cap |
+|---|---|---|
+| `proclivity:state:v1` | App data (todos, sprints, Gantt, reminders, tags, settings) | bounded by feature volume; ≪ 10 MB in practice |
+| `proclivity:logs:v1` | Observability ring buffer — appended on `warn` / `error` always, on `info` when the user has the debug toggle on | hard-capped at **500 entries** (~100 kB), oldest dropped on overflow |
 
-**PII boundary:** the only PII is whatever the user types as todo/reminder titles. Nothing is processed, transmitted, or replicated.
+**What is stored in the state key:** todo items (title, notes, scope, completion state, tags), sprint metadata, Gantt charts and tasks, reminders (title, fire time, recurrence, optional linked-todo ID, tags), tags, and the resolved user settings. No passwords, tokens, or authentication credentials are stored or needed.
 
-**No data leaves the device.** As of the current codebase, `grep -rn "fetch\|XMLHttpRequest" src/` returns zero hits. The newtab bundle and service worker contain no outbound network calls. Verify this remains true after every significant change (see audit checklist).
+**What is stored in the log key:** structured `LogEntry` records with `{ ts, level, ns, msg, ctx? }`. The `ctx` field can carry contextual values from instrumentation call sites — e.g. tool-call parse failures include up to 500 chars of the raw model output. Tag labels and prompts may therefore end up in the buffer; the cap above bounds growth. The log key is **not** included in the app's import / export flows and is not cleared by the "Clear all data" action; it has its own clear affordance in the (forthcoming) in-app log viewer.
 
-**Storage cap:** `chrome.storage.local` is capped at approximately 10 MB. Designs that accumulate unbounded history (e.g., keeping all fired reminders forever, storing large Gantt-task bodies) need explicit pruning logic before merging.
+**PII boundary:** the only PII is whatever the user types as todo/reminder titles, tag labels, or chat prompts. State is processed locally; chat prompts are processed on-device by Gemini Nano. Nothing is transmitted off-device.
 
-**Storage write safety:** [`src/storage/storage.ts`](src/storage/storage.ts) serializes all writes through a promise chain (`writeChain`) to prevent concurrent-update races from the newtab side. [`src/background/service-worker.ts`](src/background/service-worker.ts) maintains a separate `swWriteChain` for the same reason. These two chains are independent — if the SW and the UI both write within the same tick, the last write wins for that key. This is acceptable for the current feature set but must be revisited if multi-tab editing or background-sync is added.
+**No data leaves the device.** `grep -rn "fetch\|XMLHttpRequest" src/` returns zero hits outside of any future sanctioned Gemini API host (none today). The newtab bundle and service worker contain no outbound network calls. Verify this remains true after every significant change (see audit checklist).
+
+**Storage cap:** `chrome.storage.local` is capped at approximately 10 MB across all keys for the extension. App state + log ring buffer combined are expected to stay well under 1 MB in practice. Designs that accumulate unbounded history (e.g., keeping all fired reminders forever, storing large Gantt-task bodies) need explicit pruning logic before merging.
+
+**Storage write safety:** [`src/storage/storage.ts`](src/storage/storage.ts) serializes all writes through a promise chain (`writeChain`) to prevent concurrent-update races from the newtab side. [`src/background/service-worker.ts`](src/background/service-worker.ts) maintains a separate `swWriteChain` for the same reason. The ring buffer in [`src/observability/ring-buffer.ts`](src/observability/ring-buffer.ts) maintains its own per-context chain for the same reason; cross-context interleaving (SW + newtab writing the log key simultaneously) is tolerated — at worst one entry is silently dropped, which is acceptable for a debug log. These two chains are independent — if the SW and the UI both write within the same tick, the last write wins for that key. This is acceptable for the current feature set but must be revisited if multi-tab editing or background-sync is added.
 
 ---
 

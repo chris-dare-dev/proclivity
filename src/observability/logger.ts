@@ -19,7 +19,7 @@
  */
 
 import { matchesFilter } from "./filter";
-import type { LogLevel, ObservabilityConfig } from "./types";
+import type { LogEntry, LogLevel, ObservabilityConfig } from "./types";
 
 export type { LogLevel, LogEntry, ObservabilityConfig } from "./types";
 
@@ -114,6 +114,36 @@ function emit(
   } else {
     consoleMethod(level)(tag, msg);
   }
+  if (shouldPersist(level)) {
+    const entry: LogEntry = { ts: new Date().toISOString(), level, ns, msg };
+    if (ctx !== undefined) entry.ctx = ctx;
+    scheduleWrite(entry);
+  }
+}
+
+/**
+ * Decide whether a given level/config combination warrants persisting to
+ * the ring buffer. warn/error are always persisted so a crash leaves
+ * forensic breadcrumbs; info persists only while the user has the debug
+ * toggle on, so a normal session doesn't accumulate noise. trace/debug
+ * are console-only.
+ */
+function shouldPersist(level: LogLevel): boolean {
+  if (level === "warn" || level === "error") return true;
+  if (level === "info") return currentConfig.enabled;
+  return false;
+}
+
+/**
+ * Best-effort write to the ring buffer. The module is loaded lazily so a
+ * tab that never logs a persisted entry never pays the cost. Errors are
+ * swallowed by the ring-buffer module's own write chain — never block
+ * the foreground call that emitted the log.
+ */
+function scheduleWrite(entry: LogEntry): void {
+  void import("./ring-buffer").then(({ appendEntry }) => {
+    appendEntry(entry);
+  });
 }
 
 function makeLogger(ns: string): Logger {
