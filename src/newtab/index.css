@@ -24,6 +24,12 @@ body,
   height: 100%;
   background: var(--bg);
   color: var(--text);
+  /* Card-mode canvases use width: 100vw to break out of .app's max-width.
+   * `overflow-x: clip` prevents a horizontal scrollbar appearing when a
+   * vertical scrollbar reduces the available width by ~15px. `clip` is
+   * preferred over `hidden` because it doesn't establish a scroll
+   * container — `position: sticky` and friends keep working. */
+  overflow-x: clip;
 }
 
 button {

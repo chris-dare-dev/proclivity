@@ -2,7 +2,14 @@
 
 .card-canvas {
   position: relative;
-  width: 100%;
+  /* Full-bleed: span the entire viewport width regardless of the centered
+   * .app container around it. This is card-mode only — the list-mode
+   * sections continue to live inside .app's max-width. Combined with the
+   * negative left margin the canvas effectively "breaks out" of .app while
+   * keeping its in-flow position for vertical layout. */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   /* min-height keeps the canvas visible even when all cards are filtered.
    * Updated by the section component as cards are positioned. */
   min-height: 400px;
