@@ -123,11 +123,15 @@ function AddReminderForm({ onSave, todos, allTags }: AddReminderFormProps) {
             onChange={(e) => setLinkedTodoId(e.target.value)}
           >
             <option value="">— none —</option>
-            {todos.map((t) => (
-              <option key={t.id} value={t.id}>
-                [{t.scope}] {t.title}
-              </option>
-            ))}
+            {/* Closed todos are hidden — a reminder for something the user
+                already finished is rarely the intent. */}
+            {todos
+              .filter((t) => !t.done)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  [{t.scope}] {t.title}
+                </option>
+              ))}
           </select>
         </div>
         <div className="reminder-form-field reminder-form-field-full">
@@ -280,11 +284,18 @@ function ReminderEditModal({
             onChange={(e) => setLinkedTodoId(e.target.value)}
           >
             <option value="">— none —</option>
-            {todos.map((t) => (
-              <option key={t.id} value={t.id}>
-                [{t.scope}] {t.title}
-              </option>
-            ))}
+            {/* Hide closed todos, but keep the currently-linked one even if
+                it's been closed since — otherwise the select would silently
+                fall back to "— none —" and the user could drop the link
+                without realising it. */}
+            {todos
+              .filter((t) => !t.done || t.id === reminder.linkedTodoId)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  [{t.scope}] {t.title}
+                  {t.done ? " (closed)" : ""}
+                </option>
+              ))}
           </select>
         </label>
 
