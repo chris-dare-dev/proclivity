@@ -23,13 +23,18 @@ export type ImportResult =
 /**
  * Export the current ProclivityState as a downloaded JSON file.
  * Triggers a browser download via an object URL.
+ *
+ * After the download is initiated, writes `lastExportAt` to storage so
+ * the Data pane can show backup recency. The write is best-effort — a
+ * failure here does not affect the downloaded file.
  */
 export async function exportData(): Promise<void> {
   const state = await storage.get();
+  const now = Date.now();
   const envelope: ProclivityExport = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     appVersion: getAppVersion(),
-    exportedAt: new Date().toISOString(),
+    exportedAt: new Date(now).toISOString(),
     data: state,
   };
   const json = JSON.stringify(envelope, null, 2);
@@ -37,11 +42,19 @@ export async function exportData(): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `proclivity-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `proclivity-backup-${new Date(now).toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  // Record the export timestamp. This persists across Clear-all-data:
+  // handleClearAll in SettingsModal explicitly preserves lastExportAt when
+  // resetting settings so the user always sees accurate backup recency.
+  await storage.update((s) => ({
+    ...s,
+    settings: { ...s.settings, lastExportAt: now },
+  }));
 }
 
 /**

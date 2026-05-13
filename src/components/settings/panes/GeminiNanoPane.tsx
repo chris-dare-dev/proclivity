@@ -5,16 +5,25 @@
  * NanoSection is a self-contained component that handles its own state
  * (availability check, test prompt, download progress), so this pane
  * simply mounts it inside the tabpanel wrapper.
- *
- * Agent B inserts into this pane:
- *   - 'chatPosition' SegmentedControl (Right / Bottom) below the
- *     existing "Enable chat panel" toggle. Prop is already declared on
- *     UserSettings.geminiNano.chatPosition.
  */
 
+import { type ReactNode } from "react";
 import { NanoSection } from "../NanoSection";
+import { SegmentedControl } from "../SettingsControls";
 
-export function GeminiNanoPane() {
+function SectionHeader({ children }: { children: ReactNode }) {
+  return <h3 className="settings-section-heading">{children}</h3>;
+}
+
+export interface GeminiNanoPaneProps {
+  pendingChatPosition: "right" | "bottom";
+  setPendingChatPosition: (v: "right" | "bottom") => void;
+}
+
+export function GeminiNanoPane({
+  pendingChatPosition,
+  setPendingChatPosition,
+}: GeminiNanoPaneProps) {
   return (
     <div
       role="tabpanel"
@@ -23,10 +32,20 @@ export function GeminiNanoPane() {
       className="settings-pane"
     >
       <NanoSection />
-      {/* Agent B: insert 'geminiNano.chatPosition' SegmentedControl (Right / Bottom) */}
-      {/* Place it immediately after the NanoSection component above. */}
-      {/* Note: NanoSection owns the chatEnabled toggle; chatPosition lives here */}
-      {/* as a sibling control, not inside NanoSection, to avoid modifying that file. */}
+      <section className="settings-section">
+        <SectionHeader>Chat panel</SectionHeader>
+        <SegmentedControl<"right" | "bottom">
+          name="settings-chat-position"
+          legend="Position"
+          options={[
+            { value: "right", label: "Right" },
+            { value: "bottom", label: "Bottom" },
+          ]}
+          value={pendingChatPosition}
+          onChange={setPendingChatPosition}
+          hint="Controls where the chat panel slides in. Right is the default; bottom works better on wide monitors."
+        />
+      </section>
     </div>
   );
 }

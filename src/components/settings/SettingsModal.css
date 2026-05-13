@@ -256,6 +256,10 @@
   color: var(--danger);
   opacity: 1;
 }
+.settings-hint--warn {
+  color: var(--warn);
+  opacity: 1;
+}
 
 /* ── Segmented control ────────────────────────────────────── */
 

@@ -140,6 +140,9 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
   >(rs.closedTodoRetentionDays);
   const [pendingFocusRingMode, setPendingFocusRingMode] =
     useState<FocusRingMode>(rs.focusRingMode);
+  const [pendingChatPosition, setPendingChatPosition] = useState<
+    "right" | "bottom"
+  >(rs.geminiNano.chatPosition);
 
   /* ── Transient UI state ──────────────────────────────────── */
 
@@ -173,6 +176,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
     setPendingDefaultSprintDays(rs.defaultSprintDays);
     setPendingClosedRetention(rs.closedTodoRetentionDays);
     setPendingFocusRingMode(rs.focusRingMode);
+    setPendingChatPosition(rs.geminiNano.chatPosition);
     setExportFlash(false);
     setImportError(null);
     setClearStage("rest");
@@ -264,6 +268,10 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
           ? { closedTodoRetentionDays: pendingClosedRetention }
           : { closedTodoRetentionDays: null as null }),
         focusRingMode: pendingFocusRingMode,
+        geminiNano: {
+          ...s.settings.geminiNano,
+          chatPosition: pendingChatPosition,
+        },
         settingsV2Seen: true,
       },
     }));
@@ -314,13 +322,20 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
   };
 
   const handleClearAll = async () => {
-    await update((): ProclivityState => ({
+    await update((s): ProclivityState => ({
       todos: [],
       sprints: [],
       ganttCharts: [],
       ganttTasks: [],
       reminders: [],
-      settings: { settingsV2Seen: true },
+      // Preserve lastExportAt across Clear-all so backup recency always shows
+      // accurate data (the user cleared their content, not their export history).
+      settings: {
+        settingsV2Seen: true,
+        ...(s.settings.lastExportAt !== undefined
+          ? { lastExportAt: s.settings.lastExportAt }
+          : undefined),
+      },
       tags: [],
     }));
     onClose();
@@ -396,7 +411,12 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
           />
         );
       case "geminiNano":
-        return <GeminiNanoPane />;
+        return (
+          <GeminiNanoPane
+            pendingChatPosition={pendingChatPosition}
+            setPendingChatPosition={setPendingChatPosition}
+          />
+        );
       case "tags":
         return <TagsPane tags={state.tags} />;
       case "data":
@@ -411,6 +431,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
             onClearConfirm={handleClearAll}
             fileInputRef={fileInputRef}
             onFileSelected={handleFileSelected}
+            lastExportAt={rs.lastExportAt}
           />
         );
       case "advanced":

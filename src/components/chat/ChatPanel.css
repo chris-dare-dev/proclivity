@@ -327,10 +327,33 @@
   border-color: var(--border);
 }
 
+/* ── Bottom position (user setting: chatPosition = "bottom") ──────── */
+
+.chat-panel--bottom {
+  top: auto;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  max-height: 50vh;
+  border-left: none;
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
+
+  /* Slide in from bottom */
+  transform: translateY(100%);
+  transition: transform 0.25s ease;
+}
+
+.chat-panel--bottom.chat-panel--open {
+  transform: translateY(0);
+}
+
 /* ── Narrow viewport — bottom drawer ─────────────────────────────── */
 
 @media (max-width: 900px) {
-  .chat-panel {
+  .chat-panel:not(.chat-panel--bottom) {
     top: auto;
     bottom: 0;
     right: 0;
@@ -347,7 +370,7 @@
     transition: transform 0.25s ease;
   }
 
-  .chat-panel--open {
+  .chat-panel:not(.chat-panel--bottom).chat-panel--open {
     transform: translateY(0);
   }
 }

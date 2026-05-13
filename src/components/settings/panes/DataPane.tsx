@@ -30,6 +30,16 @@ export interface DataPaneProps {
   onClearConfirm: () => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onFileSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** Epoch ms of the last successful export, or undefined if never exported. */
+  lastExportAt: number | undefined;
+}
+
+/** Format "last exported" as a human-readable recency string. */
+function formatLastExport(ts: number): string {
+  const days = Math.floor((Date.now() - ts) / 86_400_000);
+  if (days === 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
 }
 
 export function DataPane({
@@ -42,7 +52,12 @@ export function DataPane({
   onClearConfirm,
   fileInputRef,
   onFileSelected,
+  lastExportAt,
 }: DataPaneProps) {
+  const daysSinceExport =
+    lastExportAt !== undefined
+      ? Math.floor((Date.now() - lastExportAt) / 86_400_000)
+      : null;
   return (
     <div
       role="tabpanel"
@@ -53,9 +68,13 @@ export function DataPane({
       <section className="settings-section settings-danger-zone">
         <SectionHeader>Data</SectionHeader>
 
-        {/* Agent B: insert 'lastExportAt' recency display here (above Export button) */}
-        {/* Read rs.lastExportAt; show "Last exported: N days ago" or "Never exported". */}
-        {/* Apply warning styling when > 30 days since last export. */}
+        <p
+          className={`settings-hint${daysSinceExport !== null && daysSinceExport > 30 ? " settings-hint--warn" : ""}`}
+        >
+          {lastExportAt === undefined
+            ? "Never exported. Export regularly to keep a backup."
+            : `Last exported: ${formatLastExport(lastExportAt)}.${daysSinceExport !== null && daysSinceExport > 30 ? " Consider exporting soon." : ""}`}
+        </p>
 
         <div className="settings-action-row">
           <button

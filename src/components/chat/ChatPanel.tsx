@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useChatSession } from "@/hooks/useChatSession";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useStore } from "@/storage/useStore";
+import { resolvedSettings } from "@/storage/constants";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import "./ChatPanel.css";
@@ -27,9 +29,14 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ onClose }: ChatPanelProps) {
   const { messages, generating, send, clear, undo } = useChatSession();
+  const { state } = useStore();
   const panelRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const trapFocus = useFocusTrap(panelRef);
+  const chatPosition = useMemo(
+    () => resolvedSettings(state.settings).geminiNano.chatPosition,
+    [state.settings],
+  );
 
   // Auto-scroll to the latest message. Panel is always mounted when open
   // (gated in App.tsx), so we don't need an `open` guard here.
@@ -49,7 +56,7 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
   return (
     <div
       ref={panelRef}
-      className="chat-panel chat-panel--open"
+      className={`chat-panel chat-panel--open${chatPosition === "bottom" ? " chat-panel--bottom" : ""}`}
       role="complementary"
       aria-label="Gemini Nano chat"
       onKeyDown={trapFocus}
