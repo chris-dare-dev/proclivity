@@ -147,6 +147,8 @@ export type LayoutMode = "list" | "card";
 export type LeadMinutes = 0 | 5 | 10 | 15 | 30 | 60;
 export type SnoozeMinutes = 10 | 30 | 60;
 export type RecurrenceDefault = "none" | "daily" | "weekly";
+export type GreetingSchedule = "standard" | "earlyBird" | "nightOwl";
+export type FocusRingMode = "auto" | "always";
 
 /**
  * Identifies which pane is active in the SettingsModal sidebar.
@@ -192,6 +194,17 @@ export interface UserSettings {
 
   // Greeting
   greetingStyle?: GreetingStyle | undefined;
+  /**
+   * Adjusts the hour cutoffs for "Good morning / afternoon / evening".
+   * standard: 5/12/17 (default), earlyBird: 4/11/16, nightOwl: 6/13/18.
+   * Hidden in Settings when greetingStyle === "none".
+   */
+  greetingSchedule?: GreetingSchedule | undefined;
+  /**
+   * The hour (local) at which "today" resets. 0 = midnight (default),
+   * 3 = 3am, 5 = 5am. Affects Today scope filter and date groupings.
+   */
+  dayBoundaryHour?: 0 | 3 | 5 | undefined;
 
   // Section visibility (nested, all optional)
   sectionVisibility?:
@@ -247,6 +260,29 @@ export interface UserSettings {
   cardHintSeen?: boolean | undefined;
 
   /**
+   * Default sprint duration in days when creating a new sprint.
+   * Maps to 1wk / 2wk / 3wk / 4wk presets.
+   */
+  defaultSprintDays?: 7 | 14 | 21 | 28 | undefined;
+  /**
+   * How many days to keep closed todos before purging. null = forever (no
+   * age-based purge; the count cap CLOSED_TODO_MAX still applies).
+   */
+  closedTodoRetentionDays?: 7 | 30 | 90 | null | undefined;
+  /**
+   * Controls focus-ring visibility. "auto" (default): browser default
+   * (:focus-visible only). "always": rings appear on every :focus so
+   * hybrid mouse+keyboard users never lose track of focus.
+   */
+  focusRingMode?: FocusRingMode | undefined;
+  /**
+   * Epoch ms of the most recent successful export. Written by exportData()
+   * in src/storage/exportImport.ts. Intentionally preserved across
+   * Clear-all-data so the user's backup recency is always visible.
+   */
+  lastExportAt?: number | undefined;
+
+  /**
    * Observability / developer debug toggle. Drives the runtime verbosity
    * of `src/observability/logger.ts`. When `enabled` is false, only
    * `info`/`warn`/`error` reach the console — `trace`/`debug` are
@@ -284,6 +320,8 @@ export interface ResolvedUserSettings {
   relativeDates: boolean;
   weekStart: WeekStart;
   greetingStyle: GreetingStyle;
+  greetingSchedule: GreetingSchedule;
+  dayBoundaryHour: 0 | 3 | 5;
   sectionVisibility: {
     today: boolean;
     sprint: boolean;
@@ -311,6 +349,17 @@ export interface ResolvedUserSettings {
   layoutMode: LayoutMode;
   /** Whether the card-mode onboarding hint has been dismissed (per-extension). */
   cardHintSeen: boolean;
+  /** Default sprint length in days (7/14/21/28). Default 14. */
+  defaultSprintDays: 7 | 14 | 21 | 28;
+  /** Closed-todo retention days. null = forever. Default 30. */
+  closedTodoRetentionDays: 7 | 30 | 90 | null;
+  /** Focus-ring mode. "auto" = browser default, "always" = always visible. */
+  focusRingMode: FocusRingMode;
+  /**
+   * Epoch ms of the last successful export. Remains undefined until the
+   * user exports at least once (preserved across Clear-all).
+   */
+  lastExportAt: number | undefined;
   /** Observability config — always present with defaults `{ enabled: false, namespaces: "*" }`. */
   debug: {
     enabled: boolean;

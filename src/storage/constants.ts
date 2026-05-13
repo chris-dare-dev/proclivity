@@ -1,4 +1,6 @@
 import type {
+  FocusRingMode,
+  GreetingSchedule,
   ResolvedUserSettings,
   SettingsPaneId,
   UserSettings,
@@ -99,6 +101,8 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   relativeDates: true,
   weekStart: "mon",
   greetingStyle: "time-of-day",
+  greetingSchedule: "standard" as GreetingSchedule,
+  dayBoundaryHour: 0 as 0 | 3 | 5,
   sectionVisibility: {
     today: true,
     sprint: true,
@@ -121,6 +125,10 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   },
   layoutMode: "list",
   cardHintSeen: false,
+  defaultSprintDays: 14 as 7 | 14 | 21 | 28,
+  closedTodoRetentionDays: 30 as 7 | 30 | 90 | null,
+  focusRingMode: "auto" as FocusRingMode,
+  lastExportAt: undefined,
   // Observability defaults: off by default; namespaces wide-open when on.
   // See plans/observability-plan.md (phase 1).
   debug: {
@@ -155,6 +163,8 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
     relativeDates: s.relativeDates ?? DEFAULT_SETTINGS.relativeDates,
     weekStart: s.weekStart ?? DEFAULT_SETTINGS.weekStart,
     greetingStyle: s.greetingStyle ?? DEFAULT_SETTINGS.greetingStyle,
+    greetingSchedule: s.greetingSchedule ?? DEFAULT_SETTINGS.greetingSchedule,
+    dayBoundaryHour: s.dayBoundaryHour ?? DEFAULT_SETTINGS.dayBoundaryHour,
     sectionVisibility: {
       today: sv.today ?? DEFAULT_SETTINGS.sectionVisibility.today,
       sprint: sv.sprint ?? DEFAULT_SETTINGS.sectionVisibility.sprint,
@@ -185,6 +195,17 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
     },
     layoutMode: s.layoutMode ?? DEFAULT_SETTINGS.layoutMode,
     cardHintSeen: s.cardHintSeen ?? DEFAULT_SETTINGS.cardHintSeen,
+    defaultSprintDays:
+      s.defaultSprintDays ?? DEFAULT_SETTINGS.defaultSprintDays,
+    // closedTodoRetentionDays can be explicitly null ("forever"), so we must
+    // distinguish null (user chose forever) from undefined (use default).
+    closedTodoRetentionDays:
+      s.closedTodoRetentionDays !== undefined
+        ? s.closedTodoRetentionDays
+        : DEFAULT_SETTINGS.closedTodoRetentionDays,
+    focusRingMode: s.focusRingMode ?? DEFAULT_SETTINGS.focusRingMode,
+    // lastExportAt has no meaningful default — stays undefined until first export.
+    lastExportAt: s.lastExportAt,
     debug: {
       enabled: s.debug?.enabled ?? DEFAULT_SETTINGS.debug.enabled,
       namespaces: s.debug?.namespaces ?? DEFAULT_SETTINGS.debug.namespaces,
