@@ -32,7 +32,25 @@ const ChatPanel = lazy(() => import("@/components/chat/ChatPanel"));
 // chunk for users who never visit the tab.
 const Calendar = lazy(() => import("@/sections/Calendar"));
 
-type Tab = "today" | "sprint" | "long" | "gantt" | "reminders" | "calendar";
+// QuickPrompt — always-visible Nano prompt above the tabs. Lazy because the
+// component pulls in @/hooks/useQuickPrompt -> @/llm/tools which would
+// otherwise drag the system-prompt builder into the initial bundle.
+const QuickPrompt = lazy(() =>
+  import("@/components/QuickPrompt").then((m) => ({ default: m.QuickPrompt })),
+);
+
+// ClosedTodosView is the archive surface — lazy-loaded so the closed-pile
+// rendering code (date grouping, restore controls, bulk ops) stays out of
+// the initial newtab chunk. Default users who never click the Closed tab
+// pay zero kB for the view itself; only the data-layer selectors imported
+// by TodoList land in the shared chunk.
+const ClosedTodosView = lazy(() =>
+  import("@/components/closed/ClosedTodosView").then((m) => ({
+    default: m.ClosedTodosView,
+  })),
+);
+
+type Tab = "today" | "sprint" | "long" | "gantt" | "reminders" | "calendar" | "closed";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "today", label: "Today" },
@@ -41,7 +59,20 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "gantt", label: "Gantt" },
   { id: "calendar", label: "Calendar" },
   { id: "reminders", label: "Reminders" },
+  // "Closed" sits at the rightmost slot — archival semantics. Always visible
+  // (no sectionVisibility gate) so the destination promised by the close
+  // action is always findable; see .claude/notes/closed-todos-research-B.md §3.
+  { id: "closed", label: "Closed" },
 ];
+
+/**
+ * Custom-event channel for cross-section navigation. The active-section
+ * "N closed →" counter dispatches this; App's Header-sibling effect (below)
+ * catches it and switches to the Closed tab. Using an event instead of prop
+ * drilling avoids threading callbacks through TodoList → TodoCardSection →
+ * card-mode internals.
+ */
+const NAV_CLOSED_EVENT = "proclivity:nav-closed";
 
 function greetingFor(d: Date) {
   const h = d.getHours();
@@ -191,7 +222,17 @@ function ChatBubbleIcon() {
   );
 }
 
-const TAB_KEY: Record<Tab, keyof ResolvedUserSettings["sectionVisibility"]> = {
+/**
+ * Mapping from Tab id to sectionVisibility key.
+ *
+ * "closed" is intentionally absent — the Closed tab is always-visible (see
+ * the TABS comment above and research-B.md §3 for the rationale). The
+ * `visibleTabs` memo below treats Closed as unconditionally visible.
+ */
+const TAB_KEY: Record<
+  Exclude<Tab, "closed">,
+  keyof ResolvedUserSettings["sectionVisibility"]
+> = {
   today: "today",
   sprint: "sprint",
   long: "longTerm",
@@ -200,25 +241,44 @@ const TAB_KEY: Record<Tab, keyof ResolvedUserSettings["sectionVisibility"]> = {
   calendar: "calendar",
 };
 
+/** Tabs whose visibility is user-controllable via Settings → Dashboard. */
+function isVisibilityGated(tabId: Tab): tabId is Exclude<Tab, "closed"> {
+  return tabId !== "closed";
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   const { state } = useStore();
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
 
   const visibleTabs = useMemo(
-    () => TABS.filter((t) => rs.sectionVisibility[TAB_KEY[t.id]]),
+    () =>
+      TABS.filter((t) =>
+        isVisibilityGated(t.id) ? rs.sectionVisibility[TAB_KEY[t.id]] : true,
+      ),
     [rs.sectionVisibility],
   );
 
   // If the active tab gets hidden via settings, fall back to the first
   // visible one so the dashboard never renders an "invisible" section.
+  // The Closed tab is unconditionally visible so this guard only fires for
+  // visibility-gated tabs.
   useEffect(() => {
     if (visibleTabs.length === 0) return;
-    if (!rs.sectionVisibility[TAB_KEY[tab]]) {
+    if (isVisibilityGated(tab) && !rs.sectionVisibility[TAB_KEY[tab]]) {
       const firstVisible = visibleTabs[0];
       if (firstVisible) setTab(firstVisible.id);
     }
   }, [rs.sectionVisibility, tab, visibleTabs]);
+
+  // Listen for cross-section "jump to Closed" requests from the counter
+  // affordance in each active section. Cleanup on unmount keeps the listener
+  // scoped to App's lifetime.
+  useEffect(() => {
+    const handler = () => setTab("closed");
+    window.addEventListener(NAV_CLOSED_EVENT, handler);
+    return () => window.removeEventListener(NAV_CLOSED_EVENT, handler);
+  }, []);
 
   return (
     <>
@@ -232,6 +292,14 @@ export default function App() {
       )}
       <div className="app">
         <Header />
+
+        {/* QuickPrompt — always-visible Nano prompt. Renders nothing when the
+            feature toggle is off OR Nano is unavailable OR we're in card mode.
+            Suspense fallback is null so layout doesn't shift while the lazy
+            chunk loads. */}
+        <Suspense fallback={null}>
+          <QuickPrompt />
+        </Suspense>
 
         {/* L3: each tab button gets an id so the matching tabpanel can
             reference it via aria-labelledby, completing the tablist pattern. */}
@@ -317,14 +385,37 @@ export default function App() {
               <Suspense fallback={null}>
                 <Calendar
                   onTabChange={(t) => {
-                    // Guard: only switch to a valid Tab value.
-                    const valid: Tab[] = ["today", "sprint", "long", "gantt", "reminders", "calendar"];
+                    // Guard: only switch to a valid Tab value. "closed" is
+                    // intentionally accepted here so Calendar (or a future
+                    // sub-component) can deep-link to the archive.
+                    const valid: Tab[] = [
+                      "today",
+                      "sprint",
+                      "long",
+                      "gantt",
+                      "reminders",
+                      "calendar",
+                      "closed",
+                    ];
                     if ((valid as string[]).includes(t)) setTab(t as Tab);
                   }}
                 />
               </Suspense>
             </div>
           )}
+          {/* Closed surface — always rendered (unconditional visibility) and
+              lazy-loaded so its rendering code stays out of the initial chunk
+              until the user actually opens the tab. */}
+          <div
+            id="tabpanel-closed"
+            role="tabpanel"
+            aria-labelledby="tab-btn-closed"
+            hidden={tab !== "closed"}
+          >
+            <Suspense fallback={null}>
+              <ClosedTodosView />
+            </Suspense>
+          </div>
           {visibleTabs.length === 0 && (
             <div className="section-empty">
               All sections are hidden. Open Settings to re-enable one.

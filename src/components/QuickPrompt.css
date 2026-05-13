@@ -1,0 +1,154 @@
+/*
+ * QuickPrompt — always-visible Nano prompt above the tabs.
+ * Sits between .header and .tabs; matches the dark/light token palette.
+ */
+
+.quick-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 20px;
+}
+
+.quick-prompt-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.quick-prompt-input {
+  flex: 1;
+  font-size: 14px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  transition: border-color 120ms, background 120ms;
+}
+.quick-prompt-input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.85;
+}
+.quick-prompt-input:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--accent) 50%, var(--border));
+}
+.quick-prompt-input:focus,
+.quick-prompt-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.quick-prompt-input:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.quick-prompt-submit {
+  font-size: 13px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.quick-prompt-submit:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.quick-prompt-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Result banner ─────────────────────────────────────────────────── */
+
+.quick-prompt-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  animation: quick-prompt-banner-in 200ms ease-out;
+}
+
+@keyframes quick-prompt-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.quick-prompt-banner-text {
+  flex: 1;
+  min-width: 0;
+  /* Allow long text to wrap rather than truncate — the banner is short-lived
+   * and the user wants to read it fully. */
+  overflow-wrap: anywhere;
+}
+
+.quick-prompt-banner-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.quick-prompt-banner.action {
+  background: color-mix(in oklab, var(--ok) 12%, var(--panel));
+  border-color: color-mix(in oklab, var(--ok) 50%, var(--border));
+  color: var(--text);
+}
+
+.quick-prompt-banner.chat {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.quick-prompt-banner.error {
+  background: color-mix(in oklab, var(--danger) 10%, var(--panel));
+  border-color: color-mix(in oklab, var(--danger) 50%, var(--border));
+  color: var(--text);
+}
+
+.quick-prompt-undo {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+}
+.quick-prompt-undo:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.quick-prompt-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.quick-prompt-dismiss:hover {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-prompt-banner {
+    animation: none;
+  }
+}

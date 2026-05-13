@@ -1,0 +1,351 @@
+/*
+ * ClosedTodosView.css — styles for the Closed surface.
+ *
+ * All colors via OKLCH tokens declared in src/styles/theme.css so the view
+ * adapts to light/dark/density without per-mode rules in this file. The
+ * panel background uses `--panel`/`--panel-2`, the danger affordance uses
+ * `--danger`, and the dim accents follow `--text-dim` — same vocabulary
+ * the rest of the app uses.
+ *
+ * Layout note: this file is loaded lazily alongside ClosedTodosView.tsx
+ * (Vite splits the import) so it does not contribute to the initial-page
+ * CSS payload.
+ */
+
+/* ─── Layout shell ─────────────────────────────────────────────────────── */
+
+.closed-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap, 20px);
+  padding: 4px 0 8px;
+}
+
+/* ─── Header ───────────────────────────────────────────────────────────── */
+
+.closed-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.closed-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.closed-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.closed-subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.closed-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.closed-clear-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.closed-clear-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.closed-clear-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── Empty state ──────────────────────────────────────────────────────── */
+
+.closed-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 20px;
+  text-align: left;
+}
+
+.closed-empty-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.closed-empty-body {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  max-width: 60ch;
+  line-height: var(--line-height-base, 1.5);
+}
+
+/* ─── Group sections ───────────────────────────────────────────────────── */
+
+.closed-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.closed-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.closed-group-heading {
+  margin: 0 0 2px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.closed-group-count {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  /* Pill background sits on --panel-2 so it stays legible on either theme. */
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.7rem;
+}
+
+/* ─── List rows ────────────────────────────────────────────────────────── */
+
+.closed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.closed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  /*
+   * Slight de-emphasis vs. active rows so the eye knows these are
+   * archived — but not so dim the title becomes hard to read. 0.78 hits
+   * the sweet spot under both dark and light themes.
+   */
+  opacity: 0.92;
+  transition: opacity 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.closed-item:hover,
+.closed-item:focus-within {
+  opacity: 1;
+  /*
+   * Subtle accent border on hover so the row gains affordance without
+   * pulling the eye too hard. color-mix bakes a dim accent shade that
+   * works on both themes.
+   */
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+}
+
+.closed-item-check {
+  /*
+   * The checkbox is the "reopen" affordance — clicking un-checks the item
+   * and routes through reopenTodo(). We rely on the platform checkbox so
+   * AT users hear "checked, checkbox" by default; the title attribute and
+   * aria-label add the verb.
+   */
+  margin: 0;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.closed-item-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.closed-item-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.closed-item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  /*
+   * No strikethrough here. Strikethrough on the active list signals "this
+   * is checked off but still here"; in the archive view the user has
+   * already navigated to a "done items" surface, so the styling overhead
+   * is redundant and visually noisy. Dim the title slightly instead.
+   */
+  color: var(--text-dim);
+  /* Truncate very long titles so a single row never explodes the layout. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.closed-item-tags {
+  display: flex;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.closed-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.closed-item-scope {
+  /* Subtle pill — gives the scope tag enough visual weight to scan. */
+  background: var(--panel-2);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.closed-item-dot {
+  /* Mid-gray middle dot separator. Keep it pure decoration. */
+  opacity: 0.6;
+}
+
+.closed-item-time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reopen button — keep it text, lo-fi. Hidden until hover/focus to keep
+ * the row visually quiet at rest. Always in tab order, same as
+ * `.todo-edit` discipline in sections.css (HIGH fix #9 in the
+ * card-resize-critique). */
+.closed-item-reopen-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.closed-item:hover .closed-item-reopen-btn,
+.closed-item:focus-within .closed-item-reopen-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.closed-item-reopen-btn:hover {
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 60%, var(--border));
+}
+
+.closed-item-reopen-btn:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Delete-forever × — destructive; hover paints --danger. */
+.closed-item-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 4px 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.closed-item-delete:hover {
+  color: var(--danger);
+}
+
+.closed-item-delete:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}
+
+/* ─── Cap warning ──────────────────────────────────────────────────────── */
+
+.closed-cap-warning {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+/* ─── Reduced-motion ───────────────────────────────────────────────────── */
+
+[data-reduced-motion="true"] .closed-item,
+[data-reduced-motion="true"] .closed-item-reopen-btn,
+[data-reduced-motion="true"] .closed-clear-btn,
+[data-reduced-motion="true"] .closed-item-delete {
+  transition: none;
+}
+
+/* ─── Dense mode tweaks ────────────────────────────────────────────────── */
+
+[data-density="compact"] .closed-item {
+  padding: 8px 10px;
+}
+
+[data-density="compact"] .closed-group-heading {
+  font-size: 0.68rem;
+}
+
+[data-density="spacious"] .closed-item {
+  padding: 12px 14px;
+}
