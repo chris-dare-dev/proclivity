@@ -34,6 +34,7 @@ export function SettingsSidebar({
   paneId,
   onChangePane,
   unseenNano,
+  dirty = false,
 }: SettingsSidebarProps) {
   const navRef = useRef<HTMLElement>(null);
 
@@ -95,6 +96,8 @@ export function SettingsSidebar({
         const isActive = entry.id === paneId;
         const showBadge = entry.id === "geminiNano" && unseenNano;
 
+        const showDirtyDot = isActive && dirty;
+
         return (
           <button
             key={entry.id}
@@ -109,6 +112,12 @@ export function SettingsSidebar({
             tabIndex={isActive ? 0 : -1}
           >
             <span className="settings-sidebar-label">{entry.label}</span>
+            {showDirtyDot && (
+              <span
+                className="settings-sidebar-dirty"
+                aria-label="Unsaved changes"
+              />
+            )}
             {showBadge && (
               <span className="settings-sidebar-badge" aria-label="New">
                 NEW

@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Modal } from "@/components/Modal";
+import { ConfirmDialog, Modal } from "@/components/Modal";
 import { useStore } from "@/storage/useStore";
 import { resolvedSettings } from "@/storage/constants";
 import type {
@@ -144,6 +144,25 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
     "right" | "bottom"
   >(rs.geminiNano.chatPosition);
 
+  /* ── Dirty tracking ─────────────────────────────────────── */
+
+  // `dirty` is true when any staged field has been changed since the last
+  // open / Done / Cancel. Used to gate the "Discard unsaved changes?" dialog.
+  const [dirty, setDirty] = useState(false);
+  // When the user tries to switch panes while dirty, we stash the target pane
+  // here and show the discard dialog before committing the switch.
+  const [pendingPaneSwitch, setPendingPaneSwitch] =
+    useState<SettingsPaneId | null>(null);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+
+  // Wrap each staged setter to flip dirty on change.
+  function makeDirty<T>(setter: (v: T) => void): (v: T) => void {
+    return (v: T) => {
+      setter(v);
+      setDirty(true);
+    };
+  }
+
   /* ── Transient UI state ──────────────────────────────────── */
 
   const [exportFlash, setExportFlash] = useState(false);
@@ -180,6 +199,9 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
     setExportFlash(false);
     setImportError(null);
     setClearStage("rest");
+    setDirty(false);
+    setPendingPaneSwitch(null);
+    setShowDiscardDialog(false);
     // Mark v2 settings as seen (existing badge behavior)
     if (!rs.settingsV2Seen) {
       void update((s) => ({
@@ -194,6 +216,13 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
 
   const handleChangePane = useCallback(
     (id: SettingsPaneId) => {
+      if (id === paneId) return; // no-op if already on this pane
+      if (dirty) {
+        // Stash the target pane and show the discard dialog.
+        setPendingPaneSwitch(id);
+        setShowDiscardDialog(true);
+        return;
+      }
       setPaneId(id);
       // Persist last-visited pane immediately (UI affordance, not a settings value —
       // does not need to wait for Done, not included in snapshot/revert).
@@ -209,7 +238,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         }));
       }
     },
-    [update, rs.geminiNanoSeen],
+    [update, rs.geminiNanoSeen, paneId, dirty],
   );
 
   /* ── Live-preview updaters ──────────────────────────────── */
@@ -275,6 +304,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         settingsV2Seen: true,
       },
     }));
+    setDirty(false);
     onClose();
   };
 
@@ -289,8 +319,46 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         cardLayouts: snap.cardLayouts,
       }));
     }
+    setDirty(false);
     onClose();
   };
+
+  /**
+   * Called when the user dismisses the "Discard unsaved changes?" dialog
+   * by clicking "Discard". Runs the full cancel path then executes any
+   * pending pane switch (if the discard was triggered by a pane-switch attempt).
+   */
+  const handleDiscardConfirm = useCallback(async () => {
+    const targetPane = pendingPaneSwitch;
+    setPendingPaneSwitch(null);
+    setShowDiscardDialog(false);
+    if (targetPane !== null) {
+      // User clicked a different pane — discard + switch
+      const snap = snapshotRef.current;
+      if (snap) {
+        await update((s) => ({
+          ...s,
+          settings: { ...snap.settings, settingsV2Seen: true },
+          cardLayouts: snap.cardLayouts,
+        }));
+      }
+      setDirty(false);
+      setPaneId(targetPane);
+      void update((s) => ({
+        ...s,
+        settings: { ...s.settings, settingsLastPane: targetPane },
+      }));
+      if (targetPane === "geminiNano" && !rs.geminiNanoSeen) {
+        void update((s) => ({
+          ...s,
+          settings: { ...s.settings, geminiNanoSeen: true },
+        }));
+      }
+    } else {
+      // User clicked Cancel/Escape/backdrop — discard + close
+      await handleCancel();
+    }
+  }, [pendingPaneSwitch, update, rs.geminiNanoSeen, handleCancel]);
 
   const crossesMidnight = pendingQuietFrom > pendingQuietTo;
 
@@ -349,17 +417,17 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         return (
           <GeneralPane
             pendingName={pendingName}
-            setPendingName={setPendingName}
+            setPendingName={makeDirty(setPendingName)}
             pendingWeekStart={pendingWeekStart}
-            setPendingWeekStart={setPendingWeekStart}
+            setPendingWeekStart={makeDirty(setPendingWeekStart)}
             pendingRelativeDates={pendingRelativeDates}
-            setPendingRelativeDates={setPendingRelativeDates}
+            setPendingRelativeDates={makeDirty(setPendingRelativeDates)}
             pendingVisibility={pendingVisibility}
-            setPendingVisibility={setPendingVisibility}
+            setPendingVisibility={makeDirty(setPendingVisibility)}
             pendingGreetingSchedule={pendingGreetingSchedule}
-            setPendingGreetingSchedule={setPendingGreetingSchedule}
+            setPendingGreetingSchedule={makeDirty(setPendingGreetingSchedule)}
             pendingDayBoundaryHour={pendingDayBoundaryHour}
-            setPendingDayBoundaryHour={setPendingDayBoundaryHour}
+            setPendingDayBoundaryHour={makeDirty(setPendingDayBoundaryHour)}
             greetingStyle={rs.greetingStyle}
             timeFormat={rs.timeFormat}
             live={live}
@@ -384,17 +452,17 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         return (
           <NotificationsPane
             lead={pendingLead}
-            setLead={setPendingLead}
+            setLead={makeDirty(setPendingLead)}
             recurrence={pendingRecurrence}
-            setRecurrence={setPendingRecurrence}
+            setRecurrence={makeDirty(setPendingRecurrence)}
             snooze={pendingSnooze}
-            setSnooze={setPendingSnooze}
+            setSnooze={makeDirty(setPendingSnooze)}
             quietEnabled={pendingQuietEnabled}
-            setQuietEnabled={setPendingQuietEnabled}
+            setQuietEnabled={makeDirty(setPendingQuietEnabled)}
             quietFrom={pendingQuietFrom}
-            setQuietFrom={setPendingQuietFrom}
+            setQuietFrom={makeDirty(setPendingQuietFrom)}
             quietTo={pendingQuietTo}
-            setQuietTo={setPendingQuietTo}
+            setQuietTo={makeDirty(setPendingQuietTo)}
             crossesMidnight={crossesMidnight}
           />
         );
@@ -404,9 +472,9 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
             layoutMode={rs.layoutMode}
             live={live}
             pendingDefaultSprintDays={pendingDefaultSprintDays}
-            setPendingDefaultSprintDays={setPendingDefaultSprintDays}
+            setPendingDefaultSprintDays={makeDirty(setPendingDefaultSprintDays)}
             pendingClosedRetention={pendingClosedRetention}
-            setPendingClosedRetention={setPendingClosedRetention}
+            setPendingClosedRetention={makeDirty(setPendingClosedRetention)}
             savedClosedRetention={rs.closedTodoRetentionDays}
           />
         );
@@ -414,7 +482,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         return (
           <GeminiNanoPane
             pendingChatPosition={pendingChatPosition}
-            setPendingChatPosition={setPendingChatPosition}
+            setPendingChatPosition={makeDirty(setPendingChatPosition)}
           />
         );
       case "tags":
@@ -441,7 +509,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
             debugNamespaces={rs.debug.namespaces}
             live={live}
             pendingFocusRingMode={pendingFocusRingMode}
-            setPendingFocusRingMode={setPendingFocusRingMode}
+            setPendingFocusRingMode={makeDirty(setPendingFocusRingMode)}
           />
         );
     }
@@ -449,10 +517,22 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
 
   /* ── Render ───────────────────────────────────────────────── */
 
+  // When the user presses Escape or clicks the backdrop while dirty,
+  // intercept the close and show the discard dialog instead.
+  const handleRequestClose = useCallback(() => {
+    if (dirty) {
+      setPendingPaneSwitch(null); // no pane switch — just close
+      setShowDiscardDialog(true);
+    } else {
+      void handleCancel();
+    }
+  }, [dirty, handleCancel]);
+
   return (
+    <>
     <Modal
       open={open}
-      onClose={handleCancel}
+      onClose={handleRequestClose}
       title="Settings"
       panelClassName="settings-modal-panel"
     >
@@ -461,13 +541,14 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
           paneId={paneId}
           onChangePane={handleChangePane}
           unseenNano={!rs.geminiNanoSeen}
+          dirty={dirty}
         />
         <div className="settings-content">
           <div className="settings-pane-scroll">
             {renderPane()}
           </div>
           <div className="settings-footer">
-            <button type="button" onClick={handleCancel}>
+            <button type="button" onClick={handleRequestClose}>
               Cancel
             </button>
             <button
@@ -481,5 +562,17 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         </div>
       </div>
     </Modal>
+    <ConfirmDialog
+      open={showDiscardDialog}
+      title="Discard unsaved changes?"
+      message="You have unsaved changes. Discard them and continue, or go back to keep editing."
+      confirmLabel="Discard"
+      onConfirm={() => void handleDiscardConfirm()}
+      onClose={() => {
+        setShowDiscardDialog(false);
+        setPendingPaneSwitch(null);
+      }}
+    />
+    </>
   );
 }

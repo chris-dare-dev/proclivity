@@ -131,6 +131,33 @@
   line-height: 1.4;
 }
 
+/* Dirty dot — shown on the active sidebar item when there are unsaved changes */
+.settings-sidebar-dirty {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  /* Pulse once to draw attention, then hold steady */
+  animation: dirty-dot-pulse 0.4s ease-out both;
+}
+
+@keyframes dirty-dot-pulse {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+[data-reduced-motion="true"] .settings-sidebar-dirty {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-sidebar-dirty {
+    animation: none;
+  }
+}
+
 /* ── Content pane area ────────────────────────────────────── */
 
 .settings-content {
