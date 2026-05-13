@@ -91,41 +91,36 @@
  * Priority (per design): labels (tags) ALWAYS visible. Notes are the first
  * to disappear. Title gets ellipsis at the smallest sizes.
  *
- * container-type: size enables height-based @container queries on user-sized
- * cards only. Non-user-sized cards are auto-height (always tall enough for
- * their content) so no query is needed for them. The container is scoped
- * with container-name: card so unrelated containers (e.g. a future settings
- * card) don't accidentally match these rules. */
-[data-user-sized="true"] .task-card {
-  container-type: size;
-  container-name: card;
+ * Driven by a data-card-bucket attribute on .draggable-card, written
+ * imperatively by DraggableCard.applySize() during resize and by render
+ * for the committed value. This replaces an earlier container-query
+ * approach because the data attribute is deterministic — no dependence
+ * on container-type / containment / percentage-resolution quirks.
+ *
+ * Buckets (see bucketForHeight in DraggableCard.tsx):
+ *   lg  h ≥ 200  — full layout
+ *   md  170–199  — notes hidden
+ *   sm  152–169  — notes + fire-at hidden
+ *   xs  < 152    — notes + fire-at hidden + 1-line title
+ */
+
+/* Hide notes for md, sm, xs. !important wins against the user-sized
+ * "display: block" rule above (same specificity tie otherwise). */
+.draggable-card[data-card-bucket="md"] .task-card-notes,
+.draggable-card[data-card-bucket="sm"] .task-card-notes,
+.draggable-card[data-card-bucket="xs"] .task-card-notes {
+  display: none !important;
 }
 
-/* < 200px tall: notes hide. Picked high enough that notes don't squeeze
- * the title/tags as the card shrinks — once the card is at-or-below
- * "comfortably fits 2 lines of title + 1 line of notes + tags" it's
- * better to drop notes than crush everything. The user-sized
- * "display: block" rule above is overridden by `display: none` here
- * (same specificity, later rule wins). */
-@container card (max-height: 200px) {
-  .task-card-notes {
-    display: none;
-  }
+/* Hide reminder fire-at metadata for sm and xs. */
+.draggable-card[data-card-bucket="sm"] .task-card-fireat,
+.draggable-card[data-card-bucket="xs"] .task-card-fireat {
+  display: none !important;
 }
 
-/* < 170px tall: reminders' fire-at metadata also hides. Tags + title remain. */
-@container card (max-height: 170px) {
-  .task-card-fireat {
-    display: none;
-  }
-}
-
-/* < 152px tall: title collapses to single-line ellipsis so even at the
- * MIN_H = 136px floor the title + tags + padding fit cleanly. */
-@container card (max-height: 152px) {
-  .task-card-title {
-    -webkit-line-clamp: 1;
-  }
+/* Title collapses to single-line ellipsis at xs (h < 152). */
+.draggable-card[data-card-bucket="xs"] .task-card-title {
+  -webkit-line-clamp: 1;
 }
 
 /* ─── Task card ──────────────────────────────────────────────────── */

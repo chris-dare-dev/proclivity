@@ -64,6 +64,25 @@ const MIN_W = 200;
 // at every size (design requirement). 136 = 17 grid units, a clean
 // snap multiple just above the user-specified ~132 floor.
 const MIN_H = 136;
+
+/**
+ * Map a card pixel-height to one of four size buckets. Drives the
+ * progressive-degradation CSS rules (notes hide first, fire-at next,
+ * title 1-line at the smallest). The attribute is set imperatively on
+ * the wrapper during resize so the visual response is instant — no
+ * round-trip through React state on every pointer-move tick.
+ *
+ *   lg  h ≥ 200  full layout (title up to 2 lines, notes, fire-at, tags)
+ *   md  170–199  notes hidden — fire-at + 2-line title + tags
+ *   sm  152–169  notes + fire-at hidden — 2-line title + tags
+ *   xs  < 152    notes + fire-at hidden — 1-line title (ellipsis) + tags
+ */
+function bucketForHeight(h: number | undefined): "lg" | "md" | "sm" | "xs" {
+  if (h === undefined || h >= 200) return "lg";
+  if (h >= 170) return "md";
+  if (h >= 152) return "sm";
+  return "xs";
+}
 const MAX_W = 600;
 const MAX_H = 500;
 
@@ -122,6 +141,7 @@ export const DraggableCard = memo(function DraggableCard({
     if (!el) return;
     el.style.width = `${w}px`;
     el.style.height = `${h}px`;
+    el.dataset["cardBucket"] = bucketForHeight(h);
   }
 
   // Read current rendered size of the card element (for resize origin).
@@ -367,12 +387,17 @@ export const DraggableCard = memo(function DraggableCard({
   // (e.g. border-width) the old selector would falsely match.
   const userSized = position.w !== undefined || position.h !== undefined;
 
+  // Bucket from committed height. applySize() overwrites this imperatively
+  // during live resize so the visual update doesn't wait for React state.
+  const initialBucket = userSized ? bucketForHeight(position.h) : "lg";
+
   return (
     <div
       ref={elRef}
       className={`draggable-card${className ? ` ${className}` : ""}`}
       style={style}
       data-user-sized={userSized ? "true" : undefined}
+      data-card-bucket={initialBucket}
       tabIndex={0}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
