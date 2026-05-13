@@ -144,10 +144,10 @@ export function GeneralPane({
             onChange={setPendingGreetingSchedule}
             hint={
               pendingGreetingSchedule === "earlyBird"
-                ? "Morning until 11am, afternoon until 4pm, evening after."
+                ? `"Still up" until 4am, morning until 11am, afternoon until 4pm, evening after.`
                 : pendingGreetingSchedule === "nightOwl"
-                  ? "Morning until 1pm, afternoon until 6pm, evening after."
-                  : "Morning until noon, afternoon until 5pm, evening after."
+                  ? `"Still up" until 6am, morning until 1pm, afternoon until 6pm, evening after.`
+                  : `"Still up" until 5am, morning until noon, afternoon until 5pm, evening after.`
             }
           />
         ) : null}

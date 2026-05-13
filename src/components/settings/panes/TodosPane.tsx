@@ -46,10 +46,13 @@ export function TodosPane({
 }: TodosPaneProps) {
   // Warn when the user is about to shorten the retention window — existing
   // closed todos older than the new value will be removed on next purge.
+  // The most destructive transition is Forever → finite: it switches purge
+  // semantics from "never" to "remove anything older than N days" and could
+  // sweep years of history. That case is `savedClosedRetention === null`.
   const isLowering =
     pendingClosedRetention !== null &&
-    savedClosedRetention !== null &&
-    pendingClosedRetention < savedClosedRetention;
+    (savedClosedRetention === null ||
+      pendingClosedRetention < savedClosedRetention);
   return (
     <div
       role="tabpanel"

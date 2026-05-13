@@ -202,7 +202,16 @@ export interface UserSettings {
   greetingSchedule?: GreetingSchedule | undefined;
   /**
    * The hour (local) at which "today" resets. 0 = midnight (default),
-   * 3 = 3am, 5 = 5am. Affects Today scope filter and date groupings.
+   * 3 = 3am, 5 = 5am.
+   *
+   * WIRING SCOPE (audit current as of this commit):
+   *   - ClosedTodosView "Today / Yesterday" grouping respects it.
+   *   - Calendar's "today" highlight + midnight rollover does NOT.
+   *   - Gantt date math does NOT.
+   *   - Sprint date utils use raw `startOfDay`.
+   * Expanding the scope requires a coordinated audit of every `startOfDay`
+   * / `new Date()` callsite for date-of-record computation. Tracked as a
+   * follow-up; the current partial wiring is intentional.
    */
   dayBoundaryHour?: 0 | 3 | 5 | undefined;
 

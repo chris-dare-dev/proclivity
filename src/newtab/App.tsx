@@ -7,6 +7,48 @@ import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
 import { useStore } from "@/storage/useStore";
 import { configure as configureObservability } from "@/observability/logger";
+import type { SettingsPaneId } from "@/types";
+
+/**
+ * Valid SettingsPaneId values for deep-link URL parsing. Must stay in sync
+ * with the `SettingsPaneId` union in `src/types/index.ts`. Kept here as a
+ * runtime allowlist rather than pulled from the lazy `panes/registry` so
+ * the URL parse can run before the SettingsModal chunk loads.
+ */
+const SETTINGS_PANE_IDS: ReadonlySet<SettingsPaneId> = new Set<SettingsPaneId>([
+  "general",
+  "appearance",
+  "notifications",
+  "todos",
+  "geminiNano",
+  "tags",
+  "data",
+  "advanced",
+]);
+
+function readSettingsParam(): SettingsPaneId | undefined {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("settings");
+    if (raw === null) return undefined;
+    return SETTINGS_PANE_IDS.has(raw as SettingsPaneId)
+      ? (raw as SettingsPaneId)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function stripSettingsParam(): void {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("settings")) return;
+    url.searchParams.delete("settings");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch {
+    // ignore — replaceState may fail in some embedded contexts; harmless.
+  }
+}
 
 // SettingsModal (and NanoSection, TagsSection, tag CRUD) are only needed when
 // the user opens Settings — lazy-load to keep the initial newtab chunk slim.
@@ -88,9 +130,23 @@ function greetingFor(
 const Header = memo(function Header() {
   const { state } = useStore();
   const [now, setNow] = useState(() => new Date());
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Deep-link: `?settings=<paneId>` opens the modal to that pane on first
+  // load. Read once at mount; subsequent opens go to the persisted lastPane.
+  // `pendingInitialPane` is undefined unless the URL param was present and
+  // valid — passed through to SettingsModal which prefers it over lastPane.
+  const [pendingInitialPane, setPendingInitialPane] = useState<
+    SettingsPaneId | undefined
+  >(() => readSettingsParam());
+  const [settingsOpen, setSettingsOpen] = useState(
+    () => pendingInitialPane !== undefined,
+  );
   const [chatOpen, setChatOpen] = useState(false);
   useThemeSync(state.settings);
+  useEffect(() => {
+    // Strip the param so a refresh doesn't keep re-opening the modal.
+    // Runs after we've captured the value into state.
+    if (pendingInitialPane !== undefined) stripSettingsParam();
+  }, [pendingInitialPane]);
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
@@ -168,7 +224,15 @@ const Header = memo(function Header() {
       <Suspense fallback={null}>
         <SettingsModal
           open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => {
+            setSettingsOpen(false);
+            // Clear the one-shot deep-link prop after the modal closes so
+            // a manual gear-click reopens to the persisted lastPane.
+            setPendingInitialPane(undefined);
+          }}
+          {...(pendingInitialPane !== undefined
+            ? { initialPane: pendingInitialPane }
+            : {})}
         />
       </Suspense>
       {/*

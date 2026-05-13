@@ -4,8 +4,13 @@
  * Renders 8 pane entries in PANE_ORDER order with:
  *   - Active-pane highlight (aria-current="page" + .is-active class)
  *   - "NEW" badge on the Gemini Nano entry when unseenNano is true
- *   - Keyboard navigation: ArrowUp / ArrowDown move between rows;
- *     Home / End jump to first / last; Enter / Space activate.
+ *   - Keyboard navigation matches the WAI-ARIA tablist pattern:
+ *       ArrowUp / ArrowDown / Home / End move FOCUS only (no activation)
+ *       Enter / Space activates the focused tab
+ *     This split is important: when the modal has unsaved changes, a user
+ *     browsing panes via arrow keys would otherwise trigger the discard-
+ *     confirm dialog on every keypress. Moving focus without activating
+ *     lets the user line up the target tab and confirm with Enter/Space.
  *
  * The sidebar itself is a <nav role="tablist"> so it has proper landmark
  * semantics for screen readers. Each row is role="tab". The content pane
@@ -70,15 +75,14 @@ export function SettingsSidebar({
       }
 
       if (nextIndex !== undefined) {
-        const entry = panes[nextIndex];
-        if (entry) {
-          onChangePane(entry.id);
-          // Move DOM focus to the newly active button
-          const buttons = navRef.current?.querySelectorAll<HTMLButtonElement>(
-            "button[role='tab']",
-          );
-          buttons?.[nextIndex]?.focus();
-        }
+        // WAI-ARIA tablist: arrow keys move FOCUS only, never activate.
+        // This avoids triggering the dirty-check discard dialog on every
+        // keypress when the user is browsing panes mid-edit. The user
+        // confirms with Enter/Space (handled by the case above).
+        const buttons = navRef.current?.querySelectorAll<HTMLButtonElement>(
+          "button[role='tab']",
+        );
+        buttons?.[nextIndex]?.focus();
       }
     },
     [onChangePane],

@@ -39,7 +39,6 @@ import {
 } from "@/storage/closedTodos";
 import {
   CLOSED_TODO_MAX,
-  CLOSED_TODO_RETENTION_DAYS,
   resolvedSettings,
 } from "@/storage/constants";
 import { ConfirmDialog } from "@/components/Modal";
@@ -212,8 +211,10 @@ export function ClosedTodosView() {
           <div className="closed-empty-title">Nothing closed yet.</div>
           <p className="closed-empty-body">
             Checked-off tasks land here, where you can restore them with a
-            click or remove them permanently. They auto-clear after{" "}
-            {CLOSED_TODO_RETENTION_DAYS} days.
+            click or remove them permanently.{" "}
+            {rs.closedTodoRetentionDays === null
+              ? "They stay until you remove them (count cap still applies)."
+              : `They auto-clear after ${rs.closedTodoRetentionDays} days.`}
           </p>
         </div>
       </div>
@@ -231,8 +232,10 @@ export function ClosedTodosView() {
           <h2 className="closed-title">Closed</h2>
           <p className="closed-subtitle">
             {closed.length} closed{" "}
-            {closed.length === 1 ? "task" : "tasks"} · auto-clears after{" "}
-            {CLOSED_TODO_RETENTION_DAYS} days
+            {closed.length === 1 ? "task" : "tasks"} ·{" "}
+            {rs.closedTodoRetentionDays === null
+              ? "no auto-clear"
+              : `auto-clears after ${rs.closedTodoRetentionDays} days`}
           </p>
         </div>
         <div className="closed-header-actions">
