@@ -8,6 +8,14 @@ import {
   type ToolResultPayload,
 } from "@/llm/tools";
 import { useStore } from "@/storage/useStore";
+import { getLogger } from "@/observability/logger";
+
+// Observability phase 2 (obs-3 / obs-4 / obs-5). Three sub-namespaces so
+// the user can scope the noise: e.g. `nano:session` only, or
+// `nano:prompt,nano:parse` to track tool-call dispatch without lifecycle.
+const sessionLog = getLogger("nano:session");
+const promptLog = getLogger("nano:prompt");
+const parseLog = getLogger("nano:parse");
 
 /*
  * Chat message shape. `system-notice` is used for trimmed-history notices
@@ -120,8 +128,19 @@ export function useChatSession(): UseChatSessionResult {
       tags: stateRef.current.tags,
       ganttCharts: stateRef.current.ganttCharts,
     });
-    const session = await nanoCreateSession({
-      initialPrompts: [{ role: "system", content: systemContent }],
+    // obs-3 — lifecycle gauge. `count("alive", +1)` on create, `-1` on
+    // destroy (clear/unmount). A non-zero count when no panel is open
+    // indicates a session leak (the exact failure m2 H1+H2 were about).
+    const session = await sessionLog.time("create", () =>
+      nanoCreateSession({
+        initialPrompts: [{ role: "system", content: systemContent }],
+      }),
+    );
+    sessionLog.count("alive", 1);
+    sessionLog.debug("created", {
+      systemPromptChars: systemContent.length,
+      tagsInContext: stateRef.current.tags.length,
+      chartsInContext: stateRef.current.ganttCharts.length,
     });
     bindOverflowListener(session);
     sessionRef.current = session;
@@ -174,12 +193,25 @@ export function useChatSession(): UseChatSessionResult {
 
       try {
         const session = await ensureSession();
-        const raw = await session.prompt(trimmed, {
-          signal,
-          responseConstraint: TOOL_SCHEMA,
-        });
+        // obs-4 — per-prompt latency. `time` emits info with durationMs on
+        // success and error on throw. Wraps just the network/inference
+        // call, not the parse step (parse outcome is tracked separately).
+        const promptStart = performance.now();
+        const raw = await promptLog.time("prompt", () =>
+          session.prompt(trimmed, { signal, responseConstraint: TOOL_SCHEMA }),
+        );
+        const promptMs = Math.round(performance.now() - promptStart);
 
         const parsed = parseToolCall(raw.trim());
+
+        // obs-4 / obs-5 — kind + raw-length tracked on every response so
+        // the m3 eval can be reconstructed from logs without re-running.
+        promptLog.debug("response", {
+          kind: parsed.kind,
+          promptChars: trimmed.length,
+          rawChars: raw.length,
+          latencyMs: promptMs,
+        });
 
         if (parsed.kind === "chat") {
           // Plain conversational response — existing path.
@@ -188,6 +220,15 @@ export function useChatSession(): UseChatSessionResult {
         }
 
         if (parsed.kind === "parse-failed") {
+          // obs-5 — parse failures are warn-level (not error: the chain
+          // recovers) and include a truncated raw so the m3 eval can
+          // compute parse-rate from log scrubs. Truncated to 500 chars
+          // to keep ring-buffer entries bounded once phase 3 lands.
+          parseLog.warn("parse-failed", {
+            rawChars: raw.length,
+            rawPreview: parsed.raw.slice(0, 500),
+            promptChars: trimmed.length,
+          });
           // Could not parse JSON or unrecognised type — demote to system-notice.
           appendMessages([
             makeMsg(
@@ -350,8 +391,13 @@ export function useChatSession(): UseChatSessionResult {
     abortRef.current?.abort();
     abortRef.current = null;
 
-    sessionRef.current?.destroy();
-    sessionRef.current = null;
+    if (sessionRef.current) {
+      sessionRef.current.destroy();
+      sessionRef.current = null;
+      // obs-3 — decrement the alive counter so the gauge reflects reality.
+      sessionLog.count("alive", -1);
+      sessionLog.debug("destroyed", { trigger: "clear" });
+    }
 
     // Cancel any pending undo-expiry timers — the messages they target are
     // being removed, so their setMessages callbacks would be no-ops at best
@@ -375,8 +421,15 @@ export function useChatSession(): UseChatSessionResult {
     return () => {
       abortRef.current?.abort();
       abortRef.current = null;
-      sessionRef.current?.destroy();
-      sessionRef.current = null;
+      if (sessionRef.current) {
+        sessionRef.current.destroy();
+        sessionRef.current = null;
+        // obs-3 — decrement the alive counter on unmount. After this fires
+        // the count should reach 0; a non-zero count after the panel closes
+        // is the leak signature m2 H1+H2 were about.
+        sessionLog.count("alive", -1);
+        sessionLog.debug("destroyed", { trigger: "unmount" });
+      }
       // Also clear any pending undo-expiry timers so they don't fire
       // setMessages on an unmounted component (rect M2).
       for (const id of undoTimersRef.current) clearTimeout(id);

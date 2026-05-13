@@ -1,5 +1,11 @@
 import { EMPTY_STATE, type ProclivityState, type Reminder, type Todo } from "@/types";
 import { STORAGE_KEY } from "./constants";
+import { getLogger } from "@/observability/logger";
+
+// Observability phase 2 — storage writes were previously swallowed
+// silently when they rejected. Surface them via the logger so quota
+// overflows, JSON-serialisation issues, and SW/UI races are visible.
+const storageLog = getLogger("storage");
 
 type Listener = (state: ProclivityState) => void;
 
@@ -62,10 +68,18 @@ export const storage = {
       await this.set(next);
       return next;
     });
-    // Keep the chain alive; swallow errors so future updates aren't blocked.
+    // Keep the chain alive; swallow errors so future updates aren't blocked —
+    // but log them via the observability sink so they're not invisible.
+    // (obs-2)
     writeChain = result.then(
       () => undefined,
-      () => undefined,
+      (err: unknown) => {
+        storageLog.warn("update.rejected", {
+          error: err instanceof Error ? err.message : String(err),
+          name: err instanceof Error ? err.name : undefined,
+        });
+        return undefined;
+      },
     );
     return result;
   },

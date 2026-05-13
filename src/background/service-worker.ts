@@ -2,8 +2,26 @@
 
 import type { ProclivityState, Reminder } from "@/types";
 import { STORAGE_KEY } from "@/storage/constants";
+import {
+  configure as configureObservability,
+  getLogger,
+} from "@/observability/logger";
 
 const ALARM_PREFIX = "proclivity:reminder:";
+
+// Observability phase 2 — SW logger. The SW runs in its own module scope
+// (separate from the newtab bundle), so it needs its own configure() call
+// on init AND on every storage-change so the user's debug toggle takes
+// effect here too.
+const swLog = getLogger("sw");
+
+function applyObservabilityConfig(state: ProclivityState | undefined): void {
+  const d = state?.settings.debug;
+  configureObservability({
+    enabled: d?.enabled ?? false,
+    namespaces: d?.namespaces ?? "*",
+  });
+}
 
 /* ─── Write queue ────────────────────────────────────────────────
  * The service worker has its own module scope, separate from the
@@ -59,17 +77,23 @@ function reminderIdFromAlarm(name: string): string | null {
  */
 async function reconcileAlarms(): Promise<void> {
   const state = await readState();
+  // Apply observability config from disk before any logs in this run fire,
+  // so the maintainer's debug-toggle is honored on first reconcile (obs-1).
+  applyObservabilityConfig(state ?? undefined);
+
   const reminders = state?.reminders ?? [];
 
   // Build a set of reminder IDs that should have alarms
   const activeIds = new Set<string>();
   const now = Date.now();
+  let missedFired = 0;
 
   for (const r of reminders) {
     if (r.fired) continue;
     if (r.fireAt <= now) {
       // Fire the missed notification and mark it (finding #3)
       await fireMissedReminder(r);
+      missedFired++;
       continue;
     }
     activeIds.add(r.id);
@@ -81,26 +105,42 @@ async function reconcileAlarms(): Promise<void> {
   const existingProclivityAlarms = existingAlarms.filter((a) =>
     a.name.startsWith(ALARM_PREFIX),
   );
+  const existingCount = existingProclivityAlarms.length;
 
   // Clear orphans
+  let cleared = 0;
   for (const alarm of existingProclivityAlarms) {
     const id = reminderIdFromAlarm(alarm.name);
     if (id && !activeIds.has(id)) {
       await chrome.alarms.clear(alarm.name);
+      cleared++;
     }
   }
 
   // Create missing alarms
   const existingAlarmNames = new Set(existingProclivityAlarms.map((a) => a.name));
+  let created = 0;
   for (const id of activeIds) {
     const name = alarmName(id);
     if (!existingAlarmNames.has(name)) {
       const reminder = reminders.find((r) => r.id === id);
       if (reminder) {
         chrome.alarms.create(name, { when: reminder.fireAt });
+        created++;
       }
     }
   }
+
+  // Before/after diff: useful for diagnosing missed-reminder reports and
+  // for confirming an SW restart did the right thing on revival (obs-1).
+  swLog.info("reconcileAlarms", {
+    reminders: reminders.length,
+    activeIds: activeIds.size,
+    existing: existingCount,
+    created,
+    cleared,
+    missedFired,
+  });
 }
 
 /** Fire a notification for a reminder that was missed while the SW was dead. */
@@ -281,21 +321,32 @@ function diffAndSyncAlarms(
 
 /* ─── Listeners ─────────────────────────────────────────────── */
 
+// Initial config read on module load — applies the user's debug toggle
+// without waiting for the first reconcile. (obs-1)
+readState().then((s) => applyObservabilityConfig(s ?? undefined));
+
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("[proclivity] service worker installed");
-  // Wrap in try/catch; SW lifecycle errors are real but we at least log them (finding #44)
-  reconcileAlarms().catch((err) =>
-    console.error("[proclivity] reconcileAlarms failed on install:", err),
+  swLog.info("lifecycle", { event: "onInstalled" });
+  reconcileAlarms().catch((err: unknown) =>
+    swLog.error("reconcileAlarms.failed", {
+      phase: "onInstalled",
+      error: err instanceof Error ? err.message : String(err),
+    }),
   );
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  reconcileAlarms().catch((err) =>
-    console.error("[proclivity] reconcileAlarms failed on startup:", err),
+  swLog.info("lifecycle", { event: "onStartup" });
+  reconcileAlarms().catch((err: unknown) =>
+    swLog.error("reconcileAlarms.failed", {
+      phase: "onStartup",
+      error: err instanceof Error ? err.message : String(err),
+    }),
   );
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  swLog.debug("onAlarm", { name: alarm.name, scheduledTime: alarm.scheduledTime });
   handleAlarm(alarm);
 });
 
@@ -322,6 +373,10 @@ chrome.storage.onChanged.addListener(
     const oldState = changes[STORAGE_KEY].oldValue as ProclivityState | undefined;
     const newState = changes[STORAGE_KEY].newValue as ProclivityState | undefined;
     if (!newState) return;
+
+    // Re-apply the observability config so debug-toggle changes take effect
+    // in the SW context too (obs-1).
+    applyObservabilityConfig(newState);
 
     const oldReminders = oldState?.reminders ?? [];
     const newReminders = newState.reminders ?? [];
