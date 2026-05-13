@@ -222,9 +222,14 @@ export function clearAllClosed(): (
 /* ─── Retention policy ─────────────────────────────────────────────────── */
 
 /**
- * Returns an atomic updater that purges closed todos older than
- * `CLOSED_TODO_RETENTION_DAYS` AND evicts the oldest-by-`closedAt` items past
+ * Returns an atomic updater that purges closed todos based on the user's
+ * retention preference AND evicts the oldest-by-`closedAt` items past
  * `CLOSED_TODO_MAX`.
+ *
+ * @param retentionDays  Days to retain closed todos. Reads the resolved
+ *   `closedTodoRetentionDays` setting (7 | 30 | 90 | null). When null
+ *   ("forever"), the age-based purge is skipped but the count cap still
+ *   applies. Falls back to CLOSED_TODO_RETENTION_DAYS (30) when undefined.
  *
  * **Idempotent.** A second consecutive call within the same window is a
  * no-op. This is what lets us safely call it from both the newtab page (on
@@ -239,11 +244,16 @@ export function clearAllClosed(): (
  * Pulls `now` at call time so the cutoff reflects when the purge fired,
  * not when the updater was built.
  */
-export function purgeOldClosed(): (
-  s: ProclivityState,
-) => ProclivityState {
+export function purgeOldClosed(
+  retentionDays: 7 | 30 | 90 | null | undefined = CLOSED_TODO_RETENTION_DAYS,
+): (s: ProclivityState) => ProclivityState {
   const now = Date.now();
-  const cutoff = now - CLOSED_TODO_RETENTION_DAYS * DAY_MS;
+  // null = "forever" → no age-based cutoff (use Infinity so every item passes)
+  const effectiveDays = retentionDays ?? null;
+  const cutoff =
+    effectiveDays !== null
+      ? now - effectiveDays * DAY_MS
+      : -Infinity;
   return (s) => {
     const closed = s.todos.filter((t) => t.done);
     if (closed.length === 0) return s;
@@ -252,7 +262,7 @@ export function purgeOldClosed(): (
     const anchorOf = (t: Todo): number =>
       t.closedAt ?? t.completedAt ?? t.createdAt ?? now;
 
-    // First pass: age-based purge.
+    // First pass: age-based purge (skipped when retentionDays is null).
     const survivors = closed.filter((t) => anchorOf(t) > cutoff);
 
     // Second pass: count-cap eviction. Sort newest-first; keep first MAX.

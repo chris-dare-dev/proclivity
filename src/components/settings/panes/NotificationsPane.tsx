@@ -44,8 +44,8 @@ export interface NotificationsPaneProps {
 export function NotificationsPane({
   lead,
   setLead,
-  recurrence: _recurrence,
-  setRecurrence: _setRecurrence,
+  recurrence,
+  setRecurrence,
   snooze,
   setSnooze,
   quietEnabled,
@@ -82,9 +82,18 @@ export function NotificationsPane({
           hint="Pre-filled when you create a new reminder."
         />
 
-        {/* Agent B: insert 'defaultRecurrence' SegmentedControl here (None / Daily / Weekly) */}
-        {/* Props available: _recurrence (rename to recurrence), _setRecurrence (rename to setRecurrence) */}
-        {/* Remove the _ prefix from the destructuring above when wiring. */}
+        <SegmentedControl<RecurrenceDefault>
+          name="settings-recurrence"
+          legend="Default recurrence"
+          options={[
+            { value: "none", label: "None" },
+            { value: "daily", label: "Daily" },
+            { value: "weekly", label: "Weekly" },
+          ]}
+          value={recurrence}
+          onChange={setRecurrence}
+          hint="Pre-filled when you create a new reminder."
+        />
 
         <SegmentedControl<SnoozeMinutes>
           name="settings-snooze"

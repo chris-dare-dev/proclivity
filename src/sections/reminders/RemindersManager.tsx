@@ -39,9 +39,16 @@ interface AddReminderFormProps {
   onSave: (reminder: Omit<Reminder, "id" | "fired">) => void;
   todos: Todo[];
   allTags: Tag[];
+  /** Pre-filled recurrence when the user creates a new reminder. */
+  defaultRecurrence: Reminder["recurrence"];
 }
 
-function AddReminderForm({ onSave, todos, allTags }: AddReminderFormProps) {
+function AddReminderForm({
+  onSave,
+  todos,
+  allTags,
+  defaultRecurrence,
+}: AddReminderFormProps) {
   const defaultFireAt = () => {
     const d = new Date(Date.now() + 60 * 60_000);
     d.setSeconds(0, 0);
@@ -50,7 +57,9 @@ function AddReminderForm({ onSave, todos, allTags }: AddReminderFormProps) {
 
   const [title, setTitle] = useState("");
   const [fireAtVal, setFireAtVal] = useState(defaultFireAt);
-  const [recurrence, setRecurrence] = useState<Reminder["recurrence"]>("none");
+  const [recurrence, setRecurrence] = useState<Reminder["recurrence"]>(
+    defaultRecurrence ?? "none",
+  );
   const [linkedTodoId, setLinkedTodoId] = useState<string>("");
   const [tagIds, setTagIds] = useState<string[]>([]);
 
@@ -66,7 +75,7 @@ function AddReminderForm({ onSave, todos, allTags }: AddReminderFormProps) {
     });
     setTitle("");
     setFireAtVal(defaultFireAt());
-    setRecurrence("none");
+    setRecurrence(defaultRecurrence ?? "none");
     setLinkedTodoId("");
     setTagIds([]);
   };
@@ -338,7 +347,9 @@ export function RemindersManager() {
   const { reminders, todos, tags: allTags, cardLayouts } = state;
 
   // D9 fix: use resolvedSettings for consistent layoutMode read across all sections.
-  const layoutMode = resolvedSettings(state.settings).layoutMode;
+  const rs = resolvedSettings(state.settings);
+  const layoutMode = rs.layoutMode;
+  const defaultRecurrence = rs.defaultRecurrence;
 
   const upcoming = useMemo(
     () => reminders.filter((r) => !r.fired).sort((a, b) => a.fireAt - b.fireAt),
@@ -427,7 +438,12 @@ export function RemindersManager() {
 
   return (
     <div>
-      <AddReminderForm onSave={addReminder} todos={todos} allTags={allTags} />
+      <AddReminderForm
+        onSave={addReminder}
+        todos={todos}
+        allTags={allTags}
+        defaultRecurrence={defaultRecurrence}
+      />
 
       <Suspense fallback={null}>
         <RemindersCardSection
@@ -439,7 +455,7 @@ export function RemindersManager() {
           availableTags={availableTags}
           todoMap={todoMap}
           cardLayouts={cardLayouts}
-          cardHintSeen={resolvedSettings(state.settings).cardHintSeen}
+          cardHintSeen={rs.cardHintSeen}
           onDelete={deleteReminder}
           onEdit={(id) => setEditingId(id)}
           onToggleFilter={toggleFilter}

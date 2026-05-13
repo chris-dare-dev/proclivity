@@ -26,9 +26,30 @@ interface LiveUpdater {
 export interface TodosPaneProps {
   layoutMode: LayoutMode;
   live: LiveUpdater;
+  // Staged
+  pendingDefaultSprintDays: 7 | 14 | 21 | 28;
+  setPendingDefaultSprintDays: (v: 7 | 14 | 21 | 28) => void;
+  pendingClosedRetention: 7 | 30 | 90 | null;
+  setPendingClosedRetention: (v: 7 | 30 | 90 | null) => void;
+  /** The currently saved retention value — used to show the lowering warning. */
+  savedClosedRetention: 7 | 30 | 90 | null;
 }
 
-export function TodosPane({ layoutMode, live }: TodosPaneProps) {
+export function TodosPane({
+  layoutMode,
+  live,
+  pendingDefaultSprintDays,
+  setPendingDefaultSprintDays,
+  pendingClosedRetention,
+  setPendingClosedRetention,
+  savedClosedRetention,
+}: TodosPaneProps) {
+  // Warn when the user is about to shorten the retention window — existing
+  // closed todos older than the new value will be removed on next purge.
+  const isLowering =
+    pendingClosedRetention !== null &&
+    savedClosedRetention !== null &&
+    pendingClosedRetention < savedClosedRetention;
   return (
     <div
       role="tabpanel"
@@ -51,9 +72,43 @@ export function TodosPane({ layoutMode, live }: TodosPaneProps) {
           hint="Cards let you drag items freely across the section and snap them to a grid."
         />
 
-        {/* Agent B: insert 'defaultSprintDays' SegmentedControl here (1wk / 2wk / 3wk / 4wk) */}
-        {/* Agent B: insert 'closedTodoRetentionDays' SegmentedControl here (7 / 30 / 90 / Forever) */}
-        {/* Include an inline warning when the user selects a shorter retention than current. */}
+        <SegmentedControl<7 | 14 | 21 | 28>
+          name="settings-sprint-days"
+          legend="Default sprint length"
+          options={[
+            { value: 7, label: "1wk" },
+            { value: 14, label: "2wk" },
+            { value: 21, label: "3wk" },
+            { value: 28, label: "4wk" },
+          ]}
+          value={pendingDefaultSprintDays}
+          onChange={setPendingDefaultSprintDays}
+          hint="Pre-filled when you create a new sprint."
+        />
+
+        <SegmentedControl<7 | 30 | 90 | 0>
+          name="settings-closed-retention"
+          legend="Keep closed todos for"
+          options={[
+            { value: 7, label: "7 days" },
+            { value: 30, label: "30 days" },
+            { value: 90, label: "90 days" },
+            { value: 0, label: "Forever" },
+          ]}
+          value={pendingClosedRetention ?? 0}
+          onChange={(v) => setPendingClosedRetention(v === 0 ? null : v)}
+          hint="Closed todos older than this are automatically removed. Forever keeps all closed todos (count cap still applies)."
+        />
+        {isLowering ? (
+          <span
+            className="settings-hint settings-hint--info"
+            role="status"
+          >
+            Closed todos older than {pendingClosedRetention} days will be
+            removed on next purge. Export your data first if you want to
+            keep them.
+          </span>
+        ) : null}
       </section>
     </div>
   );

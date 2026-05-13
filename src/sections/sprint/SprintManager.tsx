@@ -199,16 +199,18 @@ function SprintForm({
 function NewSprintForm({
   onSave,
   onCancel,
+  defaultSprintDays = 14,
 }: {
   onSave: (name: string, startsAt: number, endsAt: number) => void;
   onCancel: () => void;
+  defaultSprintDays?: 7 | 14 | 21 | 28;
 }) {
   return (
     <SprintForm
       heading="New Sprint"
       submitLabel="Create"
       onStartChange={(newStart, setEnd) =>
-        setEnd(tsToDateInput(defaultEndsAt(newStart)))
+        setEnd(tsToDateInput(defaultEndsAt(newStart, defaultSprintDays)))
       }
       onSave={onSave}
       onCancel={onCancel}
@@ -487,7 +489,9 @@ export function SprintManager() {
 
   // D9 fix: use resolvedSettings for consistent layoutMode read (resolvedSettings is
   // already in constants.ts which is in the shared chunk — no bundle cost here).
-  const layoutMode = resolvedSettings(state.settings).layoutMode;
+  const _rs = resolvedSettings(state.settings);
+  const layoutMode = _rs.layoutMode;
+  const defaultSprintDays = _rs.defaultSprintDays;
 
   // Sorted active sprint tasks for card mode (list mode uses activeSprintTodos which is already sorted by filterByTags)
   const sortedActiveSprintTodos = useMemo(
@@ -662,6 +666,7 @@ export function SprintManager() {
         <NewSprintForm
           onSave={createSprint}
           onCancel={() => setMode("view")}
+          defaultSprintDays={defaultSprintDays}
         />
       )}
 
@@ -749,7 +754,7 @@ export function SprintManager() {
                 availableTags={sprintAvailableTags}
                 cardLayouts={state.cardLayouts}
                 emptyHint="No tasks yet. Add one above."
-                cardHintSeen={resolvedSettings(state.settings).cardHintSeen}
+                cardHintSeen={_rs.cardHintSeen}
                 onToggle={(id) => void toggleTodo(id)}
                 onDelete={deleteTodo}
                 onEdit={(id) => setEditingId(id)}

@@ -23,9 +23,16 @@ export function todayMidnight(): number {
   return d.getTime();
 }
 
-/** Default end: start + 13 days (inclusive, so 14 days total) */
-export function defaultEndsAt(startsAt: number): number {
-  return addCalendarDays(startsAt, 13);
+/**
+ * Default end: start + (days - 1) calendar days (inclusive convention).
+ * A 14-day sprint starting Monday ends on Sunday (+13 days).
+ * Defaults to 14 days when not specified, matching the historic hardcoded value.
+ */
+export function defaultEndsAt(
+  startsAt: number,
+  days: 7 | 14 | 21 | 28 = 14,
+): number {
+  return addCalendarDays(startsAt, days - 1);
 }
 
 export function isArchived(sprint: Sprint): boolean {

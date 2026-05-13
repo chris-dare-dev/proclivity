@@ -384,7 +384,17 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
           />
         );
       case "todos":
-        return <TodosPane layoutMode={rs.layoutMode} live={live} />;
+        return (
+          <TodosPane
+            layoutMode={rs.layoutMode}
+            live={live}
+            pendingDefaultSprintDays={pendingDefaultSprintDays}
+            setPendingDefaultSprintDays={setPendingDefaultSprintDays}
+            pendingClosedRetention={pendingClosedRetention}
+            setPendingClosedRetention={setPendingClosedRetention}
+            savedClosedRetention={rs.closedTodoRetentionDays}
+          />
+        );
       case "geminiNano":
         return <GeminiNanoPane />;
       case "tags":

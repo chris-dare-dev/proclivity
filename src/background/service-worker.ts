@@ -5,6 +5,7 @@ import {
   CLOSED_PURGE_ALARM,
   CLOSED_PURGE_INTERVAL_MINUTES,
   STORAGE_KEY,
+  resolvedSettings,
 } from "@/storage/constants";
 import { purgeOldClosed } from "@/storage/closedTodos";
 import {
@@ -194,7 +195,10 @@ async function runClosedPurge(): Promise<void> {
 
   await swUpdate((s) => {
     beforeClosed = s.todos.filter((t) => t.done).length;
-    const next = purgeOldClosed()(s);
+    // Read the user's retention preference from the stored settings so the
+    // SW honors the same value as the newtab purge pass.
+    const retentionDays = resolvedSettings(s.settings).closedTodoRetentionDays;
+    const next = purgeOldClosed(retentionDays)(s);
     afterClosed = next.todos.filter((t) => t.done).length;
     return next;
   });
