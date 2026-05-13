@@ -86,6 +86,44 @@
   overflow: visible;
 }
 
+/* ─── Progressive degradation as user shrinks a resized card ──────────
+ *
+ * Priority (per design): labels (tags) ALWAYS visible. Notes are the first
+ * to disappear. Title gets ellipsis at the smallest sizes.
+ *
+ * container-type: size enables height-based @container queries on user-sized
+ * cards only. Non-user-sized cards are auto-height (always tall enough for
+ * their content) so no query is needed for them. The container is scoped
+ * with container-name: card so unrelated containers (e.g. a future settings
+ * card) don't accidentally match these rules. */
+[data-user-sized="true"] .task-card {
+  container-type: size;
+  container-name: card;
+}
+
+/* < 150px tall: notes hide. The user-sized "display: block" rule above is
+ * overridden by `display: none` here (same specificity, later rule wins). */
+@container card (max-height: 150px) {
+  .task-card-notes {
+    display: none;
+  }
+}
+
+/* < 130px tall: reminders' fire-at metadata also hides. Tags + title remain. */
+@container card (max-height: 130px) {
+  .task-card-fireat {
+    display: none;
+  }
+}
+
+/* < 112px tall: title collapses to single-line ellipsis so the card still
+ * fits title + tags + padding at MIN_H = 96px. */
+@container card (max-height: 112px) {
+  .task-card-title {
+    -webkit-line-clamp: 1;
+  }
+}
+
 /* ─── Task card ──────────────────────────────────────────────────── */
 
 .task-card {
@@ -184,6 +222,14 @@
   font-weight: 500;
   line-height: var(--line-height-base);
   color: var(--text);
+  /* min-width:0 lets text-overflow take effect inside the header flex row.
+   * Multi-line clamp (default 2 lines) with ellipsis on overflow. Container
+   * queries below drop to 1 line for very short cards. */
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   word-break: break-word;
 }
 
@@ -261,6 +307,10 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
+  /* Tags are the protected element — they must remain visible at every
+   * card size. flex-shrink:0 prevents the parent column from collapsing
+   * this row to zero height when total content exceeds card height. */
+  flex-shrink: 0;
 }
 
 /* "+N more" overflow chip */

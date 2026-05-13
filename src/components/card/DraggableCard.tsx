@@ -59,7 +59,11 @@ interface ResizeState {
 // At 140–199px the draggable wrapper overrides min-width:0 on task-card,
 // making titles wrap character-by-character at ~10px wide.
 const MIN_W = 200;
-const MIN_H = 80;
+// MIN_H sized so a card at its minimum always fits a one-line title +
+// one row of tag chips + vertical padding. Below this you'd start losing
+// the labels, which the design requires to ALWAYS be visible. 96 = 12
+// grid units, a clean snap multiple.
+const MIN_H = 96;
 const MAX_W = 600;
 const MAX_H = 500;
 
