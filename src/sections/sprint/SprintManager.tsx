@@ -4,11 +4,12 @@ import { uid } from "@/storage/storage";
 import type { Sprint, Tag, Todo } from "@/types";
 import { ConfirmDialog } from "@/components/Modal";
 import { TodoItem } from "@/components/TodoItem";
-import { TodoEditModal, type TodoEditFields } from "@/components/TodoEditModal";
+import type { TodoEditFields } from "@/components/TodoEditModal";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 
 import { filterByTags } from "@/storage/tags";
 import { resolvedSettings } from "@/storage/constants";
+import { ClosedScopeCounter } from "@/components/ClosedScopeCounter";
 import {
   todayMidnight,
   defaultEndsAt,
@@ -17,12 +18,15 @@ import {
   sprintDayProgress,
   sprintTaskStats,
 } from "./sprintUtils";
-// bundle fix: import from the lightweight module so cardLayouts.ts (which
-// contains resize helpers) stays in the lazy card-mode chunk, keeping the
-// initial bundle under 200 kB.
-// removeCardLayouts used for deletion (full wipe incl. w/h); resetCardPositions
-// is the "Reset layout" path that now preserves w/h.
-import { removeCardLayouts } from "@/storage/resetCardPositions";
+// removeCardLayouts is no longer needed for the row-level delete path —
+// permanentlyDeleteTodos (from closedTodos.ts) wraps the same helper and
+// owns the cleanup contract. Kept in the import list only if other paths
+// still need it; verified unused → removed.
+import {
+  closeTodo,
+  reopenTodo,
+  permanentlyDeleteTodos,
+} from "@/storage/closedTodos";
 import "../sections.css";
 import "./sprint.css";
 
@@ -31,6 +35,12 @@ import "./sprint.css";
 // a 115-line dispatcher with no sprint-specific logic.
 const TodoCardSection = lazy(() =>
   import("../TodoCardSection").then((m) => ({ default: m.TodoCardSection })),
+);
+
+// TodoEditModal only needed when user edits a task. Lazy-loads TagPickerArea
+// (and its tag-color picker) out of the initial chunk.
+const TodoEditModal = lazy(() =>
+  import("@/components/TodoEditModal").then((m) => ({ default: m.TodoEditModal })),
 );
 
 /* ─── helpers ──────────────────────────────────────────────────── */
@@ -313,8 +323,11 @@ function ArchivedSprintRow({
   onDeleteTodo,
 }: ArchivedSprintProps) {
   const [open, setOpen] = useState(false);
+  // H3 fix: exclude closed (done) todos so they don't appear in BOTH the
+  // archived sprint row AND the Closed tab simultaneously. The Closed tab is
+  // the canonical home for done tasks; archived rows are read-only summaries.
   const sprintTodos = todos.filter(
-    (t) => t.scope === "sprint" && t.sprintId === sprint.id,
+    (t) => t.scope === "sprint" && t.sprintId === sprint.id && !t.done,
   );
 
   return (
@@ -417,11 +430,31 @@ export function SprintManager() {
     () => sprints.filter((s) => !isArchived(s)).sort((a, b) => a.startsAt - b.startsAt),
     [sprints],
   );
+  // Closed-todos integration: active sprint list excludes `done` todos —
+  // they appear on the Closed tab instead. `sprintTaskStats` (called by
+  // <ActiveSprintHeader>) still receives the full `todos` array via prop,
+  // so the progress bar correctly reports e.g. "6/8 tasks done" even
+  // though the 6 done ones aren't visible in the list. See
+  // .claude/notes/closed-todos-research-B.md §4 for the progress-counter
+  // accounting decision.
   const activeSprintTodosAll = useMemo(
     () =>
       activeSprintId
-        ? todos.filter((t) => t.scope === "sprint" && t.sprintId === activeSprintId)
+        ? todos.filter(
+            (t) =>
+              t.scope === "sprint" &&
+              t.sprintId === activeSprintId &&
+              !t.done,
+          )
         : [],
+    [todos, activeSprintId],
+  );
+
+  // Closed sprint tasks count — feeds the closed-counter affordance.
+  const closedSprintCount = useMemo(
+    () => activeSprintId
+      ? todos.filter((t) => t.scope === "sprint" && t.sprintId === activeSprintId && t.done).length
+      : 0,
     [todos, activeSprintId],
   );
 
@@ -442,8 +475,11 @@ export function SprintManager() {
     return allTags.filter((tag) => usedIds.has(tag.id));
   }, [activeSprintTodosAll, allTags]);
 
+  // Unassigned migration group also excludes closed todos. Surfacing a
+  // closed-but-unassigned todo here would be confusing — its destination
+  // is the Closed tab, not the "move to active sprint" affordance.
   const unassignedSprintTodos = useMemo(
-    () => todos.filter((t) => t.scope === "sprint" && !t.sprintId),
+    () => todos.filter((t) => t.scope === "sprint" && !t.sprintId && !t.done),
     [todos],
   );
 
@@ -531,32 +567,31 @@ export function SprintManager() {
     }));
   };
 
+  /**
+   * Toggle a sprint task's done state. Routes through the closed-todos
+   * helpers (matches TodoList.toggle wiring) so the close action captures
+   * restore checkpoints (`closedFromScope`, `closedFromSprintId`) and the
+   * task lands on the Closed tab atomically.
+   *
+   * Archived-sprint rows also call this when un-ticking a closed task in an
+   * expanded archived row — `reopenTodo` validates the sprint still exists
+   * and falls back to long-term scope if it has been deleted, matching the
+   * sibling's `reopenTodo` contract.
+   */
   const toggleTodo = async (id: string) => {
-    await update((s) => ({
-      ...s,
-      todos: s.todos.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              done: !t.done,
-              completedAt: t.done ? undefined : Date.now(),
-            }
-          : t,
-      ),
-    }));
+    const t = todos.find((x) => x.id === id);
+    if (!t) return;
+    await update(t.done ? reopenTodo(id) : closeTodo(id));
   };
 
+  /**
+   * Permanent delete for the row-level X button on sprint tasks. Routes
+   * through the closed-todos helper which scrubs cardLayouts for us —
+   * same cleanup contract as the previous `removeCardLayouts([id])` path,
+   * just centralized.
+   */
   const deleteTodo = async (id: string) => {
-    // Clean up orphan card position on deletion (C1/H3 fix: matches TodoList.remove and
-    // RemindersManager.deleteReminder). Applies for both active-sprint and archived-sprint
-    // task deletion since the same helper is called from both paths.
-    // Uses removeCardLayouts (full wipe) not resetCardPositions (which preserves w/h).
-    await update((s) =>
-      removeCardLayouts([id])({
-        ...s,
-        todos: s.todos.filter((t) => t.id !== id),
-      }),
-    );
+    await update(permanentlyDeleteTodos([id]));
   };
 
   const handleEditSave = async (id: string, fields: TodoEditFields) => {
@@ -586,8 +621,15 @@ export function SprintManager() {
     }));
   };
 
-  const taskCountForSprint = (sprintId: string) =>
-    todos.filter((t) => t.scope === "sprint" && t.sprintId === sprintId).length;
+  // H2 fix: split active/closed counts so the delete dialog discloses that
+  // closed sprint tasks are also permanently removed.
+  const taskCountForSprint = (sprintId: string) => {
+    let active = 0, closed = 0;
+    for (const t of todos)
+      if (t.scope === "sprint" && t.sprintId === sprintId)
+        t.done ? closed++ : active++;
+    return { active, closed };
+  };
 
   /* ── render ── */
 
@@ -640,14 +682,16 @@ export function SprintManager() {
           title="Delete sprint"
           confirmLabel="Delete"
           message={(() => {
-            const count = taskCountForSprint(activeSprint.id);
+            const { active, closed } = taskCountForSprint(activeSprint.id);
+            const total = active + closed;
+            const pl = (n: number) => n !== 1 ? "s" : "";
+            const note =
+              total === 0 ? "This sprint has no tasks." :
+              closed === 0 ? `Also deletes ${active} active task${pl(active)}.` :
+              active === 0 ? `Also deletes ${closed} closed task${pl(closed)}.` :
+              `Also deletes ${active} active + ${closed} closed tasks.`;
             return (
-              <>
-                Delete <strong>{activeSprint.name}</strong>?{" "}
-                {count > 0
-                  ? `This will also delete ${count} task${count !== 1 ? "s" : ""}.`
-                  : "This sprint has no tasks."}
-              </>
+              <>Delete <strong>{activeSprint.name}</strong>? {note}</>
             );
           })()}
           onConfirm={deleteSprint}
@@ -686,6 +730,12 @@ export function SprintManager() {
             onAdd={addTask}
             placeholder="Add a task to this sprint…"
           />
+
+          {/* Closed counter for sprint tasks — same affordance as TodoList,
+              scoped to the active sprint. */}
+          {closedSprintCount > 0 && (
+            <ClosedScopeCounter count={closedSprintCount} suffix=" in this sprint" />
+          )}
 
           {/* A4 fix: card mode uses TodoCardSection directly; list mode inlined. */}
           {layoutMode === "card" ? (
@@ -782,14 +832,16 @@ export function SprintManager() {
       )}
 
       {editingTodo && (
-        <TodoEditModal
-          open={editingId !== null}
-          todo={editingTodo}
-          allTags={allTags}
-          sprints={sprints}
-          onClose={() => setEditingId(null)}
-          onSave={handleEditSave}
-        />
+        <Suspense fallback={null}>
+          <TodoEditModal
+            open={editingId !== null}
+            todo={editingTodo}
+            allTags={allTags}
+            sprints={sprints}
+            onClose={() => setEditingId(null)}
+            onSave={handleEditSave}
+          />
+        </Suspense>
       )}
     </div>
   );
