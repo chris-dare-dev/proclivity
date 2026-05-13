@@ -18,10 +18,22 @@ import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import { resolvedSettings } from "@/storage/constants";
 import type { Todo, TodoScope } from "@/types";
+import type { TodoEditFields } from "@/components/TodoEditModal";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 import { TodoItem } from "@/components/TodoItem";
-import { TodoEditModal, type TodoEditFields } from "@/components/TodoEditModal";
-import { filterByTags, createTag } from "@/storage/tags";
+import { ClosedScopeCounter } from "@/components/ClosedScopeCounter";
+
+// TodoEditModal is only needed when the user opens the edit dialog — lazy-load
+// to keep TagPickerArea (and its tag-color picker) out of the initial chunk.
+const TodoEditModal = lazy(() =>
+  import("@/components/TodoEditModal").then((m) => ({ default: m.TodoEditModal })),
+);
+import { filterByTags } from "@/storage/tags";
+import {
+  closeTodo,
+  reopenTodo,
+  permanentlyDeleteTodos,
+} from "@/storage/closedTodos";
 import "./sections.css";
 
 /* ─── Lazy card section — loaded only when layoutMode === "card" ──── */
@@ -47,14 +59,24 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
   const layoutMode = rs.layoutMode;
 
-  // Memoize filter+sort to avoid running on every render
+  // Memoize filter+sort to avoid running on every render.
+  // M3 note: intentionally uses `!t.done` inline rather than the getActiveTodos
+  // selector to avoid pulling the selector into the initial chunk budget. The
+  // contract is equivalent; see closedTodos.ts for the authoritative definition.
   const scopedItems = useMemo(
     () =>
       todos
-        .filter((t) => t.scope === scope)
+        .filter((t) => t.scope === scope && !t.done)
         .filter((t) => (filter ? filter(t) : true))
-        .sort((a, b) => Number(a.done) - Number(b.done) || b.createdAt - a.createdAt),
+        .sort((a, b) => b.createdAt - a.createdAt),
     [todos, scope, filter],
+  );
+
+  // Count of closed todos in this scope — drives the "N closed →" counter
+  // affordance below the input. Cheap linear scan, bounded by retention cap.
+  const closedInScopeCount = useMemo(
+    () => todos.filter((t) => t.scope === scope && t.done).length,
+    [todos, scope],
   );
 
   // Prune activeTagIds when tags are deleted (covers critique: filter shows ghost chips)
@@ -96,30 +118,33 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
     }));
   };
 
+  /**
+   * Toggle a todo's done state. Routes through the closed-todos helpers so
+   * the close → Closed-tab transition is atomic and captures restore
+   * checkpoints. See `src/storage/closedTodos.ts` for the closeTodo /
+   * reopenTodo semantics.
+   *
+   * Note: a user typically never sees a done todo in this list (they're
+   * filtered out by `scopedItems`). The `reopenTodo` branch covers two
+   * edge cases:
+   *   1. A race between flipping `done: true` and the next paint.
+   *   2. A debug / accessibility surface that displays a done todo for
+   *      one frame.
+   */
   const toggle = async (id: string) => {
-    await update((s) => ({
-      ...s,
-      todos: s.todos.map((t) =>
-        t.id === id
-          ? { ...t, done: !t.done, completedAt: t.done ? undefined : Date.now() }
-          : t,
-      ),
-    }));
+    const t = todos.find((x) => x.id === id);
+    if (!t) return;
+    await update(t.done ? reopenTodo(id) : closeTodo(id));
   };
 
+  /**
+   * Permanent delete from the active section's row-level affordance. Uses
+   * the sibling's `permanentlyDeleteTodos` helper which scrubs the
+   * associated cardLayouts entry — matches the legacy behavior of this
+   * function while keeping the cleanup path centralized.
+   */
   const remove = async (id: string) => {
-    await update((s) => ({
-      ...s,
-      todos: s.todos.filter((t) => t.id !== id),
-      // Clean up orphan card position on deletion
-      cardLayouts: s.cardLayouts
-        ? (() => {
-            const next = { ...s.cardLayouts };
-            delete next[id];
-            return Object.keys(next).length > 0 ? next : undefined;
-          })()
-        : undefined,
-    }));
+    await update(permanentlyDeleteTodos([id]));
   };
 
   const handleSave = async (id: string, fields: TodoEditFields) => {
@@ -145,9 +170,6 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
     );
   };
 
-  // Suppress unused warning — createTag is passed to TodoEditModal via shared component
-  void createTag;
-
   return (
     <div>
       <div className="todo-input">
@@ -159,6 +181,14 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
         />
         <button onClick={() => void add()}>Add</button>
       </div>
+
+      {/* Closed counter affordance — visible only when there are closed todos
+          in this scope. Clicking dispatches the cross-section nav event that
+          App.tsx catches to switch to the Closed tab. Suppressed when the
+          count is zero so empty sections stay clean. */}
+      {closedInScopeCount > 0 && (
+        <ClosedScopeCounter count={closedInScopeCount} />
+      )}
 
       {loading ? null : layoutMode === "card" ? (
         /* ── Card mode — lazy-loaded ─────────────────────────────── */
@@ -235,15 +265,18 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
       )}
 
       {editingTodo && (
-        <TodoEditModal
-          open={editingId !== null}
-          todo={editingTodo}
-          allTags={allTags}
-          sprints={sprints}
-          onClose={() => setEditingId(null)}
-          onSave={handleSave}
-        />
+        <Suspense fallback={null}>
+          <TodoEditModal
+            open={editingId !== null}
+            todo={editingTodo}
+            allTags={allTags}
+            sprints={sprints}
+            onClose={() => setEditingId(null)}
+            onSave={handleSave}
+          />
+        </Suspense>
       )}
     </div>
   );
 }
+

@@ -13,7 +13,7 @@ import { configure as configureObservability } from "@/observability/logger";
 const SettingsModal = lazy(() =>
   import("@/components/settings/SettingsModal").then((m) => ({ default: m.SettingsModal })),
 );
-import { resolvedSettings } from "@/storage/constants";
+import { resolvedSettings, NAV_CLOSED_EVENT } from "@/storage/constants";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import type { ResolvedUserSettings } from "@/types";
 
@@ -64,15 +64,6 @@ const TABS: { id: Tab; label: string }[] = [
   // action is always findable; see .claude/notes/closed-todos-research-B.md §3.
   { id: "closed", label: "Closed" },
 ];
-
-/**
- * Custom-event channel for cross-section navigation. The active-section
- * "N closed →" counter dispatches this; App's Header-sibling effect (below)
- * catches it and switches to the Closed tab. Using an event instead of prop
- * drilling avoids threading callbacks through TodoList → TodoCardSection →
- * card-mode internals.
- */
-const NAV_CLOSED_EVENT = "proclivity:nav-closed";
 
 function greetingFor(d: Date) {
   const h = d.getHours();

@@ -59,6 +59,17 @@ export const CLOSED_PURGE_ALARM = "proclivity:closed:purge";
 export const CLOSED_PURGE_INTERVAL_MINUTES = 60 * 24; // 24h
 
 /**
+ * Custom-event name for the cross-section "jump to Closed tab" affordance.
+ * Dispatched by ClosedScopeCounter (TodoList / SprintManager); caught by
+ * App.tsx's useEffect to switch the active tab.
+ *
+ * L3 fix: extracted from App.tsx to this shared constants module so the three
+ * callsites (App, TodoList, SprintManager) share a single source of truth
+ * rather than duplicating the string literal.
+ */
+export const NAV_CLOSED_EVENT = "proclivity:nav-closed";
+
+/**
  * Canonical default values for every user-configurable preference. The
  * UI reads from `resolvedSettings(state.settings)` so that absent fields
  * fall back to these values without scattering `?? fallback` across the
