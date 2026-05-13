@@ -1,0 +1,162 @@
+/* LogViewer styles — phase 4 of plans/observability-plan.md. */
+
+.log-viewer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.log-viewer__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-viewer__count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-dim);
+  margin-right: auto;
+}
+
+.log-viewer__bar select,
+.log-viewer__bar input[type="text"] {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.log-viewer__ns {
+  width: 140px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.log-viewer__search {
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+
+.log-viewer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.log-viewer__actions button {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.log-viewer__empty {
+  margin: 0;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius, 8px);
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ── Rows ─────────────────────────────────────────────────────────── */
+
+.log-viewer__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--panel);
+}
+
+.log-viewer__row {
+  border-bottom: 1px solid var(--border);
+}
+.log-viewer__row:last-child {
+  border-bottom: none;
+}
+
+.log-viewer__row-head {
+  display: grid;
+  grid-template-columns: 84px 56px auto 1fr 12px;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}
+.log-viewer__row-head:disabled {
+  cursor: default;
+}
+.log-viewer__row-head:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+
+.log-viewer__time {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.log-viewer__level {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.log-viewer__ns {
+  color: var(--accent);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-viewer__msg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-viewer__caret {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-align: right;
+}
+
+.log-viewer__row--trace .log-viewer__level,
+.log-viewer__row--debug .log-viewer__level {
+  color: var(--text-dim);
+}
+.log-viewer__row--info .log-viewer__level {
+  color: var(--accent);
+}
+.log-viewer__row--warn .log-viewer__level {
+  color: var(--warn);
+}
+.log-viewer__row--error .log-viewer__level {
+  color: var(--danger);
+}
+
+.log-viewer__row--warn {
+  background: color-mix(in oklab, var(--warn) 5%, transparent);
+}
+.log-viewer__row--error {
+  background: color-mix(in oklab, var(--danger) 6%, transparent);
+}
+
+.log-viewer__ctx {
+  margin: 0;
+  padding: 8px 12px 12px 102px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--panel-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-top: 1px dashed var(--border);
+}

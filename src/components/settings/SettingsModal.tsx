@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -27,6 +29,13 @@ import { SegmentedControl, ToggleSwitch, ColorSwatchGrid } from "./SettingsContr
 import { TagChip } from "@/components/TagChip";
 import { NanoSection } from "./NanoSection";
 import "./SettingsModal.css";
+
+// Phase 4 of the observability rollout — viewer is lazy so its bundle
+// only loads when the user actually has debug logging on AND opens
+// Settings. See plans/observability-plan.md.
+const LogViewer = lazy(() =>
+  import("./LogViewer").then((m) => ({ default: m.LogViewer })),
+);
 
 interface Props {
   open: boolean;
@@ -1136,15 +1145,18 @@ function DeveloperSection({
   live: LiveUpdater;
 }) {
   /*
-   * Disclosed by default (collapsed) so it doesn't clutter the normal
-   * Settings flow. Phase 1 of plans/observability-plan.md. The toggle
-   * controls trace/debug emission across the codebase; the glob input
-   * is a comma-separated namespace filter (e.g. "nano:*,storage:*"
-   * or "*" for everything). info/warn/error are always emitted.
+   * Collapsed by default so it doesn't clutter the normal Settings flow.
+   * Phase 1 wired the toggle + namespace filter; phase 3 added a ring
+   * buffer at proclivity:logs:v1; phase 4 (this) mounts the in-app
+   * LogViewer here, lazy-loaded only when the user actually wants it.
    */
   const updateDebug = (next: { enabled: boolean; namespaces: string }) => {
     live("debug", next);
   };
+  // Redact toggle is session-local, not persisted. Default OFF per the
+  // shipping decision in plans/observability-plan.md; the maintainer
+  // flips it on before pasting logs into a bug report.
+  const [redact, setRedact] = useState(false);
   return (
     <details className="settings-section settings-developer">
       <summary className="settings-section-heading">Developer</summary>
@@ -1157,11 +1169,10 @@ function DeveloperSection({
         hint={
           <>
             When on, <code>trace</code> and <code>debug</code> logs from
-            matching namespaces print to the DevTools console.{" "}
-            <code>info</code>/<code>warn</code>/<code>error</code> always
-            emit. No data is persisted yet — phase 3 of the observability
-            rollout (see <code>plans/observability-plan.md</code>) adds the
-            ring buffer.
+            matching namespaces print to the DevTools console, and{" "}
+            <code>info</code> records persist to the on-device ring buffer
+            (along with <code>warn</code>/<code>error</code>, which always
+            persist).
           </>
         }
       />
@@ -1189,6 +1200,30 @@ function DeveloperSection({
           <code>"nano:*,!nano:download"</code> matches all of <code>nano:</code>{" "}
           except <code>nano:download</code>.
         </span>
+      </div>
+      <div className="settings-field">
+        <span className="settings-label">Log viewer</span>
+        <ToggleSwitch
+          label="Redact user-typed content"
+          checked={redact}
+          onChange={setRedact}
+          hint={
+            <>
+              When on, fields likely to carry user-typed content
+              (raw model output, prompts, titles, tag labels) are masked
+              as <code>[redacted len=N]</code> in the rendered rows AND
+              in any JSON copy/export. Default off; flip on before
+              sharing logs.
+            </>
+          }
+        />
+        <Suspense
+          fallback={
+            <span className="settings-hint">Loading viewer…</span>
+          }
+        >
+          <LogViewer redact={redact} />
+        </Suspense>
       </div>
     </details>
   );
