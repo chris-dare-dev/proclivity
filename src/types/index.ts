@@ -149,6 +149,20 @@ export type SnoozeMinutes = 10 | 30 | 60;
 export type RecurrenceDefault = "none" | "daily" | "weekly";
 
 /**
+ * Identifies which pane is active in the SettingsModal sidebar.
+ * Order matches the sidebar's visual order (General → … → Advanced).
+ */
+export type SettingsPaneId =
+  | "general"
+  | "appearance"
+  | "notifications"
+  | "todos"
+  | "geminiNano"
+  | "tags"
+  | "data"
+  | "advanced";
+
+/**
  * User-configurable preferences. All fields are optional — an absent field
  * means "use the application default." See `DEFAULT_SETTINGS` and
  * `resolvedSettings()` in `src/storage/constants.ts` for the canonical
@@ -201,6 +215,16 @@ export interface UserSettings {
   lastKnownTzOffset?: number | undefined;
   /** Internal: set to true on first open of the v2 Settings modal. Drives the "new" badge. */
   settingsV2Seen?: boolean | undefined;
+  /**
+   * The last sidebar pane the user visited. Restored on next open so the
+   * modal reopens to the same section. Defaults to "general".
+   */
+  settingsLastPane?: SettingsPaneId | undefined;
+  /**
+   * Whether the user has visited the Gemini Nano pane at least once.
+   * Controls the "NEW" badge on the sidebar entry. Defaults to false.
+   */
+  geminiNanoSeen?: boolean | undefined;
 
   /**
    * Gemini Nano (on-device LLM) preferences. Reserved fields pre-declared
@@ -274,6 +298,10 @@ export interface ResolvedUserSettings {
   quietHours: { from: string; to: string } | undefined;
   lastKnownTzOffset: number | undefined;
   settingsV2Seen: boolean;
+  /** Last visited settings pane; restored on next modal open. Default "general". */
+  settingsLastPane: SettingsPaneId;
+  /** Whether the user has visited the Gemini Nano pane. Drives the sidebar "NEW" badge. */
+  geminiNanoSeen: boolean;
   /** Gemini Nano chat panel settings — always present with defaults in resolved form. */
   geminiNano: {
     chatEnabled: boolean;

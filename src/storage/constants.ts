@@ -1,7 +1,11 @@
 import type {
   ResolvedUserSettings,
+  SettingsPaneId,
   UserSettings,
 } from "@/types";
+
+// Re-export so consumers can import from the module that owns it.
+export type { SettingsPaneId };
 
 /**
  * Fixed grid size for card-view snap-to-grid.
@@ -109,6 +113,8 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   quietHours: undefined,
   lastKnownTzOffset: undefined,
   settingsV2Seen: false,
+  settingsLastPane: "general" as SettingsPaneId,
+  geminiNanoSeen: false,
   geminiNano: {
     chatEnabled: false,
     chatPosition: "right",
@@ -167,6 +173,8 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
     lastKnownTzOffset:
       s.lastKnownTzOffset ?? DEFAULT_SETTINGS.lastKnownTzOffset,
     settingsV2Seen: s.settingsV2Seen ?? DEFAULT_SETTINGS.settingsV2Seen,
+    settingsLastPane: s.settingsLastPane ?? DEFAULT_SETTINGS.settingsLastPane,
+    geminiNanoSeen: s.geminiNanoSeen ?? DEFAULT_SETTINGS.geminiNanoSeen,
     geminiNano: {
       chatEnabled:
         s.geminiNano?.chatEnabled ??
