@@ -71,7 +71,9 @@ const GROUP_ORDER: GroupKey[] = [
 const GROUP_LABEL: Record<GroupKey, string> = {
   today: "Today",
   yesterday: "Yesterday",
-  thisWeek: "This week",
+  // M4 fix: "This week" implied calendar-week boundaries but the implementation
+  // is a rolling 7-day window. "Last 7 days" matches what the code actually does.
+  thisWeek: "Last 7 days",
   thisMonth: "Earlier this month",
   older: "Older",
 };
@@ -363,18 +365,9 @@ function ClosedRow({ todo, allTags, onReopen, onRequestDelete }: RowProps) {
           <span className="closed-item-time">{timeLabel}</span>
         </div>
       </div>
-      <button
-        type="button"
-        className="closed-item-reopen-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          onReopen(todo.id);
-        }}
-        title={`Reopen: ${todo.title}`}
-        aria-label={`Reopen: ${todo.title}`}
-      >
-        Reopen
-      </button>
+      {/* L1 fix: removed duplicate "Reopen" text button — the checkbox above
+          is the single reopen affordance. Two controls with identical
+          aria-labels confuse screen readers; one is enough. */}
       <button
         type="button"
         className="closed-item-delete"

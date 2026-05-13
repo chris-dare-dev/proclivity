@@ -182,15 +182,23 @@ async function ensureClosedPurgeAlarm(): Promise<void> {
  * Run the closed-todos purge through the SW write queue. The updater is
  * idempotent — a second consecutive call is a no-op besides the log entry.
  *
- * We measure before/after closed-todo counts so users with debug logging on
- * can see the purge land. Pure observation; not load-bearing.
+ * M2 fix: previously read state twice (before + after) outside the write
+ * queue, racing with any concurrent write between the swUpdate call and the
+ * second readState(). The "after" count was unreliable when another tab was
+ * actively writing. Now we capture before/after inside the updater wrapper
+ * so both reads are atomic with the write, and the "purged" count is exact.
  */
 async function runClosedPurge(): Promise<void> {
-  const before = await readState();
-  const beforeClosed = (before?.todos ?? []).filter((t) => t.done).length;
-  await swUpdate(purgeOldClosed());
-  const after = await readState();
-  const afterClosed = (after?.todos ?? []).filter((t) => t.done).length;
+  let beforeClosed = 0;
+  let afterClosed = 0;
+
+  await swUpdate((s) => {
+    beforeClosed = s.todos.filter((t) => t.done).length;
+    const next = purgeOldClosed()(s);
+    afterClosed = next.todos.filter((t) => t.done).length;
+    return next;
+  });
+
   swLog.info("closed.purge", {
     before: beforeClosed,
     after: afterClosed,
