@@ -1,16 +1,31 @@
 /*
- * SettingsModal — sectioned, scrollable, sticky-footer layout.
+ * SettingsModal — sidebar + content-pane layout.
  *
  * Lives at src/components/settings/SettingsModal.css. Imported only by
  * src/components/settings/SettingsModal.tsx so the styles are loaded
  * lazily with the modal in any future code-split.
+ *
+ * Layout overview:
+ *   .settings-modal-panel (the Modal's .modal-panel override)
+ *     .modal-title          ← sticky header (rendered by Modal.tsx)
+ *     .settings-layout      ← flex row: sidebar + content
+ *       .settings-sidebar   ← 200 px fixed, scrollable
+ *       .settings-content   ← flex column: scrollable pane + sticky footer
+ *         .settings-pane-scroll
+ *           .settings-pane  ← the active pane component
+ *         .settings-footer  ← Cancel / Done
+ *
+ * Responsive: at < 640px the sidebar collapses to a <select> via CSS
+ * (the select is always rendered but hidden at wide widths).
  */
 
 /* ── Panel shell override ─────────────────────────────────── */
 
 .settings-modal-panel {
   padding: 0;
-  max-height: min(80vh, 720px);
+  width: min(94vw, 880px);
+  max-width: min(94vw, 880px);
+  max-height: min(88vh, 760px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -23,31 +38,140 @@
   flex-shrink: 0;
 }
 
-.settings-body {
-  overflow-y: auto;
-  flex: 1 1 auto;
-  padding: 18px 24px;
-  overscroll-behavior: contain;
+/* ── Two-column layout ────────────────────────────────────── */
+
+.settings-layout {
   display: flex;
-  flex-direction: column;
-  gap: 24px;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0; /* allow inner scrolling */
+  overflow: hidden;
 }
 
-.settings-body::-webkit-scrollbar {
-  width: 6px;
+/* ── Sidebar nav ──────────────────────────────────────────── */
+
+.settings-sidebar {
+  width: 200px;
+  min-width: 180px;
+  max-width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--panel-2, var(--panel));
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
-.settings-body::-webkit-scrollbar-track {
+
+.settings-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.settings-sidebar::-webkit-scrollbar-track {
   background: transparent;
 }
-.settings-body::-webkit-scrollbar-thumb {
+.settings-sidebar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.settings-sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+  transition: background 100ms ease, color 100ms ease;
+  /* Sidebar items use tabindex=-1 for arrow-key nav; only active is 0 */
+}
+
+.settings-sidebar-item:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.settings-sidebar-item.is-active {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
+.settings-sidebar-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.settings-sidebar-label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* "NEW" badge for Gemini Nano entry */
+.settings-sidebar-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1.4;
+}
+
+/* ── Content pane area ────────────────────────────────────── */
+
+.settings-content {
+  flex: 1 1 auto;
+  min-width: 480px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-pane-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px;
+}
+
+.settings-pane-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.settings-pane-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings-pane-scroll::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
 }
 
-.settings-body :focus-visible {
+.settings-pane-scroll :focus-visible {
   scroll-margin-top: 12px;
   scroll-margin-bottom: 12px;
 }
+
+/* Each pane component: stacked sections with gap */
+.settings-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── Sticky footer (Cancel / Done) ────────────────────────── */
 
 .settings-footer {
   display: flex;
@@ -511,35 +635,77 @@
   border-radius: var(--radius);
 }
 
-/* ── Developer section (collapsible) ────────────────────────────── */
+/* ── Advanced / debug section ─────────────────────────────── */
 
-.settings-developer {
-  border-top: 1px dashed var(--border);
-  padding-top: 12px;
-  margin-top: 6px;
-}
-
-/* The <summary> for <details> needs explicit cursor + alignment */
-details.settings-developer > summary {
-  cursor: pointer;
-  list-style: revert;
-  user-select: none;
-}
-details.settings-developer > summary::marker {
-  color: var(--text-dim);
-}
-details.settings-developer[open] > summary {
-  margin-bottom: 8px;
-}
-
-.settings-developer input[type="text"] {
+.settings-pane .settings-developer-code input[type="text"] {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
 }
-.settings-developer code {
+
+/* Any code elements inside Advanced pane */
+.settings-pane code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   background: var(--panel-2);
   padding: 1px 4px;
   border-radius: 3px;
+}
+
+/* Debug namespace input — monospace */
+#settings-debug-namespaces {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+/* ── Responsive: narrow viewport (< 640px) ────────────────── */
+/*
+ * At narrow widths the sidebar collapses to a <select> dropdown.
+ * The select is rendered by SettingsSidebar but hidden at wide widths
+ * via this rule. The sidebar nav buttons are hidden at narrow widths.
+ *
+ * Implementation note: Agent A uses a pure-CSS approach — the sidebar
+ * converts to a horizontal select at the top of the content area.
+ * No JS media query needed.
+ */
+
+@media (max-width: 639px) {
+  .settings-modal-panel {
+    width: 94vw;
+    max-width: 94vw;
+  }
+
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+    gap: 0;
+  }
+
+  .settings-sidebar-item {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: 12px;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+  }
+
+  .settings-sidebar-item.is-active {
+    box-shadow: none;
+    border-bottom-color: var(--accent);
+  }
+
+  .settings-content {
+    min-width: 0;
+  }
 }
