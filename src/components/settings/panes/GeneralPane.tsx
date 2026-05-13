@@ -17,6 +17,7 @@
 import type { ReactNode } from "react";
 import { SegmentedControl, ToggleSwitch } from "../SettingsControls";
 import type {
+  GreetingSchedule,
   GreetingStyle,
   TimeFormat,
   UserSettings,
@@ -51,6 +52,10 @@ export interface GeneralPaneProps {
   setPendingRelativeDates: (v: boolean) => void;
   pendingVisibility: SectionVisibility;
   setPendingVisibility: React.Dispatch<React.SetStateAction<SectionVisibility>>;
+  pendingGreetingSchedule: GreetingSchedule;
+  setPendingGreetingSchedule: (v: GreetingSchedule) => void;
+  pendingDayBoundaryHour: 0 | 3 | 5;
+  setPendingDayBoundaryHour: (v: 0 | 3 | 5) => void;
   // Live
   greetingStyle: GreetingStyle;
   timeFormat: TimeFormat;
@@ -68,6 +73,10 @@ export function GeneralPane({
   setPendingRelativeDates,
   pendingVisibility,
   setPendingVisibility,
+  pendingGreetingSchedule,
+  setPendingGreetingSchedule,
+  pendingDayBoundaryHour,
+  setPendingDayBoundaryHour,
   greetingStyle,
   timeFormat,
   live,
@@ -122,7 +131,26 @@ export function GeneralPane({
           onChange={(v) => live("greetingStyle", v)}
           hint={`Shows "Good morning, [name]" at the top of each new tab.`}
         />
-        {/* Agent B: insert 'greetingSchedule' SegmentedControl here (Standard / Early bird / Night owl), hidden when greetingStyle === "none" */}
+        {greetingStyle !== "none" ? (
+          <SegmentedControl<GreetingSchedule>
+            name="settings-greeting-schedule"
+            legend="Schedule"
+            options={[
+              { value: "standard", label: "Standard" },
+              { value: "earlyBird", label: "Early bird" },
+              { value: "nightOwl", label: "Night owl" },
+            ]}
+            value={pendingGreetingSchedule}
+            onChange={setPendingGreetingSchedule}
+            hint={
+              pendingGreetingSchedule === "earlyBird"
+                ? "Morning until 11am, afternoon until 4pm, evening after."
+                : pendingGreetingSchedule === "nightOwl"
+                  ? "Morning until 1pm, afternoon until 6pm, evening after."
+                  : "Morning until noon, afternoon until 5pm, evening after."
+            }
+          />
+        ) : null}
       </section>
 
       {/* ── Date & Time ────────────────────────────────────────── */}
@@ -146,7 +174,18 @@ export function GeneralPane({
                 : "Forces 24-hour display: 17:30"
           }
         />
-        {/* Agent B: insert 'dayBoundaryHour' SegmentedControl here (12am / 3am / 5am) */}
+        <SegmentedControl<0 | 3 | 5>
+          name="settings-day-boundary"
+          legend="Today resets at"
+          options={[
+            { value: 0, label: "12am" },
+            { value: 3, label: "3am" },
+            { value: 5, label: "5am" },
+          ]}
+          value={pendingDayBoundaryHour}
+          onChange={setPendingDayBoundaryHour}
+          hint="Sets when the Today section rolls over to a new day. Useful if you stay up past midnight."
+        />
         <ToggleSwitch
           label="Relative dates"
           checked={pendingRelativeDates}

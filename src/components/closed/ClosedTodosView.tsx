@@ -40,6 +40,7 @@ import {
 import {
   CLOSED_TODO_MAX,
   CLOSED_TODO_RETENTION_DAYS,
+  resolvedSettings,
 } from "@/storage/constants";
 import { ConfirmDialog } from "@/components/Modal";
 import { TagChip } from "@/components/TagChip";
@@ -79,22 +80,30 @@ const GROUP_LABEL: Record<GroupKey, string> = {
 };
 
 /**
- * Compute the day index of a timestamp relative to "now" (both rounded to
- * local midnight). 0 = same calendar day, 1 = yesterday, etc.
+ * Compute the day index of a timestamp relative to "now", respecting the
+ * user's day-boundary hour. When boundaryHour > 0 (e.g. 3am), an event at
+ * 2am is still logically "yesterday" because the new day hasn't started.
  *
- * Splitting on calendar days (not 24h windows) matches user intuition:
- * something closed at 11:59pm yesterday is "yesterday", not "23 hours ago".
+ * We shift both timestamps back by `boundaryHour` hours before rounding to
+ * calendar midnight, so the boundary effectively becomes the rollover point.
+ *
+ * 0 = same calendar day (after boundary), 1 = yesterday, etc.
  */
-function daysAgo(ts: number, now: Date): number {
-  const a = new Date(ts);
+function daysAgo(ts: number, now: Date, boundaryHour: 0 | 3 | 5 = 0): number {
+  const shiftMs = boundaryHour * 60 * 60 * 1000;
+  const a = new Date(ts - shiftMs);
   a.setHours(0, 0, 0, 0);
-  const b = new Date(now);
+  const b = new Date(now.getTime() - shiftMs);
   b.setHours(0, 0, 0, 0);
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
-function groupOf(ts: number, now: Date): GroupKey {
-  const d = daysAgo(ts, now);
+function groupOf(
+  ts: number,
+  now: Date,
+  boundaryHour: 0 | 3 | 5 = 0,
+): GroupKey {
+  const d = daysAgo(ts, now, boundaryHour);
   if (d <= 0) return "today";
   if (d === 1) return "yesterday";
   if (d <= 7) return "thisWeek";
@@ -104,12 +113,16 @@ function groupOf(ts: number, now: Date): GroupKey {
 
 /* ─── Row format helpers ───────────────────────────────────────────────── */
 
-function formatClosedAt(ts: number, now: Date): string {
+function formatClosedAt(
+  ts: number,
+  now: Date,
+  boundaryHour: 0 | 3 | 5 = 0,
+): string {
   // Same-day → time only ("3:42pm"); within 7 days → weekday + time;
   // older → short date + time. Locale-aware; honors the platform's clock
   // format because we let Intl pick.
-  const sameDay = daysAgo(ts, now) === 0;
-  const withinWeek = daysAgo(ts, now) < 7;
+  const sameDay = daysAgo(ts, now, boundaryHour) === 0;
+  const withinWeek = daysAgo(ts, now, boundaryHour) < 7;
   const d = new Date(ts);
   if (sameDay) {
     return d.toLocaleTimeString(undefined, {
@@ -146,6 +159,10 @@ export function ClosedTodosView() {
   const closed = useMemo(() => getClosedTodos(state), [state]);
   const allTags = state.tags;
 
+  // Resolve user's day-boundary preference once per render.
+  const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+  const boundaryHour = rs.dayBoundaryHour;
+
   // Group rows by closure recency. Computed once per render; cheap O(n)
   // even at the 500-item retention cap.
   const groups = useMemo(() => {
@@ -159,10 +176,10 @@ export function ClosedTodosView() {
     };
     for (const t of closed) {
       const anchor = t.closedAt ?? t.completedAt ?? t.createdAt ?? Date.now();
-      buckets[groupOf(anchor, now)].push(t);
+      buckets[groupOf(anchor, now, boundaryHour)].push(t);
     }
     return buckets;
-  }, [closed]);
+  }, [closed, boundaryHour]);
 
   // Look up the pending-delete row for the confirm dialog message. Bounded
   // by closed.length so this is fine without a Map.
@@ -247,6 +264,7 @@ export function ClosedTodosView() {
                     allTags={allTags}
                     onReopen={handleReopen}
                     onRequestDelete={setPendingDelete}
+                    boundaryHour={boundaryHour}
                   />
                 ))}
               </ul>
@@ -310,9 +328,16 @@ interface RowProps {
   allTags: Tag[];
   onReopen: (id: string) => void;
   onRequestDelete: (id: string) => void;
+  boundaryHour: 0 | 3 | 5;
 }
 
-function ClosedRow({ todo, allTags, onReopen, onRequestDelete }: RowProps) {
+function ClosedRow({
+  todo,
+  allTags,
+  onReopen,
+  onRequestDelete,
+  boundaryHour,
+}: RowProps) {
   const tags = useMemo(
     () =>
       todo.tags
@@ -326,7 +351,7 @@ function ClosedRow({ todo, allTags, onReopen, onRequestDelete }: RowProps) {
   // Recompute "now" inside the row so the timestamp label refreshes on
   // re-render (e.g. when the parent re-renders due to a state change). No
   // ticker — the relative-time prose tolerates being a few seconds stale.
-  const timeLabel = formatClosedAt(closedAt, new Date());
+  const timeLabel = formatClosedAt(closedAt, new Date(), boundaryHour);
 
   // Show the scope the todo will return to on reopen (the close-time
   // checkpoint). Falls back to the current scope for legacy data without a

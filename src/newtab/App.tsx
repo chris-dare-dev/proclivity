@@ -65,11 +65,21 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "closed", label: "Closed" },
 ];
 
-function greetingFor(d: Date) {
+function greetingFor(
+  d: Date,
+  schedule: "standard" | "earlyBird" | "nightOwl" = "standard",
+): string {
   const h = d.getHours();
-  if (h < 5) return "Still up";
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
+  // Cutoffs: [stillUp, morning→afternoon, afternoon→evening]
+  const [nightCutoff, afternoonCutoff, eveningCutoff] =
+    schedule === "earlyBird"
+      ? ([4, 11, 16] as const)
+      : schedule === "nightOwl"
+        ? ([6, 13, 18] as const)
+        : ([5, 12, 17] as const); // standard
+  if (h < nightCutoff) return "Still up";
+  if (h < afternoonCutoff) return "Good morning";
+  if (h < eveningCutoff) return "Good afternoon";
   return "Good evening";
 }
 
@@ -101,7 +111,7 @@ const Header = memo(function Header() {
       ? name
         ? `${name}.`
         : ""
-      : `${greetingFor(now)}${name ? `, ${name}` : ""}.`;
+      : `${greetingFor(now, rs.greetingSchedule)}${name ? `, ${name}` : ""}.`;
   const timeOpts: Intl.DateTimeFormatOptions = {
     hour: "2-digit",
     minute: "2-digit",

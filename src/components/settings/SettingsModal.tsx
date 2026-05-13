@@ -9,6 +9,8 @@ import { Modal } from "@/components/Modal";
 import { useStore } from "@/storage/useStore";
 import { resolvedSettings } from "@/storage/constants";
 import type {
+  FocusRingMode,
+  GreetingSchedule,
   LeadMinutes,
   ProclivityState,
   RecurrenceDefault,
@@ -125,6 +127,19 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
   const [pendingVisibility, setPendingVisibility] = useState(
     rs.sectionVisibility,
   );
+  const [pendingGreetingSchedule, setPendingGreetingSchedule] =
+    useState<GreetingSchedule>(rs.greetingSchedule);
+  const [pendingDayBoundaryHour, setPendingDayBoundaryHour] = useState<
+    0 | 3 | 5
+  >(rs.dayBoundaryHour);
+  const [pendingDefaultSprintDays, setPendingDefaultSprintDays] = useState<
+    7 | 14 | 21 | 28
+  >(rs.defaultSprintDays);
+  const [pendingClosedRetention, setPendingClosedRetention] = useState<
+    7 | 30 | 90 | null
+  >(rs.closedTodoRetentionDays);
+  const [pendingFocusRingMode, setPendingFocusRingMode] =
+    useState<FocusRingMode>(rs.focusRingMode);
 
   /* ── Transient UI state ──────────────────────────────────── */
 
@@ -153,6 +168,11 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
     setPendingQuietFrom(rs.quietHours?.from ?? "22:00");
     setPendingQuietTo(rs.quietHours?.to ?? "07:00");
     setPendingVisibility(rs.sectionVisibility);
+    setPendingGreetingSchedule(rs.greetingSchedule);
+    setPendingDayBoundaryHour(rs.dayBoundaryHour);
+    setPendingDefaultSprintDays(rs.defaultSprintDays);
+    setPendingClosedRetention(rs.closedTodoRetentionDays);
+    setPendingFocusRingMode(rs.focusRingMode);
     setExportFlash(false);
     setImportError(null);
     setClearStage("rest");
@@ -236,6 +256,14 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         snoozeMinutes: pendingSnooze,
         quietHours,
         sectionVisibility: visibility,
+        greetingSchedule: pendingGreetingSchedule,
+        dayBoundaryHour: pendingDayBoundaryHour,
+        defaultSprintDays: pendingDefaultSprintDays,
+        // closedTodoRetentionDays may be null ("forever") — preserve that.
+        ...(pendingClosedRetention !== null
+          ? { closedTodoRetentionDays: pendingClosedRetention }
+          : { closedTodoRetentionDays: null as null }),
+        focusRingMode: pendingFocusRingMode,
         settingsV2Seen: true,
       },
     }));
@@ -313,6 +341,10 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
             setPendingRelativeDates={setPendingRelativeDates}
             pendingVisibility={pendingVisibility}
             setPendingVisibility={setPendingVisibility}
+            pendingGreetingSchedule={pendingGreetingSchedule}
+            setPendingGreetingSchedule={setPendingGreetingSchedule}
+            pendingDayBoundaryHour={pendingDayBoundaryHour}
+            setPendingDayBoundaryHour={setPendingDayBoundaryHour}
             greetingStyle={rs.greetingStyle}
             timeFormat={rs.timeFormat}
             live={live}
