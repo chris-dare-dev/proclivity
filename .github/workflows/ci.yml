@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# This repo follows a work-on-main-only policy (see CLAUDE.md), so there is no
+# pull_request trigger. CI runs on every push to main and on manual dispatch.
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: typecheck · build · bundle budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `npm run build` is `tsc -b && vite build`. The TS step exercises the
+      # full strict suite (strict, exactOptionalPropertyTypes,
+      # noUncheckedIndexedAccess, noUnusedLocals, noUnusedParameters) and the
+      # Vite step produces the unpacked extension under dist/.
+      - name: Build (tsc -b && vite build)
+        run: npm run build
+
+      - name: Validate generated manifest
+        run: |
+          test -f dist/manifest.json || { echo "::error::dist/manifest.json missing"; exit 1; }
+          node -e "JSON.parse(require('fs').readFileSync('dist/manifest.json','utf8'))"
+          node -e "
+            const m = JSON.parse(require('fs').readFileSync('dist/manifest.json','utf8'));
+            const p = JSON.parse(require('fs').readFileSync('package.json','utf8'));
+            if (m.version !== p.version) {
+              console.error('::error::manifest.version (' + m.version + ') != package.json version (' + p.version + ')');
+              process.exit(1);
+            }
+            if (m.manifest_version !== 3) {
+              console.error('::error::manifest_version must be 3, got ' + m.manifest_version);
+              process.exit(1);
+            }
+            if (!m.chrome_url_overrides || m.chrome_url_overrides.newtab !== 'src/newtab/index.html') {
+              console.error('::error::chrome_url_overrides.newtab missing or wrong');
+              process.exit(1);
+            }
+            console.log('manifest OK · v' + m.version);
+          "
+
+      - name: Bundle-size budget (newtab initial JS)
+        run: node .github/scripts/check-bundle-size.mjs
+
+      - name: Upload extension build
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proclivity-${{ github.sha }}
+          path: dist/
+          retention-days: 14
+          if-no-files-found: error
