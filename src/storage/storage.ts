@@ -39,16 +39,31 @@ export const storage = {
   async get(): Promise<ProclivityState> {
     const s = await readRaw();
     const base = { ...EMPTY_STATE, ...s };
-    // Backfill `tags: []` on Todo and Reminder items that predate this feature.
-    // Stored JSON from before the tags field was introduced will be missing the
-    // key at runtime even though the TypeScript type requires it. This one-time
-    // normalisation pass in get() is the canonical enforcement boundary — all
-    // consumers downstream can rely on tags always being a string[].
+    // Backfill `tags: []` on Todo and Reminder items that predate the tags
+    // feature, and `closedAt` on `done: true` todos that predate the closed-todos
+    // feature. Stored JSON from before either feature was introduced will be
+    // missing those keys at runtime even though the TypeScript type requires
+    // them. This single normalisation pass in get() is the canonical enforcement
+    // boundary — every consumer downstream can rely on:
+    //   - `tags` always a string[]
+    //   - any `done === true` todo carrying a `closedAt` number (so the 30-day
+    //     auto-purge clock has something to measure against).
     return {
       ...base,
       todos: base.todos.map((t) => {
         const raw = t as Todo & { tags?: string[] };
-        return raw.tags !== undefined ? t : { ...t, tags: [] };
+        const withTags = raw.tags !== undefined ? t : { ...t, tags: [] };
+        // Backfill closedAt for legacy completed todos. We prefer completedAt
+        // (the user's actual completion timestamp) and fall back to createdAt so
+        // a todo with neither still has a sensible age anchor (clamped to "now"
+        // if both are absent, which keeps the purge from instantly deleting
+        // pre-feature data).
+        if (withTags.done && withTags.closedAt === undefined) {
+          const anchor =
+            withTags.completedAt ?? withTags.createdAt ?? Date.now();
+          return { ...withTags, closedAt: anchor };
+        }
+        return withTags;
       }),
       reminders: base.reminders.map((r) => {
         const raw = r as Reminder & { tags?: string[] };

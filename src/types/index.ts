@@ -35,6 +35,31 @@ export interface Todo {
   sprintId?: string | undefined;
   /** Tag ids referencing ProclivityState.tags. Always present; empty array = untagged. */
   tags: string[];
+  /**
+   * Local-clock ms when the todo entered the **Closed pile** (i.e. `done` became
+   * true via the close action). Distinct from `completedAt` so a closed todo's
+   * age (used by the 30-day auto-purge) is not reset by minor re-edits.
+   *
+   * Backfilled lazily in `storage.get()` for legacy todos that predate the
+   * closed-todos feature: any pre-existing `done: true` todo without a
+   * `closedAt` is treated as if it closed at `completedAt ?? createdAt`.
+   *
+   * Cleared on reopen.
+   */
+  closedAt?: number | undefined;
+  /**
+   * The scope this todo will return to on reopen. Captured at close time so a
+   * later state change (e.g. sprint deletion, scope edit on another item)
+   * doesn't poison the restore target. Optional; if absent, reopen falls back
+   * to the todo's current `scope`.
+   */
+  closedFromScope?: TodoScope | undefined;
+  /**
+   * The sprintId this todo will return to on reopen. Same rationale as
+   * `closedFromScope`. Reopen validates this against the current sprint list
+   * and drops it if the sprint no longer exists.
+   */
+  closedFromSprintId?: string | undefined;
 }
 
 /**
