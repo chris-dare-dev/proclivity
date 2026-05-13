@@ -105,7 +105,11 @@ export async function importData(file: File): Promise<ImportResult> {
   //
   // Additionally, drop any tag-id references in items that don't exist in the
   // imported state.tags array, and warn so the user can diagnose import issues.
+  // Same orphan-filter discipline applies to `closedFromSprintId` — an old
+  // backup whose sprint was later deleted in this profile would otherwise
+  // dangle a reference that reopen could not satisfy.
   const knownTagIds = new Set((merged.tags ?? []).map((t) => t.id));
+  const knownSprintIds = new Set((merged.sprints ?? []).map((sp) => sp.id));
 
   merged.todos = merged.todos.map((t) => {
     const raw = t as Todo & { tags?: string[] };
@@ -115,7 +119,37 @@ export async function importData(file: File): Promise<ImportResult> {
       console.warn(`[proclivity] import: dropping unknown tag id "${id}" from todo "${t.id}"`);
       return false;
     });
-    return { ...t, tags: validTags };
+    // Backfill closedAt on legacy done:true todos that predate the closed-todos
+    // feature, mirroring the storage.get() pass. Without this, an imported
+    // backup from before the feature shipped would have done:true todos with
+    // no closedAt — and the 30-day retention clock would have nothing to
+    // anchor against. We anchor to completedAt ?? createdAt ?? now, in that
+    // preference order.
+    let closedAt = t.closedAt;
+    if (t.done && closedAt === undefined) {
+      closedAt = t.completedAt ?? t.createdAt ?? Date.now();
+    }
+    // Drop closedFromSprintId if it references a sprint that no longer exists
+    // in the imported state. Reopen falls back to scope-promotion anyway, so
+    // dangling references would be silently dropped at reopen time — but
+    // pruning here keeps the on-disk state clean and gives the user a warning
+    // they can act on.
+    let closedFromSprintId = t.closedFromSprintId;
+    if (closedFromSprintId !== undefined && !knownSprintIds.has(closedFromSprintId)) {
+      console.warn(
+        `[proclivity] import: dropping closedFromSprintId "${closedFromSprintId}" from todo "${t.id}" (sprint not in backup)`,
+      );
+      closedFromSprintId = undefined;
+    }
+    // Build the next todo defensively: exactOptionalPropertyTypes forbids
+    // writing `undefined` literals to optional-narrow fields. Use conditional
+    // spreads so the property is genuinely absent when its value is undefined.
+    const next: Todo = { ...t, tags: validTags };
+    if (closedAt !== undefined) next.closedAt = closedAt;
+    else delete next.closedAt;
+    if (closedFromSprintId !== undefined) next.closedFromSprintId = closedFromSprintId;
+    else delete next.closedFromSprintId;
+    return next;
   });
 
   merged.reminders = merged.reminders.map((r) => {
