@@ -30,6 +30,39 @@ async function writeRaw(state: ProclivityState): Promise<void> {
 }
 
 /**
+ * Normalize raw storage state — the canonical backfill pass shared by
+ * `get()` and `subscribe()` (H1 fix).
+ *
+ * Every consumer downstream can rely on:
+ *   - `tags` always a `string[]` on todos and reminders
+ *   - every `done === true` todo carries a `closedAt` number so the 30-day
+ *     purge clock has an anchor.
+ *
+ * H1: previously only `get()` ran this pass. `subscribe()` delivered raw
+ * `newValue` from `chrome.storage.onChanged`, so service-worker writes or
+ * cross-tab writes could land `done: true` + `closedAt: undefined` in React
+ * state, breaking group labels, purge clocks, and the closed-todo count.
+ *
+ * // TODO(closed-todos-v2): remove the closedAt backfill after 2026-08-01.
+ * // All active users will have closedAt-stamped data by then (30-day cycle).
+ */
+function normalizeState(raw: ProclivityState): ProclivityState {
+  const base = { ...EMPTY_STATE, ...raw };
+  return {
+    ...base,
+    todos: base.todos.map((t) => {
+      const w: Todo = (t as Todo & { tags?: string[] }).tags !== undefined ? t : { ...t, tags: [] };
+      if (w.done && w.closedAt === undefined)
+        return { ...w, closedAt: w.completedAt ?? w.createdAt ?? Date.now() };
+      return w;
+    }),
+    reminders: base.reminders.map((r) =>
+      (r as Reminder & { tags?: string[] }).tags !== undefined ? r : { ...r, tags: [] },
+    ),
+  };
+}
+
+/**
  * Serialize all write operations through a promise chain so concurrent
  * update() calls never clobber each other (finding #1).
  */
@@ -37,39 +70,7 @@ let writeChain: Promise<void> = Promise.resolve();
 
 export const storage = {
   async get(): Promise<ProclivityState> {
-    const s = await readRaw();
-    const base = { ...EMPTY_STATE, ...s };
-    // Backfill `tags: []` on Todo and Reminder items that predate the tags
-    // feature, and `closedAt` on `done: true` todos that predate the closed-todos
-    // feature. Stored JSON from before either feature was introduced will be
-    // missing those keys at runtime even though the TypeScript type requires
-    // them. This single normalisation pass in get() is the canonical enforcement
-    // boundary — every consumer downstream can rely on:
-    //   - `tags` always a string[]
-    //   - any `done === true` todo carrying a `closedAt` number (so the 30-day
-    //     auto-purge clock has something to measure against).
-    return {
-      ...base,
-      todos: base.todos.map((t) => {
-        const raw = t as Todo & { tags?: string[] };
-        const withTags = raw.tags !== undefined ? t : { ...t, tags: [] };
-        // Backfill closedAt for legacy completed todos. We prefer completedAt
-        // (the user's actual completion timestamp) and fall back to createdAt so
-        // a todo with neither still has a sensible age anchor (clamped to "now"
-        // if both are absent, which keeps the purge from instantly deleting
-        // pre-feature data).
-        if (withTags.done && withTags.closedAt === undefined) {
-          const anchor =
-            withTags.completedAt ?? withTags.createdAt ?? Date.now();
-          return { ...withTags, closedAt: anchor };
-        }
-        return withTags;
-      }),
-      reminders: base.reminders.map((r) => {
-        const raw = r as Reminder & { tags?: string[] };
-        return raw.tags !== undefined ? r : { ...r, tags: [] };
-      }),
-    };
+    return normalizeState(await readRaw());
   },
   async set(state: ProclivityState): Promise<void> {
     await writeRaw(state);
@@ -105,9 +106,11 @@ export const storage = {
         area: string,
       ) => {
         if (area !== "local" || !changes[STORAGE_KEY]) return;
-        listener(
-          (changes[STORAGE_KEY].newValue as ProclivityState) ?? EMPTY_STATE,
-        );
+        // H1 fix: normalize newValue through the same backfill pass as get()
+        // so the React tree never receives done:true + closedAt:undefined from
+        // service-worker or cross-tab writes.
+        const raw = (changes[STORAGE_KEY].newValue as ProclivityState | undefined) ?? EMPTY_STATE;
+        listener(normalizeState(raw));
       };
       chrome.storage.onChanged.addListener(handler);
       return () => chrome.storage.onChanged.removeListener(handler);
