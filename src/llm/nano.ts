@@ -90,6 +90,20 @@ interface CreateSessionOpts {
    * Corrected in rect H1.)
    */
   monitor?: CreateMonitorCallback;
+  /**
+   * Expected output language(s). Chrome's Prompt API logs a console
+   * warning when this is omitted — explicitly declaring it both
+   * silences the noise and lets the runtime apply language-specific
+   * safety attestations. Defaults to `["en"]` when not provided.
+   * Supported codes today: en, es, ja.
+   */
+  outputLanguages?: string[];
+  /**
+   * Expected input language(s). Same shape as outputLanguages. Most
+   * proclivity callers only ever send English, so this defaults to
+   * matching outputLanguages when not provided.
+   */
+  inputLanguages?: string[];
 }
 
 /**
@@ -108,6 +122,14 @@ export async function createSession(
   if (opts.signal !== undefined) args.signal = opts.signal;
   if (opts.initialPrompts !== undefined) args.initialPrompts = opts.initialPrompts;
   if (opts.monitor !== undefined) args.monitor = opts.monitor;
+  // Default to English unless the caller specified otherwise. Declaring
+  // expectedInputs/expectedOutputs silences Chrome's "No output language
+  // was specified" console warning and lets the runtime apply the right
+  // safety attestation. Supported codes today: en, es, ja.
+  const outputLangs = opts.outputLanguages ?? ["en"];
+  const inputLangs = opts.inputLanguages ?? outputLangs;
+  args.expectedOutputs = [{ type: "text", languages: outputLangs }];
+  args.expectedInputs = [{ type: "text", languages: inputLangs }];
   return LM.create(args);
 }
 
