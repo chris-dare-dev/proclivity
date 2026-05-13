@@ -59,11 +59,15 @@ interface ResizeState {
 // At 140–199px the draggable wrapper overrides min-width:0 on task-card,
 // making titles wrap character-by-character at ~10px wide.
 const MIN_W = 200;
-// MIN_H sized so a card at its minimum always fits a one-line title +
-// one row of tag chips + vertical padding. The labels MUST stay visible
-// at every size (design requirement). 136 = 17 grid units, a clean
-// snap multiple just above the user-specified ~132 floor.
-const MIN_H = 136;
+// MIN_H aligned with the bottom of the `md` bucket (170) so the resize
+// handle can never put a card into the `sm`/`xs` buckets where the
+// fire-at row (and notes) get hidden. Previously MIN_H=136 sat inside
+// `xs`: a reminder card whose natural rendered height was below 170
+// would snap UP to 136 on first resize and the bucket flipped to "xs",
+// instantly hiding the "In 12h" relative-time label even though the
+// card grew. The `sm`/`xs` CSS rules stay as defensive coverage for
+// stored heights below 170 (e.g. legacy state from before this fix).
+const MIN_H = 170;
 
 /**
  * Map a card pixel-height to one of four size buckets. Drives the
