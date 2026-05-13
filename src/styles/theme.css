@@ -148,6 +148,18 @@ html {
   line-height: var(--line-height-base);
 }
 
+/*
+ * Focus-ring "always" mode: when the user sets focusRingMode = "always"
+ * in Settings → Advanced, useThemeSync adds data-focus-ring="always" to
+ * <html>. This rule ensures every :focus also shows an outline, mirroring
+ * :focus-visible for hybrid mouse+keyboard users who benefit from always-on
+ * indicators.
+ */
+[data-focus-ring="always"] *:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* M3: visually-hidden utility for SR-only content (live regions, descriptions). */
 .sr-only {
   position: absolute;

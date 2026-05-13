@@ -440,6 +440,8 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
             debugEnabled={rs.debug.enabled}
             debugNamespaces={rs.debug.namespaces}
             live={live}
+            pendingFocusRingMode={pendingFocusRingMode}
+            setPendingFocusRingMode={setPendingFocusRingMode}
           />
         );
     }

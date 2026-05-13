@@ -52,12 +52,20 @@ export function useThemeSync(settings: UserSettings): void {
 
     // ── Accent color (inline custom property override) ──────
     html.style.setProperty("--accent", rs.accentColor);
+
+    // ── Focus ring mode ─────────────────────────────────────
+    if (rs.focusRingMode === "always") {
+      html.setAttribute("data-focus-ring", "always");
+    } else {
+      html.removeAttribute("data-focus-ring");
+    }
   }, [
     rs.theme,
     rs.density,
     rs.fontSize,
     rs.reducedMotion,
     rs.accentColor,
+    rs.focusRingMode,
   ]);
 
   // System-theme tracking: re-render through state? No — we mutate the

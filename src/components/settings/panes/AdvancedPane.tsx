@@ -13,9 +13,10 @@
  *     settingsV2Seen to false (immediate action, no Done/Cancel lifecycle)
  */
 
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useState, type ReactNode } from "react";
 import { ToggleSwitch } from "../SettingsControls";
-import type { UserSettings } from "@/types";
+import type { FocusRingMode, UserSettings } from "@/types";
+import { useStore } from "@/storage/useStore";
 
 // LogViewer is lazy so its bundle only loads when the user opens the Advanced
 // pane with debug enabled. Same pattern as the previous DeveloperSection.
@@ -35,12 +36,17 @@ export interface AdvancedPaneProps {
   debugEnabled: boolean;
   debugNamespaces: string;
   live: LiveUpdater;
+  // Staged
+  pendingFocusRingMode: FocusRingMode;
+  setPendingFocusRingMode: (v: FocusRingMode) => void;
 }
 
 export function AdvancedPane({
   debugEnabled,
   debugNamespaces,
   live,
+  pendingFocusRingMode,
+  setPendingFocusRingMode,
 }: AdvancedPaneProps) {
   const updateDebug = (next: { enabled: boolean; namespaces: string }) => {
     live("debug", next);
@@ -50,6 +56,23 @@ export function AdvancedPane({
   // Flip on before sharing logs publicly (see plans/observability-plan.md).
   const [redact, setRedact] = useState(false);
 
+  // Replay hints: resets all one-shot onboarding flags immediately.
+  const { update } = useStore();
+  const [hintsResetFlash, setHintsResetFlash] = useState(false);
+  const handleReplayHints = useCallback(() => {
+    void update((s) => ({
+      ...s,
+      settings: {
+        ...s.settings,
+        settingsV2Seen: false,
+        cardHintSeen: false,
+        geminiNanoSeen: false,
+      },
+    }));
+    setHintsResetFlash(true);
+    window.setTimeout(() => setHintsResetFlash(false), 2500);
+  }, [update]);
+
   return (
     <div
       role="tabpanel"
@@ -57,15 +80,43 @@ export function AdvancedPane({
       aria-labelledby="settings-tab-advanced"
       className="settings-pane"
     >
-      {/* Agent B: insert 'Accessibility' sub-section here (above Debug section) */}
-      {/* Sub-section should include: */}
-      {/*   - 'focusRingMode' ToggleSwitch: "Always show focus ring" (staged) */}
-      {/*   - Hint: "When on, focus rings appear on all interactive elements, */}
-      {/*     not only when using keyboard navigation." */}
+      {/* ── Accessibility ─────────────────────────────────────── */}
+      <section className="settings-section">
+        <SectionHeader>Accessibility</SectionHeader>
+        <ToggleSwitch
+          label="Always show focus ring"
+          checked={pendingFocusRingMode === "always"}
+          onChange={(checked) =>
+            setPendingFocusRingMode(checked ? "always" : "auto")
+          }
+          hint="When on, focus rings appear on all interactive elements, not only when navigating with a keyboard."
+        />
+      </section>
 
-      {/* Agent B: insert 'Replay onboarding hints' button here (above Debug section) */}
-      {/*   - Resets cardHintSeen + settingsV2Seen to false via immediate update() */}
-      {/*   - Show a brief flash confirmation ("Hints reset") */}
+      {/* ── Onboarding hints ──────────────────────────────────── */}
+      <section className="settings-section">
+        <SectionHeader>Onboarding</SectionHeader>
+        <div className="settings-field">
+          <div className="settings-action-row">
+            <button
+              type="button"
+              className="settings-action-btn"
+              onClick={handleReplayHints}
+            >
+              Replay onboarding hints
+            </button>
+            {hintsResetFlash ? (
+              <span className="settings-action-flash" role="status">
+                Hints reset
+              </span>
+            ) : null}
+          </div>
+          <span className="settings-hint">
+            Resets all first-run hints so they reappear the next time you
+            interact with each feature.
+          </span>
+        </div>
+      </section>
 
       <section className="settings-section">
         <SectionHeader>Debug</SectionHeader>
