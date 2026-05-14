@@ -459,10 +459,13 @@
 
 /* ─── sprint-backlog-redesign-m3: goal display + inline editor ──── */
 
-/* Container ensures the goal line sits on its own row below the dates. */
-.sprint-header > .sprint-header-top > div > .sprint-goal-display,
-.sprint-header > .sprint-header-top > div > .sprint-goal-empty,
-.sprint-header > .sprint-header-top > div > .sprint-goal-input {
+/* rect(m3) — M4: each goal-state class owns its inline-block + spacing
+   directly, so a future DOM tweak to the unnamed wrapper <div> next to
+   .sprint-header-actions can't silently break the goal-line layout.
+   These three classes are GoalEditor-unique; no other component uses them. */
+.sprint-goal-display,
+.sprint-goal-empty,
+.sprint-goal-input {
   display: inline-block;
   margin-top: 4px;
   max-width: 100%;

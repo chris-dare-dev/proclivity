@@ -299,9 +299,14 @@ function GoalEditor({ goal, onSave }: GoalEditorProps) {
 
   // Re-sync when the persisted goal changes externally (modal save,
   // multi-tab write via chrome.storage subscribe).
+  // rect(m3) — M2: skip the re-sync while the user is mid-edit, otherwise
+  // a concurrent external write (e.g. EditSprintForm save in another tab)
+  // would silently clobber the in-progress draft. The user's blur-commit
+  // will then write their own text — matches the multi-tab last-writer-wins
+  // semantics elsewhere in the codebase.
   useEffect(() => {
-    setDraft(goal ?? "");
-  }, [goal]);
+    if (!editing) setDraft(goal ?? "");
+  }, [goal, editing]);
 
   const commit = () => {
     const trimmed = draft.trim();
@@ -402,8 +407,17 @@ function ActiveSprintHeader({
           <div className="sprint-header-dates">{sprintDateRange(sprint)}</div>
           {/* sprint-backlog-redesign-m3: inline-editable goal slot. Visible
               for both draft and active sprints — the goal is intrinsic to
-              the sprint, not its lifecycle phase. */}
-          <GoalEditor goal={sprint.goal} onSave={onSaveGoal} />
+              the sprint, not its lifecycle phase.
+              rect(m3) — H1: key={sprint.id} forces remount on sprint switch.
+              Without it, the `editing` flag leaks across sprints when the
+              user opens the editor on A then switches to B without blurring,
+              causing B's GoalEditor to render in auto-focused input mode the
+              user never opened. Same class as m2's StaleSprintBanner fix. */}
+          <GoalEditor
+            key={sprint.id}
+            goal={sprint.goal}
+            onSave={onSaveGoal}
+          />
         </div>
         <div className="sprint-header-actions">
           {/* sprint-backlog-redesign-m2: lifecycle button swaps based on
@@ -811,10 +825,19 @@ export function SprintManager() {
    */
   const setSprintGoal = async (goal: string | undefined) => {
     if (!activeSprintId) return;
+    // rect(m3) — M1: state guard mirrors startSprint / closeSprint. Closed
+    // sprints are conceptually frozen (the archived rail is read-only per
+    // cross-plan #14), and the M1-companion pivot in closeSprint normally
+    // keeps a closed sprint from ever being the activeSprint at the time
+    // setSprintGoal fires. This guard is the belt-and-suspenders defense
+    // against any path (e.g. chrome.storage hydration on app boot) that
+    // could leave activeSprintId pointing at a closed sprint.
     await update((s) => ({
       ...s,
       sprints: s.sprints.map((sp) =>
-        sp.id === activeSprintId ? { ...sp, goal } : sp,
+        sp.id === activeSprintId && sp.state !== "closed"
+          ? { ...sp, goal }
+          : sp,
       ),
     }));
   };
@@ -878,18 +901,30 @@ export function SprintManager() {
   const closeSprint = async () => {
     if (!activeSprintId) return;
     const trimmed = retroDraft.trim();
-    await update((s) => ({
-      ...s,
-      sprints: s.sprints.map((sp) =>
+    // rect(m3) — M1: pivot activeSprintId to the next live sprint when the
+    // current one is closed, matching deleteSprint's behavior. Without this,
+    // the just-closed sprint stayed bound to activeSprintId and rendered in
+    // ActiveSprintHeader despite being "archived" — surprising UX and a
+    // surface for the M1 closed-sprint-edit bug.
+    await update((s) => {
+      const nextSprints = s.sprints.map((sp) =>
         sp.id === activeSprintId && sp.state === "active"
           ? {
               ...sp,
-              state: "closed",
+              state: "closed" as const,
               ...(trimmed ? { retroNote: trimmed } : {}),
             }
           : sp,
-      ),
-    }));
+      );
+      const nextActive = nextSprints.find(
+        (sp) => sp.id !== activeSprintId && !isArchived(sp),
+      );
+      return {
+        ...s,
+        sprints: nextSprints,
+        activeSprintId: nextActive?.id,
+      };
+    });
     setRetroDraft("");
   };
 
