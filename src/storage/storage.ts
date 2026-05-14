@@ -35,8 +35,14 @@ async function writeRaw(state: ProclivityState): Promise<void> {
  * `src/sections/sprint/sprintUtils.ts:20-24`; keep the two definitions
  * behaviorally identical. The duplication is intentional — see
  * sprint-backlog-redesign-m1 brief-2 §3 for the layering rationale.
+ *
+ * Exported solely so `scripts/replay-fixtures.ts` can pin behavioral
+ * parity against `todayMidnight()` (rect(m1) — finding M3). Production
+ * call sites must NOT import this — they get the canonical helper from
+ * sprintUtils or call `storage.get()` which already applies the
+ * normalizer.
  */
-function localMidnight(): number {
+export function localMidnight(): number {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d.getTime();

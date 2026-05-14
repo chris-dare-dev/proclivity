@@ -1,5 +1,5 @@
 import { EMPTY_STATE, type ProclivityState, type Reminder, type Todo } from "@/types";
-import { storage } from "./storage";
+import { normalizeState, storage } from "./storage";
 
 /** Current export envelope schema. Bump when ProclivityState changes shape. */
 export const CURRENT_SCHEMA_VERSION = 1;
@@ -196,7 +196,12 @@ export async function importData(file: File): Promise<ImportResult> {
     merged.cardLayouts = Object.keys(cleanedLayouts).length > 0 ? cleanedLayouts : undefined;
   }
 
-  await storage.set(merged);
+  // rect(m1) — H2: run the merged payload through the canonical normalizer
+  // before persisting so v1 backups land on disk with `Sprint.state` already
+  // backfilled. Without this, any consumer that reads `chrome.storage.local`
+  // directly between this `set` and the next `get` (e.g. the service worker)
+  // would see sprints whose `state` is undefined against a required type.
+  await storage.set(normalizeState(merged));
   return { ok: true };
 }
 

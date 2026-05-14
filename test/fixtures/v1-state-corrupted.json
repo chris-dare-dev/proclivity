@@ -1,0 +1,34 @@
+{
+  "todos": [
+    {
+      "id": "todo-c1",
+      "title": "Work item against the corrupted sprint",
+      "scope": "sprint",
+      "done": false,
+      "createdAt": 1700000000000,
+      "sprintId": "sprint-corrupted",
+      "tags": []
+    }
+  ],
+  "sprints": [
+    {
+      "id": "sprint-corrupted",
+      "name": "Garbage-state sprint",
+      "startsAt": 1696118400000,
+      "endsAt": 1700000000000,
+      "state": "ARCHIVED"
+    },
+    {
+      "id": "sprint-null-state",
+      "name": "Null-state sprint",
+      "startsAt": 1696118400000,
+      "endsAt": 1700000000000,
+      "state": null
+    }
+  ],
+  "ganttCharts": [],
+  "ganttTasks": [],
+  "reminders": [],
+  "settings": {},
+  "tags": []
+}
