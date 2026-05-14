@@ -57,6 +57,15 @@ export interface PickedMediaItem {
     mediaFileMetadata: {
       width: number;
       height: number;
+      /**
+       * Present on VIDEO items only. `processingStatus !== "READY"` means
+       * Google is still transcoding the upload — the `=dv` download won't
+       * succeed yet, so callers should skip the item with a clear reason.
+       */
+      videoMetadata?: {
+        processingStatus?: "READY" | "PROCESSING" | "FAILED" | string;
+        fps?: number;
+      };
     };
   };
 }

@@ -483,8 +483,21 @@ function RuntimeDiagnostics() {
 function ThumbnailGrid({
   photos,
 }: {
-  photos: ReadonlyArray<{ id: string; dataUrl: string; filename: string }>;
+  photos: ReadonlyArray<{
+    id: string;
+    dataUrl: string;
+    filename: string;
+    kind?: "photo" | "video";
+  }>;
 }) {
+  const tileStyle: React.CSSProperties = {
+    width: "100%",
+    aspectRatio: "1 / 1",
+    objectFit: "cover",
+    borderRadius: 4,
+    display: "block",
+    background: "rgba(0, 0, 0, 0.4)",
+  };
   return (
     <div
       style={{
@@ -496,21 +509,52 @@ function ThumbnailGrid({
         overflowY: "auto",
       }}
     >
-      {photos.map((p) => (
-        <img
-          key={p.id}
-          src={p.dataUrl}
-          alt={p.filename}
-          loading="lazy"
-          style={{
-            width: "100%",
-            aspectRatio: "1 / 1",
-            objectFit: "cover",
-            borderRadius: 4,
-            display: "block",
-          }}
-        />
-      ))}
+      {photos.map((p) =>
+        p.kind === "video" ? (
+          <div
+            key={p.id}
+            style={{ position: "relative" }}
+            title={p.filename}
+            aria-label={`Video: ${p.filename}`}
+          >
+            {/* <video> with no `controls`/`autoplay` paints its first frame
+                once metadata loads — gives us a cheap poster without
+                shipping a separate thumbnail asset. */}
+            <video
+              src={p.dataUrl}
+              muted
+              playsInline
+              preload="metadata"
+              style={tileStyle}
+            />
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                right: 4,
+                bottom: 4,
+                fontSize: 11,
+                lineHeight: 1,
+                padding: "2px 5px",
+                borderRadius: 3,
+                background: "rgba(0, 0, 0, 0.6)",
+                color: "white",
+                pointerEvents: "none",
+              }}
+            >
+              ▶
+            </span>
+          </div>
+        ) : (
+          <img
+            key={p.id}
+            src={p.dataUrl}
+            alt={p.filename}
+            loading="lazy"
+            style={tileStyle}
+          />
+        ),
+      )}
     </div>
   );
 }

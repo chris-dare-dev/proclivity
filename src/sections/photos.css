@@ -1,10 +1,14 @@
 /* Photos slideshow banner. Crossfade between absolutely-positioned slides.
    Mounted between the greeting/clock and the tab bar.
 
+   Slides are either <img> or <video> — both are replaced elements, so the
+   same `object-fit` / `inset` rules apply uniformly. Don't write rules
+   keyed on img.photos-slide unless you mean to exclude videos.
+
    Three display modes, driven by data-display-mode on .photos-stage:
-     crop    — fixed-height strip, image cropped to fill (default)
-     full    — taller banner, image fully visible (letterboxed if portrait)
-     compact — short banner with a smaller centered image and breathing room
+     crop    — fixed-height strip, media cropped to fill (default)
+     full    — taller banner, media fully visible (letterboxed if portrait)
+     compact — short banner with a smaller centered media and breathing room
 */
 
 .photos-stage {
@@ -49,10 +53,11 @@
 }
 
 /* Compact: shrink each slide to roughly 50% width / 80% height of the stage
-   and center it. <img> is a replaced element so we can't rely on `inset` +
-   `width: auto` to constrain it — `auto` falls back to intrinsic image size.
-   Use explicit width/height percentages with top/left positioning, and clear
-   right/bottom from the base `inset: 0` so they don't fight the sizing. */
+   and center it. <img>/<video> are replaced elements so we can't rely on
+   `inset` + `width: auto` to constrain them — `auto` falls back to intrinsic
+   media size. Use explicit width/height percentages with top/left positioning,
+   and clear right/bottom from the base `inset: 0` so they don't fight the
+   sizing. */
 .photos-stage[data-display-mode="compact"] {
   height: clamp(140px, 22vh, 200px);
 }

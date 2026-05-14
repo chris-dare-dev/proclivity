@@ -89,6 +89,29 @@ export function Photos() {
     };
   }, [ordered, intervalSec]);
 
+  // Imperatively play the active video and pause every other one whenever
+  // the index or set changes. Done in an effect (not declarative props) so
+  // we can drive HTMLVideoElement.play()/.pause() without relying on the
+  // `autoplay` attribute, which would fire all videos on mount.
+  //
+  // Under reducedMotion the active video stays paused (first frame visible);
+  // looping autoplay video qualifies as "motion" by the same yardstick we
+  // already use to disable the crossfade transition.
+  const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+  useEffect(() => {
+    const activeId = ordered[index]?.id;
+    videoRefs.current.forEach((el, id) => {
+      if (id === activeId && !reducedMotion) {
+        el.currentTime = 0;
+        // play() returns a promise that rejects if autoplay is blocked or
+        // the element is paused mid-flight — we don't care to surface either.
+        void el.play().catch(() => undefined);
+      } else {
+        el.pause();
+      }
+    });
+  }, [index, ordered, reducedMotion]);
+
   if (ordered.length === 0) return null;
 
   const current = ordered[index];
@@ -101,16 +124,42 @@ export function Photos() {
       data-display-mode={displayMode}
       data-reduced-motion={reducedMotion ? "true" : undefined}
     >
-      {ordered.map((p, i) => (
-        <img
-          key={p.id}
-          src={p.dataUrl}
-          alt={p.filename}
-          className={`photos-slide${i === index ? " is-active" : ""}`}
-          // Off-screen slides are hidden from a11y tree.
-          aria-hidden={i === index ? undefined : true}
-        />
-      ))}
+      {ordered.map((p, i) => {
+        const className = `photos-slide${i === index ? " is-active" : ""}`;
+        const ariaHidden = i === index ? undefined : true;
+        if (p.kind === "video") {
+          return (
+            <video
+              key={p.id}
+              ref={(el) => {
+                if (el) {
+                  videoRefs.current.set(p.id, el);
+                } else {
+                  videoRefs.current.delete(p.id);
+                }
+              }}
+              src={p.dataUrl}
+              className={className}
+              aria-hidden={ariaHidden}
+              aria-label={p.filename}
+              muted
+              playsInline
+              loop
+              preload="metadata"
+            />
+          );
+        }
+        return (
+          <img
+            key={p.id}
+            src={p.dataUrl}
+            alt={p.filename}
+            className={className}
+            // Off-screen slides are hidden from a11y tree.
+            aria-hidden={ariaHidden}
+          />
+        );
+      })}
       <div className="photos-caption" role="status" aria-live="polite">
         <span className="photos-counter">
           {index + 1} / {ordered.length}
