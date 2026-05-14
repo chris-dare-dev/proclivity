@@ -289,10 +289,10 @@ export function GooglePhotosPane({
         <h3 className="settings-section-heading">Slideshow</h3>
 
         <ToggleSwitch
-          label="Show Photos tab on the dashboard"
+          label="Show Photos banner on the dashboard"
           checked={pendingPhotosVisible}
           onChange={setPendingPhotosVisible}
-          hint="When off, the Photos tab is hidden even if you have cached photos."
+          hint="When off, the slideshow banner above the tab bar is hidden even if you have cached photos."
         />
 
         <div className="settings-field">
