@@ -8,7 +8,7 @@ import pkg from "./package.json" with { type: "json" };
 // (rather than chrome.storage) because `chrome.identity.getAuthToken` reads
 // its OAuth client config exclusively from manifest.json at install time.
 const GOOGLE_OAUTH_CLIENT_ID =
-  "REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com";
+  "455929700165-fuont6t2if38p47u59ers1uj65trl08d.apps.googleusercontent.com";
 
 export default defineManifest({
   manifest_version: 3,
@@ -28,7 +28,16 @@ export default defineManifest({
     type: "module",
   },
   permissions: ["storage", "alarms", "notifications", "identity"],
-  host_permissions: ["https://photospicker.googleapis.com/*"],
+  // host_permissions:
+  //   - photospicker.googleapis.com — Picker session lifecycle (create, poll,
+  //     list mediaItems, delete).
+  //   - *.googleusercontent.com — the CDN that serves the actual picked-photo
+  //     bytes (mediaFile.baseUrl resolves here). Without this, fetch() for the
+  //     image bytes is blocked by Chrome with a bare "Failed to fetch".
+  host_permissions: [
+    "https://photospicker.googleapis.com/*",
+    "https://*.googleusercontent.com/*",
+  ],
   oauth2: {
     client_id: GOOGLE_OAUTH_CLIENT_ID,
     scopes: [
