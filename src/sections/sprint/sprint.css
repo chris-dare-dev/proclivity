@@ -318,3 +318,141 @@
   letter-spacing: 0.06em;
   margin: 0 0 12px 0;
 }
+
+/* ─── sprint-backlog-redesign-m2: lifecycle affordances ────────── */
+
+/* Start sprint button — primary action for a draft sprint */
+.sprint-start-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: #fff;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sprint-start-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* Close sprint button — secondary action for an active sprint */
+.sprint-close-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sprint-close-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Draft sprint placeholder — replaces progress bars in the header */
+.sprint-draft-empty {
+  padding: 12px 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Retro note input inside the close-sprint dialog */
+.sprint-retro-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.sprint-retro-hint {
+  font-weight: 400;
+  opacity: 0.7;
+}
+.sprint-retro-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 2.5em;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.sprint-retro-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Retro note disclosure in archived rows */
+.sprint-retro-disclosure {
+  margin: 0 0 12px 0;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+.sprint-retro-disclosure summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-dim);
+  user-select: none;
+}
+.sprint-retro-note {
+  margin: 8px 0 0 0;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+/* Stale-sprint banner — overdue active sprints get nudged */
+.sprint-stale-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.sprint-stale-message {
+  font-size: 13px;
+  color: var(--text);
+}
+.sprint-stale-actions {
+  display: flex;
+  gap: 8px;
+}
+.sprint-stale-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: #fff;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sprint-stale-primary:hover {
+  filter: brightness(1.08);
+}
+.sprint-stale-dismiss {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sprint-stale-dismiss:hover {
+  color: var(--text);
+}

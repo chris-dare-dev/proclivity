@@ -35,8 +35,17 @@ export function defaultEndsAt(
   return addCalendarDays(startsAt, days - 1);
 }
 
+/**
+ * Sprint is archived when its lifecycle state is `"closed"`
+ * (sprint-backlog-redesign-m2). Replaces the legacy `endsAt < today`
+ * heuristic — the m1 normalizer in `src/storage/storage.ts` backfills
+ * legacy v1 data so this predicate keeps producing the same partition for
+ * pre-v2 sprints, but a user-created sprint past its end date that is
+ * still in `"active"` stays in the live tabs list (the stale-sprint banner
+ * is the nudge to close it).
+ */
 export function isArchived(sprint: Sprint): boolean {
-  return sprint.endsAt < todayMidnight();
+  return sprint.state === "closed";
 }
 
 export function formatDate(ts: number): string {

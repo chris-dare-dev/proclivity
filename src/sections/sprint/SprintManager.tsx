@@ -247,6 +247,10 @@ interface ActiveSprintHeaderProps {
   todos: Todo[];
   onEdit: () => void;
   onDelete: () => void;
+  /** sprint-backlog-redesign-m2: flips draft → active. */
+  onStart: () => void;
+  /** sprint-backlog-redesign-m2: opens the close-sprint dialog. */
+  onClose: () => void;
 }
 
 function ActiveSprintHeader({
@@ -254,10 +258,13 @@ function ActiveSprintHeader({
   todos,
   onEdit,
   onDelete,
+  onStart,
+  onClose,
 }: ActiveSprintHeaderProps) {
   const { day, total } = sprintDayProgress(sprint);
   const { done, total: taskTotal } = sprintTaskStats(todos, sprint.id);
   const taskPct = taskTotal > 0 ? Math.round((done / taskTotal) * 100) : 0;
+  const isDraft = sprint.state === "draft";
 
   return (
     <div className="sprint-header">
@@ -267,34 +274,117 @@ function ActiveSprintHeader({
           <div className="sprint-header-dates">{sprintDateRange(sprint)}</div>
         </div>
         <div className="sprint-header-actions">
+          {/* sprint-backlog-redesign-m2: lifecycle button swaps based on
+              sprint.state. Closed sprints live in the archived rail and
+              never render this header, so we only branch draft vs active. */}
+          {isDraft ? (
+            <button className="sprint-start-btn" onClick={onStart}>
+              Start sprint
+            </button>
+          ) : (
+            <button className="sprint-close-btn" onClick={onClose}>
+              Close sprint
+            </button>
+          )}
           <button onClick={onEdit}>Edit</button>
           <button className="btn-danger" onClick={onDelete}>
             Delete
           </button>
         </div>
       </div>
-      <div className="sprint-progress-row">
-        {/* #20: label now tracks task completion; day-of-N is a secondary label */}
-        <span className="sprint-day-label">
-          Day {day} of {total}
-        </span>
-        {/* #19: progressbar role with numeric ARIA attributes */}
-        <div
-          className="sprint-progress-bar-wrap"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={taskPct}
-          aria-label={`${done} of ${taskTotal} tasks done`}
-        >
-          <div
-            className="sprint-progress-bar-fill"
-            style={{ width: `${taskPct}%` }}
-          />
+      {isDraft ? (
+        <div className="sprint-draft-empty">
+          Not started yet. Click <strong>Start sprint</strong> when you&rsquo;re ready to begin.
         </div>
-        <span className="sprint-task-label">
-          {done}/{taskTotal} tasks done
-        </span>
+      ) : (
+        <div className="sprint-progress-row">
+          <span className="sprint-day-label">
+            Day {day} of {total}
+          </span>
+          <div
+            className="sprint-progress-bar-wrap"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={taskPct}
+            aria-label={`${done} of ${taskTotal} tasks done`}
+          >
+            <div
+              className="sprint-progress-bar-fill"
+              style={{ width: `${taskPct}%` }}
+            />
+          </div>
+          <span className="sprint-task-label">
+            {done}/{taskTotal} tasks done
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * sprint-backlog-redesign-m2 — stale-sprint banner.
+ *
+ * Renders when the active sprint is in `"active"` and its `endsAt` is more
+ * than 24h before today's midnight. Dismissal is persisted per sprint id
+ * in `sessionStorage` so an accidental F5 doesn't re-prompt; each newtab
+ * tab is its own document and gets its own dismissal state.
+ *
+ * The literal 86_400_000 ms math is DST-fuzzed by ±1h once a year; that
+ * tolerance is acceptable for an "overdue" nudge per brief-2 §3.
+ */
+const STALE_SPRINT_DISMISS_KEY_PREFIX = "proclivity:sprint-banner-dismissed:";
+
+function isStaleSprint(sprint: Sprint): boolean {
+  if (sprint.state !== "active") return false;
+  return sprint.endsAt < todayMidnight() - 86_400_000;
+}
+
+interface StaleSprintBannerProps {
+  sprint: Sprint;
+  onClose: () => void;
+}
+
+function StaleSprintBanner({ sprint, onClose }: StaleSprintBannerProps) {
+  const storageKey = STALE_SPRINT_DISMISS_KEY_PREFIX + sprint.id;
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(storageKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  if (dismissed) return null;
+
+  const daysAgo = Math.max(
+    1,
+    Math.floor((Date.now() - sprint.endsAt) / 86_400_000),
+  );
+
+  const dismiss = () => {
+    try {
+      sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // sessionStorage can throw in private-browsing contexts; fall back
+      // to in-memory dismissal for this mount.
+    }
+    setDismissed(true);
+  };
+
+  return (
+    <div className="sprint-stale-banner" role="status" aria-live="polite">
+      <div className="sprint-stale-message">
+        This sprint ended {daysAgo} day{daysAgo === 1 ? "" : "s"} ago. Close it?
+      </div>
+      <div className="sprint-stale-actions">
+        <button className="sprint-stale-primary" onClick={onClose}>
+          Close sprint
+        </button>
+        <button className="sprint-stale-dismiss" onClick={dismiss}>
+          Dismiss
+        </button>
       </div>
     </div>
   );
@@ -347,6 +437,15 @@ function ArchivedSprintRow({
       </button>
       {open && (
         <div className="sprint-archived-tasks">
+          {/* sprint-backlog-redesign-m2: retro note disclosure. Only renders
+              when the user actually captured a note on close — empty retros
+              don't appear (closeSprint persists trimmed-non-empty only). */}
+          {sprint.retroNote && (
+            <details className="sprint-retro-disclosure">
+              <summary>Retro note</summary>
+              <p className="sprint-retro-note">{sprint.retroNote}</p>
+            </details>
+          )}
           {sprintTodos.length === 0 ? (
             <div className="section-empty" style={{ padding: "12px 0" }}>
               No tasks in this sprint.
@@ -410,6 +509,11 @@ export function SprintManager() {
   const { state, update, loading } = useStore();
   const [mode, setMode] = useState<UIMode>("view");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // sprint-backlog-redesign-m2: close-sprint dialog state (separate from
+  // delete so the user can have both modals in muscle-memory paths
+  // without collisions). retroDraft holds the textarea's controlled value.
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const [retroDraft, setRetroDraft] = useState("");
   // Transient filter for active sprint tasks only (not archived — see ArchivedSprintRow)
   const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -516,10 +620,10 @@ export function SprintManager() {
     const id = uid();
     await update((s) => ({
       ...s,
-      // sprint-backlog-redesign-m1: Sprint.state is required. New sprints
-      // default to active in m1; m2 will switch the default to the explicit
-      // pre-start state and add the Start sprint affordance.
-      sprints: [...s.sprints, { id, name, startsAt, endsAt, state: "active" }],
+      // sprint-backlog-redesign-m2: new sprints start in the pre-start
+      // state. The user explicitly transitions to active via the Start
+      // sprint affordance on the ActiveSprintHeader.
+      sprints: [...s.sprints, { id, name, startsAt, endsAt, state: "draft" }],
       activeSprintId: id,
     }));
     setMode("view");
@@ -553,6 +657,48 @@ export function SprintManager() {
       };
     });
     setMode("view");
+  };
+
+  /**
+   * sprint-backlog-redesign-m2: flip a draft sprint to active. Idempotent —
+   * a sprint already in `"active"` is left untouched (defensive against
+   * double-click).
+   */
+  const startSprint = async () => {
+    if (!activeSprintId) return;
+    await update((s) => ({
+      ...s,
+      sprints: s.sprints.map((sp) =>
+        sp.id === activeSprintId && sp.state === "draft"
+          ? { ...sp, state: "active" }
+          : sp,
+      ),
+    }));
+  };
+
+  /**
+   * sprint-backlog-redesign-m2: flip an active sprint to closed and persist
+   * the optional retro note. Trimmed empty notes resolve to `undefined`
+   * (matches the m3 `goal` semantics — empty string is not a valid value).
+   * The sprint relocates from the live tabs list to the archived rail in
+   * the next render because `isArchived` now keys on `state === "closed"`.
+   */
+  const closeSprint = async () => {
+    if (!activeSprintId) return;
+    const trimmed = retroDraft.trim();
+    await update((s) => ({
+      ...s,
+      sprints: s.sprints.map((sp) =>
+        sp.id === activeSprintId
+          ? {
+              ...sp,
+              state: "closed",
+              ...(trimmed ? { retroNote: trimmed } : {}),
+            }
+          : sp,
+      ),
+    }));
+    setRetroDraft("");
   };
 
   const addTask = async (title: string) => {
@@ -713,18 +859,67 @@ export function SprintManager() {
         </div>
       )}
 
+      {/* sprint-backlog-redesign-m2: close-sprint dialog. Mirrors the
+          delete-sprint dialog structure but injects a retro-note textarea
+          via ConfirmDialog's ReactNode `message` prop. */}
+      {activeSprint && (
+        <ConfirmDialog
+          open={confirmingClose}
+          onClose={() => {
+            setConfirmingClose(false);
+            setRetroDraft("");
+          }}
+          title="Close sprint"
+          confirmLabel="Close sprint"
+          message={
+            <>
+              <p>
+                Close <strong>{activeSprint.name}</strong>? It will move to the
+                archived rail and no new tasks can be added.
+              </p>
+              <label className="sprint-retro-label">
+                Retro note <span className="sprint-retro-hint">(optional)</span>
+                <textarea
+                  className="sprint-retro-textarea"
+                  rows={2}
+                  maxLength={280}
+                  value={retroDraft}
+                  onChange={(e) => setRetroDraft(e.target.value)}
+                  placeholder="What stuck? What didn&rsquo;t?"
+                />
+              </label>
+            </>
+          }
+          onConfirm={closeSprint}
+        />
+      )}
+
       {/* Active sprint view */}
       {activeSprint && mode === "view" && (
         <>
+          {/* sprint-backlog-redesign-m2: stale-sprint banner. Only renders
+              for active sprints expired > 24h ago; dismissed flag is
+              per-sprint-id in sessionStorage so accidental F5 doesn't
+              re-nag. */}
+          {isStaleSprint(activeSprint) && (
+            <StaleSprintBanner
+              sprint={activeSprint}
+              onClose={() => setConfirmingClose(true)}
+            />
+          )}
+
           <ActiveSprintHeader
             sprint={activeSprint}
             todos={todos}
             onEdit={() => setMode("edit-sprint")}
             onDelete={() => setConfirmingDelete(true)}
+            onStart={startSprint}
+            onClose={() => setConfirmingClose(true)}
           />
 
-          {/* Unassigned (migration) group */}
-          {unassignedSprintTodos.length > 0 && (
+          {/* Unassigned (migration) group — m2: hide for draft sprints
+              since they have no task surface yet. */}
+          {activeSprint.state !== "draft" && unassignedSprintTodos.length > 0 && (
             <UnassignedGroup
               todos={unassignedSprintTodos}
               activeSprintId={activeSprint.id}
@@ -732,7 +927,13 @@ export function SprintManager() {
             />
           )}
 
-          {/* Active sprint tasks */}
+          {/* sprint-backlog-redesign-m2: the entire task surface (heading,
+              add-form, closed-counter, list/card render) is gated on the
+              sprint being active. Draft sprints render only the header's
+              "Start sprint" placeholder; nothing below until they're
+              started. */}
+          {activeSprint.state === "active" && (
+          <>
           <div className="sprint-section-heading">Tasks</div>
           <AddTaskForm
             onAdd={addTask}
@@ -818,6 +1019,8 @@ export function SprintManager() {
                 </ul>
               )}
             </>
+          )}
+          </>
           )}
         </>
       )}
