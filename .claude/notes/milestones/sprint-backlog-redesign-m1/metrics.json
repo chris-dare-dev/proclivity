@@ -1,0 +1,64 @@
+{
+  "milestone_id": "sprint-backlog-redesign-m1",
+  "started": "2026-05-14T01:32:25Z",
+  "completed": "2026-05-14T02:04:42Z",
+  "wall_clock_seconds": 1937.0,
+  "phases": {
+    "init": {
+      "wall_seconds": 31.0
+    },
+    "research-running": {
+      "wall_seconds": 266.0
+    },
+    "research-complete": {
+      "wall_seconds": 30.0
+    },
+    "implement-running": {
+      "wall_seconds": 423.0
+    },
+    "implement-complete": {
+      "wall_seconds": 20.0
+    },
+    "critique-running": {
+      "wall_seconds": 461.0
+    },
+    "critique-complete": {
+      "wall_seconds": 0.0
+    },
+    "rectify-running": {
+      "wall_seconds": 706.0
+    }
+  },
+  "findings": {
+    "critical": 0,
+    "high": 2,
+    "medium": 3,
+    "low": 3
+  },
+  "fixed": [
+    "H1",
+    "H2",
+    "M1",
+    "M3"
+  ],
+  "deferred": [
+    "M2",
+    "L1",
+    "L2",
+    "L3"
+  ],
+  "invalidated": [],
+  "invalidation_rate": 0.0,
+  "external_writes_required": [
+    {
+      "command": "git push origin main",
+      "authorization": "pre-authorized per CLAUDE.md branching policy"
+    }
+  ],
+  "external_writes_completed": [
+    "git push origin main"
+  ],
+  "total_usd": 0.0,
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}
