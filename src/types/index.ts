@@ -33,6 +33,19 @@ export interface Todo {
   /** Reserved — no UI surface yet. Keep field shape stable for future due-date work. */
   dueAt?: number | undefined;
   sprintId?: string | undefined;
+  /**
+   * Schema v2 (sprint-backlog-redesign-m1): id of a parent todo this item
+   * is a child of. Used by future "promote to sprint" / "pull into today"
+   * flows to drive rollup progress chips on the parent. Reserved — no
+   * reader/writer ships in m1.
+   */
+  parentId?: string | undefined;
+  /**
+   * Schema v2 (sprint-backlog-redesign-m1): optional target date for
+   * long-term backlog items. Local-midnight ms timestamp. Reserved — no
+   * reader/writer ships in m1.
+   */
+  targetDate?: number | undefined;
   /** Tag ids referencing ProclivityState.tags. Always present; empty array = untagged. */
   tags: string[];
   /**
@@ -77,6 +90,31 @@ export interface Sprint {
   startsAt: number;
   /** Local-midnight timestamp of the sprint's last day (inclusive). */
   endsAt: number;
+  /**
+   * Schema v2 (sprint-backlog-redesign-m1): explicit lifecycle state.
+   *
+   * - `"draft"` — created but not yet started (introduced in m2).
+   * - `"active"` — in progress.
+   * - `"closed"` — finished. Replaces the legacy `endsAt < today` archival
+   *   heuristic. Backfilled by `storage.ts:normalizeState()` for legacy
+   *   v1 data: `endsAt < localMidnight()` → `"closed"`, else `"active"`.
+   *
+   * Required. New sprints in m1 default to `"active"`; m2 will switch the
+   * default to `"draft"` and introduce the "Start sprint" affordance.
+   */
+  state: "draft" | "active" | "closed";
+  /**
+   * Schema v2 (sprint-backlog-redesign-m1): optional one-line sprint goal,
+   * surfaced in the active-sprint header by m3. Reserved — no reader/writer
+   * ships in m1.
+   */
+  goal?: string | undefined;
+  /**
+   * Schema v2 (sprint-backlog-redesign-m1): optional retro note captured
+   * when the user closes the sprint in m2. Reserved — no reader/writer ships
+   * in m1.
+   */
+  retroNote?: string | undefined;
 }
 
 export interface GanttTask {

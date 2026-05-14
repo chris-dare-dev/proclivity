@@ -1,0 +1,49 @@
+{
+  "todos": [
+    {
+      "id": "todo-a1",
+      "title": "Plan the kickoff",
+      "scope": "sprint",
+      "done": false,
+      "createdAt": 1700000000000,
+      "sprintId": "sprint-expired",
+      "tags": []
+    },
+    {
+      "id": "todo-a2",
+      "title": "Ship the demo",
+      "scope": "sprint",
+      "done": false,
+      "createdAt": 1700000001000,
+      "sprintId": "sprint-future",
+      "tags": []
+    },
+    {
+      "id": "todo-a3",
+      "title": "Read paper on focus",
+      "scope": "long",
+      "done": false,
+      "createdAt": 1700000002000,
+      "tags": []
+    }
+  ],
+  "sprints": [
+    {
+      "id": "sprint-expired",
+      "name": "Q4 2023 push",
+      "startsAt": 1696118400000,
+      "endsAt": 1700000000000
+    },
+    {
+      "id": "sprint-future",
+      "name": "Phase one delivery",
+      "startsAt": 4500000000000,
+      "endsAt": 5000000000000
+    }
+  ],
+  "ganttCharts": [],
+  "ganttTasks": [],
+  "reminders": [],
+  "settings": {},
+  "tags": []
+}

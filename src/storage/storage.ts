@@ -1,4 +1,4 @@
-import { EMPTY_STATE, type ProclivityState, type Reminder, type Todo } from "@/types";
+import { EMPTY_STATE, type ProclivityState, type Reminder, type Sprint, type Todo } from "@/types";
 import { STORAGE_KEY } from "./constants";
 import { getLogger } from "@/observability/logger";
 
@@ -30,6 +30,19 @@ async function writeRaw(state: ProclivityState): Promise<void> {
 }
 
 /**
+ * Local-midnight ms helper, inlined here so the storage layer does not
+ * import upward from `src/sections/**`. Mirrors `todayMidnight()` in
+ * `src/sections/sprint/sprintUtils.ts:20-24`; keep the two definitions
+ * behaviorally identical. The duplication is intentional — see
+ * sprint-backlog-redesign-m1 brief-2 §3 for the layering rationale.
+ */
+function localMidnight(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
  * Normalize raw storage state — the canonical backfill pass shared by
  * `get()` and `subscribe()` (H1 fix).
  *
@@ -37,17 +50,29 @@ async function writeRaw(state: ProclivityState): Promise<void> {
  *   - `tags` always a `string[]` on todos and reminders
  *   - every `done === true` todo carries a `closedAt` number so the 30-day
  *     purge clock has an anchor.
+ *   - every sprint carries a valid `state` in `{"draft","active","closed"}`
+ *     (sprint-backlog-redesign-m1).
  *
  * H1: previously only `get()` ran this pass. `subscribe()` delivered raw
  * `newValue` from `chrome.storage.onChanged`, so service-worker writes or
  * cross-tab writes could land `done: true` + `closedAt: undefined` in React
  * state, breaking group labels, purge clocks, and the closed-todo count.
  *
+ * Schema v2 (sprint-backlog-redesign-m1): backfill `Sprint.state` for any
+ * legacy sprint whose field is absent or not one of the three allowed
+ * literals. Heuristic mirrors the legacy `isArchived()` rule in
+ * `src/sections/sprint/sprintUtils.ts:38-40` — a sprint whose `endsAt` is
+ * before today's local midnight is treated as `"closed"`, anything else
+ * `"active"`. New sprints (with valid v2 state) are passed through
+ * untouched. No legacy data ever yields `"draft"` — that literal is only
+ * produced by the m2 create-sprint affordance.
+ *
  * // TODO(closed-todos-v2): remove the closedAt backfill after 2026-08-01.
  * // All active users will have closedAt-stamped data by then (30-day cycle).
  */
-function normalizeState(raw: ProclivityState): ProclivityState {
+export function normalizeState(raw: ProclivityState): ProclivityState {
   const base = { ...EMPTY_STATE, ...raw };
+  const midnight = localMidnight();
   return {
     ...base,
     todos: base.todos.map((t) => {
@@ -59,6 +84,17 @@ function normalizeState(raw: ProclivityState): ProclivityState {
     reminders: base.reminders.map((r) =>
       (r as Reminder & { tags?: string[] }).tags !== undefined ? r : { ...r, tags: [] },
     ),
+    sprints: base.sprints.map((s) => {
+      // Defensive: treat any value that is not one of the three allowed
+      // literals (including undefined, null, typos from corrupted writes)
+      // as "needs backfill". Silent fix matches the closedAt backfill posture.
+      const v2 = s as Sprint & { state?: unknown };
+      if (v2.state === "draft" || v2.state === "active" || v2.state === "closed") {
+        return v2 as Sprint;
+      }
+      const next: Sprint = { ...v2, state: v2.endsAt < midnight ? "closed" : "active" };
+      return next;
+    }),
   };
 }
 

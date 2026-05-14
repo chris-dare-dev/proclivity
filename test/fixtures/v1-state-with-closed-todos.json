@@ -1,0 +1,44 @@
+{
+  "todos": [
+    {
+      "id": "todo-b1",
+      "title": "Outline the roadmap",
+      "scope": "sprint",
+      "done": true,
+      "createdAt": 1690000000000,
+      "completedAt": 1690500000000,
+      "sprintId": "sprint-old-1",
+      "tags": []
+    },
+    {
+      "id": "todo-b2",
+      "title": "Forgot to record completedAt",
+      "scope": "today",
+      "done": true,
+      "createdAt": 1691000000000,
+      "tags": []
+    },
+    {
+      "id": "todo-b3",
+      "title": "Still ticking along",
+      "scope": "sprint",
+      "done": false,
+      "createdAt": 1692000000000,
+      "sprintId": "sprint-old-1",
+      "tags": []
+    }
+  ],
+  "sprints": [
+    {
+      "id": "sprint-old-1",
+      "name": "Carryover sprint",
+      "startsAt": 1689984000000,
+      "endsAt": 1695168000000
+    }
+  ],
+  "ganttCharts": [],
+  "ganttTasks": [],
+  "reminders": [],
+  "settings": {},
+  "tags": []
+}

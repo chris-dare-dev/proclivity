@@ -516,7 +516,10 @@ export function SprintManager() {
     const id = uid();
     await update((s) => ({
       ...s,
-      sprints: [...s.sprints, { id, name, startsAt, endsAt }],
+      // sprint-backlog-redesign-m1: Sprint.state is required. New sprints
+      // default to active in m1; m2 will switch the default to the explicit
+      // pre-start state and add the Start sprint affordance.
+      sprints: [...s.sprints, { id, name, startsAt, endsAt, state: "active" }],
       activeSprintId: id,
     }));
     setMode("view");
