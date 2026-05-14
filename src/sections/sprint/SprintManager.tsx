@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Tag, Todo } from "@/types";
@@ -100,9 +100,15 @@ interface SprintFormProps {
   initialName?: string;
   initialStart?: number;
   initialEnd?: number;
+  /** sprint-backlog-redesign-m3: optional initial goal for EditSprintForm. */
+  initialGoal?: string | undefined;
   /** Called when start changes — allows caller to bump end for new sprints */
   onStartChange?: (newStart: number, setEnd: (v: string) => void) => void;
-  onSave: (name: string, startsAt: number, endsAt: number) => void;
+  /**
+   * sprint-backlog-redesign-m3: `goal` is optional. Trimmed-empty resolves
+   * to `undefined` so callers can use it directly without a re-trim.
+   */
+  onSave: (name: string, startsAt: number, endsAt: number, goal: string | undefined) => void;
   onCancel: () => void;
 }
 
@@ -112,6 +118,7 @@ function SprintForm({
   initialName = "",
   initialStart,
   initialEnd,
+  initialGoal = "",
   onStartChange,
   onSave,
   onCancel,
@@ -124,6 +131,9 @@ function SprintForm({
   const [endVal, setEndVal] = useState(
     tsToDateInput(initialEnd ?? defaultEndsAt(today)),
   );
+  // sprint-backlog-redesign-m3: optional goal captured here so a user can
+  // set the intent at create-time without needing the inline header editor.
+  const [goal, setGoal] = useState(initialGoal ?? "");
   // Inline validation error (#21)
   const [dateError, setDateError] = useState<string | null>(null);
 
@@ -138,7 +148,10 @@ function SprintForm({
     }
     setDateError(null);
     const n = name.trim() || heading;
-    onSave(n, startsAt, endsAt);
+    const trimmedGoal = goal.trim();
+    // m3: empty trimmed goal clears the field (distinct from m2's retroNote
+    // semantics where empty preserves the existing value).
+    onSave(n, startsAt, endsAt, trimmedGoal || undefined);
   };
 
   return (
@@ -151,6 +164,18 @@ function SprintForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Sprint name…"
+          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+        />
+      </div>
+      {/* sprint-backlog-redesign-m3: optional goal between name and dates. */}
+      <div className="sprint-form-goal">
+        <label>Goal</label>
+        <input
+          type="text"
+          value={goal}
+          onChange={(e) => setGoal(e.target.value)}
+          placeholder="Sprint goal (optional)…"
+          maxLength={120}
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
         />
       </div>
@@ -201,7 +226,7 @@ function NewSprintForm({
   onCancel,
   defaultSprintDays = 14,
 }: {
-  onSave: (name: string, startsAt: number, endsAt: number) => void;
+  onSave: (name: string, startsAt: number, endsAt: number, goal: string | undefined) => void;
   onCancel: () => void;
   defaultSprintDays?: 7 | 14 | 21 | 28;
 }) {
@@ -224,7 +249,7 @@ function EditSprintForm({
   onCancel,
 }: {
   sprint: Sprint;
-  onSave: (name: string, startsAt: number, endsAt: number) => void;
+  onSave: (name: string, startsAt: number, endsAt: number, goal: string | undefined) => void;
   onCancel: () => void;
 }) {
   return (
@@ -234,9 +259,106 @@ function EditSprintForm({
       initialName={sprint.name}
       initialStart={sprint.startsAt}
       initialEnd={sprint.endsAt}
+      initialGoal={sprint.goal}
       onSave={onSave}
       onCancel={onCancel}
     />
+  );
+}
+
+/* ─── Inline goal editor (sprint-backlog-redesign-m3) ──────────── */
+
+interface GoalEditorProps {
+  /** Current persisted goal. Undefined renders the "+ Add goal" placeholder. */
+  goal: string | undefined;
+  /**
+   * Called when the user commits a value (Enter or blur). The trimmed
+   * argument is `undefined` when the user clears the field — m3 semantics
+   * intentionally allow clearing, unlike m2's `closeSprint` retro that
+   * preserves on empty.
+   */
+  onSave: (goal: string | undefined) => void;
+}
+
+/**
+ * Click-to-edit single-line goal control.
+ *
+ * Three rendered states, mutually exclusive:
+ *  - empty placeholder ("+ Add goal") when `goal === undefined`
+ *  - display chip (single line, ellipsis on overflow) when goal is set
+ *  - input (autoFocus, maxLength 120) when `editing === true`
+ *
+ * Commit triggers: blur OR Enter. Escape reverts without saving. The
+ * `useEffect` re-syncs the draft when the persisted goal changes from
+ * elsewhere (e.g. EditSprintForm save in another flow) so the inline
+ * blur-commit doesn't silently overwrite a concurrent external write.
+ */
+function GoalEditor({ goal, onSave }: GoalEditorProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(goal ?? "");
+
+  // Re-sync when the persisted goal changes externally (modal save,
+  // multi-tab write via chrome.storage subscribe).
+  useEffect(() => {
+    setDraft(goal ?? "");
+  }, [goal]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    const next = trimmed === "" ? undefined : trimmed;
+    setEditing(false);
+    // Only call onSave when the value actually changed to avoid spurious
+    // storage writes on every blur (mostly a tidiness concern; chrome.storage
+    // collapses identical writes but the subscribe listeners still fire).
+    if (next !== goal) onSave(next);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        className="sprint-goal-input"
+        type="text"
+        maxLength={120}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            (e.target as HTMLInputElement).blur();
+          } else if (e.key === "Escape") {
+            setDraft(goal ?? "");
+            setEditing(false);
+          }
+        }}
+        placeholder="Sprint goal (optional)…"
+      />
+    );
+  }
+
+  if (goal) {
+    return (
+      <button
+        type="button"
+        className="sprint-goal-display"
+        onClick={() => setEditing(true)}
+        aria-label={`Edit sprint goal: ${goal}`}
+        title={goal}
+      >
+        {goal}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="sprint-goal-empty"
+      onClick={() => setEditing(true)}
+      aria-label="Add sprint goal"
+    >
+      + Add goal
+    </button>
   );
 }
 
@@ -251,6 +373,11 @@ interface ActiveSprintHeaderProps {
   onStart: () => void;
   /** sprint-backlog-redesign-m2: opens the close-sprint dialog. */
   onClose: () => void;
+  /**
+   * sprint-backlog-redesign-m3: persists the inline-edited goal. `undefined`
+   * clears the field (distinct from `closeSprint`'s retroNote semantics).
+   */
+  onSaveGoal: (goal: string | undefined) => void;
 }
 
 function ActiveSprintHeader({
@@ -260,6 +387,7 @@ function ActiveSprintHeader({
   onDelete,
   onStart,
   onClose,
+  onSaveGoal,
 }: ActiveSprintHeaderProps) {
   const { day, total } = sprintDayProgress(sprint);
   const { done, total: taskTotal } = sprintTaskStats(todos, sprint.id);
@@ -272,6 +400,10 @@ function ActiveSprintHeader({
         <div>
           <div className="sprint-header-name">{sprint.name}</div>
           <div className="sprint-header-dates">{sprintDateRange(sprint)}</div>
+          {/* sprint-backlog-redesign-m3: inline-editable goal slot. Visible
+              for both draft and active sprints — the goal is intrinsic to
+              the sprint, not its lifecycle phase. */}
+          <GoalEditor goal={sprint.goal} onSave={onSaveGoal} />
         </div>
         <div className="sprint-header-actions">
           {/* sprint-backlog-redesign-m2: lifecycle button swaps based on
@@ -435,6 +567,14 @@ function ArchivedSprintRow({
         <div className="sprint-archived-dates">{sprintDateRange(sprint)}</div>
         <span className={`sprint-archived-caret ${open ? "open" : ""}`}>▾</span>
       </button>
+      {/* sprint-backlog-redesign-m3: goal line renders between the row
+          button and the expanded task block when present. Italic-muted
+          per AC#3; single-line with CSS ellipsis on overflow. */}
+      {open && sprint.goal && (
+        <div className="sprint-archived-goal" title={sprint.goal}>
+          {sprint.goal}
+        </div>
+      )}
       {open && (
         <div className="sprint-archived-tasks">
           {/* sprint-backlog-redesign-m2: retro note disclosure. Only renders
@@ -616,28 +756,67 @@ export function SprintManager() {
     await update((s) => ({ ...s, activeSprintId: id }));
   };
 
-  const createSprint = async (name: string, startsAt: number, endsAt: number) => {
+  const createSprint = async (
+    name: string,
+    startsAt: number,
+    endsAt: number,
+    goal: string | undefined,
+  ) => {
     const id = uid();
     await update((s) => ({
       ...s,
       // sprint-backlog-redesign-m2: new sprints start in the pre-start
       // state. The user explicitly transitions to active via the Start
       // sprint affordance on the ActiveSprintHeader.
-      sprints: [...s.sprints, { id, name, startsAt, endsAt, state: "draft" }],
+      // sprint-backlog-redesign-m3: optional goal — the conditional spread
+      // omits the field entirely when undefined so a fresh sprint with no
+      // goal does NOT carry an explicit `goal: undefined` key.
+      sprints: [
+        ...s.sprints,
+        { id, name, startsAt, endsAt, state: "draft", ...(goal ? { goal } : {}) },
+      ],
       activeSprintId: id,
     }));
     setMode("view");
   };
 
-  const editSprint = async (name: string, startsAt: number, endsAt: number) => {
+  const editSprint = async (
+    name: string,
+    startsAt: number,
+    endsAt: number,
+    goal: string | undefined,
+  ) => {
+    if (!activeSprintId) return;
+    await update((s) => ({
+      ...s,
+      // sprint-backlog-redesign-m3: goal is part of the editable surface.
+      // Clearing the form input results in `goal === undefined` and the
+      // assignment below removes any prior value (this is the intended
+      // m3 semantics, distinct from m2's retroNote which preserves on empty).
+      sprints: s.sprints.map((sp) =>
+        sp.id === activeSprintId ? { ...sp, name, startsAt, endsAt, goal } : sp,
+      ),
+    }));
+    setMode("view");
+  };
+
+  /**
+   * sprint-backlog-redesign-m3: persist a goal change from the inline header
+   * editor. Pass `undefined` to clear an existing goal; pass a trimmed
+   * non-empty string to set or update it.
+   *
+   * Distinct from `closeSprint`'s retroNote handling — goal CAN be cleared
+   * by the user via the inline editor. See AC#1 in the m3 brief and the
+   * synthesis §1 carry-forward note.
+   */
+  const setSprintGoal = async (goal: string | undefined) => {
     if (!activeSprintId) return;
     await update((s) => ({
       ...s,
       sprints: s.sprints.map((sp) =>
-        sp.id === activeSprintId ? { ...sp, name, startsAt, endsAt } : sp,
+        sp.id === activeSprintId ? { ...sp, goal } : sp,
       ),
     }));
-    setMode("view");
   };
 
   const deleteSprint = async () => {
@@ -933,6 +1112,7 @@ export function SprintManager() {
             onDelete={() => setConfirmingDelete(true)}
             onStart={startSprint}
             onClose={() => setConfirmingClose(true)}
+            onSaveGoal={setSprintGoal}
           />
 
           {/* Unassigned (migration) group — m2: hide for draft sprints
