@@ -1,13 +1,13 @@
 /**
- * Photos slideshow tab.
+ * Photos slideshow banner.
  *
  * Reads the cached photo set from `photosStore` (chrome.storage.local under
  * PHOTOS_STORAGE_KEY) and crossfades through it. Settings (interval, fit,
  * shuffle) come from ResolvedUserSettings.googlePhotos via useStore.
  *
- * Empty / disconnected states render an inline CTA pointing at the
- * Google Photos settings pane via the `?settings=googlePhotos` deep link
- * that App.tsx already supports.
+ * Rendered as a banner above the dashboard tab bar. Returns `null` when no
+ * photos are cached so the slot doesn't show a permanent empty placeholder
+ * — the connect / pick affordances live in Settings → Google Photos.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -89,24 +89,10 @@ export function Photos() {
     };
   }, [ordered, intervalSec]);
 
-  if (ordered.length === 0) {
-    return (
-      <div className="photos-empty">
-        <h3>No photos yet</h3>
-        <p>
-          Connect Google Photos to pick a set of photos for the slideshow.
-        </p>
-        <a className="photos-cta" href="?settings=googlePhotos">
-          Open Google Photos settings
-        </a>
-      </div>
-    );
-  }
+  if (ordered.length === 0) return null;
 
   const current = ordered[index];
-  if (!current) {
-    return null;
-  }
+  if (!current) return null;
 
   return (
     <div

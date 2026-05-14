@@ -93,9 +93,11 @@ const ClosedTodosView = lazy(() =>
   })),
 );
 
-// Photos slideshow — lazy so the base64 photo cache and slideshow CSS only
-// load if the user opens the tab. Hidden by default; visibility is flipped
-// on after the first successful pick.
+// Photos slideshow banner — lazy so the base64 photo cache and slideshow
+// CSS only load when the feature is enabled. Mounted between the header
+// and the tab bar (not as a tab) so the slideshow reads as a persistent
+// widget rather than another planning surface. Hidden by default;
+// visibility is flipped on after the first successful pick.
 const Photos = lazy(() => import("@/sections/Photos"));
 
 type Tab =
@@ -105,7 +107,6 @@ type Tab =
   | "gantt"
   | "reminders"
   | "calendar"
-  | "photos"
   | "closed";
 
 const TABS: { id: Tab; label: string }[] = [
@@ -115,7 +116,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "gantt", label: "Gantt" },
   { id: "calendar", label: "Calendar" },
   { id: "reminders", label: "Reminders" },
-  { id: "photos", label: "Photos" },
   // "Closed" sits at the rightmost slot — archival semantics. Always visible
   // (no sectionVisibility gate) so the destination promised by the close
   // action is always findable; see .claude/notes/closed-todos-research-B.md §3.
@@ -311,7 +311,7 @@ function ChatBubbleIcon() {
  */
 const TAB_KEY: Record<
   Exclude<Tab, "closed">,
-  keyof ResolvedUserSettings["sectionVisibility"]
+  Exclude<keyof ResolvedUserSettings["sectionVisibility"], "photos">
 > = {
   today: "today",
   sprint: "sprint",
@@ -319,7 +319,6 @@ const TAB_KEY: Record<
   gantt: "gantt",
   reminders: "reminders",
   calendar: "calendar",
-  photos: "photos",
 };
 
 /** Tabs whose visibility is user-controllable via Settings → Dashboard. */
@@ -381,6 +380,17 @@ export default function App() {
         <Suspense fallback={null}>
           <QuickPrompt />
         </Suspense>
+
+        {/* Photos banner — sits between header/QuickPrompt and the tab bar.
+            The Photos component itself returns null when no photos are
+            cached, so the slot collapses cleanly until the user picks. The
+            sectionVisibility.photos toggle still gates whether the banner
+            is even rendered for users who want to hide it. */}
+        {rs.sectionVisibility.photos && (
+          <Suspense fallback={null}>
+            <Photos />
+          </Suspense>
+        )}
 
         {/* L3: each tab button gets an id so the matching tabpanel can
             reference it via aria-labelledby, completing the tablist pattern. */}
@@ -476,24 +486,11 @@ export default function App() {
                       "gantt",
                       "reminders",
                       "calendar",
-                      "photos",
                       "closed",
                     ];
                     if ((valid as string[]).includes(t)) setTab(t as Tab);
                   }}
                 />
-              </Suspense>
-            </div>
-          )}
-          {rs.sectionVisibility.photos && (
-            <div
-              id="tabpanel-photos"
-              role="tabpanel"
-              aria-labelledby="tab-btn-photos"
-              hidden={tab !== "photos"}
-            >
-              <Suspense fallback={null}>
-                <Photos />
               </Suspense>
             </div>
           )}

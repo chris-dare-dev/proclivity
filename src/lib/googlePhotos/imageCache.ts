@@ -57,13 +57,34 @@ export async function fetchAndEncode(
   item: PickedMediaItem,
 ): Promise<CachedPhoto> {
   const url = `${item.mediaFile.baseUrl}=w${TARGET_WIDTH}-h${TARGET_HEIGHT}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Parse the host eagerly so we can name it in any failure message — a bare
+  // "Failed to fetch" without a host is essentially undebuggable.
+  const host = (() => {
+    try {
+      return new URL(url).host;
+    } catch {
+      return "<unparseable-baseUrl>";
+    }
+  })();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (err) {
+    // A thrown fetch (TypeError) is almost always Chrome blocking the request
+    // because the host isn't in manifest.host_permissions. Surface the host
+    // explicitly so the user can see exactly what to allowlist.
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Network error fetching from ${host}: ${msg}. ` +
+        `If this says "Failed to fetch", add "https://${host}/*" to host_permissions in manifest.config.ts.`,
+    );
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new GooglePhotosApiError(
-      `Failed to fetch ${item.mediaFile.filename}: ${res.status}`,
+      `Failed to fetch ${item.mediaFile.filename} from ${host}: ${res.status} ${res.statusText}`,
       res.status,
       body,
     );
