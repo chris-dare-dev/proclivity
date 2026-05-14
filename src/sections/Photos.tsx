@@ -25,7 +25,7 @@ export function Photos() {
   const { state } = useStore();
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
   const intervalSec = rs.googlePhotos.slideshowIntervalSeconds;
-  const fit = rs.googlePhotos.fitMode;
+  const displayMode = rs.googlePhotos.displayMode;
   const shuffle = rs.googlePhotos.shuffle;
   const reducedMotion = rs.reducedMotion;
 
@@ -98,6 +98,7 @@ export function Photos() {
     <div
       className="photos-stage"
       aria-label="Photo slideshow"
+      data-display-mode={displayMode}
       data-reduced-motion={reducedMotion ? "true" : undefined}
     >
       {ordered.map((p, i) => (
@@ -106,7 +107,6 @@ export function Photos() {
           src={p.dataUrl}
           alt={p.filename}
           className={`photos-slide${i === index ? " is-active" : ""}`}
-          style={{ objectFit: fit }}
           // Off-screen slides are hidden from a11y tree.
           aria-hidden={i === index ? undefined : true}
         />

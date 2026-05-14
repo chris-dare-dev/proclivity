@@ -138,7 +138,7 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   },
   googlePhotos: {
     slideshowIntervalSeconds: 8,
-    fitMode: "cover",
+    displayMode: "crop",
     shuffle: false,
   },
   layoutMode: "list",
@@ -216,8 +216,8 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
       slideshowIntervalSeconds:
         s.googlePhotos?.slideshowIntervalSeconds ??
         DEFAULT_SETTINGS.googlePhotos.slideshowIntervalSeconds,
-      fitMode:
-        s.googlePhotos?.fitMode ?? DEFAULT_SETTINGS.googlePhotos.fitMode,
+      displayMode:
+        s.googlePhotos?.displayMode ?? DEFAULT_SETTINGS.googlePhotos.displayMode,
       shuffle:
         s.googlePhotos?.shuffle ?? DEFAULT_SETTINGS.googlePhotos.shuffle,
     },

@@ -491,7 +491,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         return (
           <GooglePhotosPane
             slideshowIntervalSeconds={rs.googlePhotos.slideshowIntervalSeconds}
-            fitMode={rs.googlePhotos.fitMode}
+            displayMode={rs.googlePhotos.displayMode}
             shuffle={rs.googlePhotos.shuffle}
             pendingPhotosVisible={pendingVisibility.photos}
             setPendingPhotosVisible={(v) => {

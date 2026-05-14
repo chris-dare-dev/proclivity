@@ -1,11 +1,15 @@
 /* Photos slideshow banner. Crossfade between absolutely-positioned slides.
-   Sized as a thin strip — fits between the greeting/clock and the tab bar
-   without dominating the layout. */
+   Mounted between the greeting/clock and the tab bar.
+
+   Three display modes, driven by data-display-mode on .photos-stage:
+     crop    — fixed-height strip, image cropped to fill (default)
+     full    — taller banner, image fully visible (letterboxed if portrait)
+     compact — short banner with a smaller centered image and breathing room
+*/
 
 .photos-stage {
   position: relative;
   width: 100%;
-  height: clamp(140px, 22vh, 220px);
   margin-bottom: 24px;
   border-radius: var(--radius, 8px);
   overflow: hidden;
@@ -25,6 +29,41 @@
 
 .photos-slide.is-active {
   opacity: 1;
+}
+
+/* Default size if no data-display-mode is set (defensive fallback). */
+.photos-stage[data-display-mode="crop"],
+.photos-stage:not([data-display-mode]) {
+  height: clamp(140px, 22vh, 220px);
+}
+.photos-stage[data-display-mode="crop"] .photos-slide,
+.photos-stage:not([data-display-mode]) .photos-slide {
+  object-fit: cover;
+}
+
+.photos-stage[data-display-mode="full"] {
+  height: clamp(280px, 50vh, 520px);
+}
+.photos-stage[data-display-mode="full"] .photos-slide {
+  object-fit: contain;
+}
+
+/* Compact: shrink each slide to roughly 50% width / 80% height of the stage
+   and center it. <img> is a replaced element so we can't rely on `inset` +
+   `width: auto` to constrain it — `auto` falls back to intrinsic image size.
+   Use explicit width/height percentages with top/left positioning, and clear
+   right/bottom from the base `inset: 0` so they don't fight the sizing. */
+.photos-stage[data-display-mode="compact"] {
+  height: clamp(140px, 22vh, 200px);
+}
+.photos-stage[data-display-mode="compact"] .photos-slide {
+  top: 10%;
+  left: 25%;
+  right: auto;
+  bottom: auto;
+  width: 50%;
+  height: 80%;
+  object-fit: contain;
 }
 
 /* Honour the resolved reduced-motion preference. The transition is the only

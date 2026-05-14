@@ -305,15 +305,18 @@ export interface UserSettings {
    * under its own chrome.storage key (PHOTOS_STORAGE_KEY) and is intentionally
    * NOT mirrored into UserSettings so export/import payloads stay slim.
    *
-   *   slideshowIntervalSeconds — seconds between slides in the Photos tab.
+   *   slideshowIntervalSeconds — seconds between slides in the banner.
    *     Default 8. Clamped to [3, 300] in the UI.
-   *   fitMode — "cover" crops to fill; "contain" letterboxes. Default "cover".
+   *   displayMode — controls banner height and how the image fits:
+   *     "crop"    fixed-height strip, image cropped to fill (default)
+   *     "full"    taller banner, image fully visible (letterboxed if portrait)
+   *     "compact" short banner with a centered scaled-down image
    *   shuffle — randomise slide order. Default false (chronological).
    */
   googlePhotos?:
     | {
         slideshowIntervalSeconds?: number | undefined;
-        fitMode?: "cover" | "contain" | undefined;
+        displayMode?: "crop" | "full" | "compact" | undefined;
         shuffle?: boolean | undefined;
       }
     | undefined;
@@ -411,7 +414,7 @@ export interface ResolvedUserSettings {
   /** Google Photos widget settings — always present with defaults in resolved form. */
   googlePhotos: {
     slideshowIntervalSeconds: number;
-    fitMode: "cover" | "contain";
+    displayMode: "crop" | "full" | "compact";
     shuffle: boolean;
   };
   /** Gemini Nano chat panel settings — always present with defaults in resolved form. */

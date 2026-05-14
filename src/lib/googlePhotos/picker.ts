@@ -90,7 +90,7 @@ export async function runPickerFlow(
     return { photos: [], skipped: [], emptySelection: true, cancelled: false };
   }
 
-  const batch = await cacheBatch(token, items);
+  const batch = await cacheBatch(items);
   await photosStore.set({
     lastPickedAt: Date.now(),
     photos: batch.photos,

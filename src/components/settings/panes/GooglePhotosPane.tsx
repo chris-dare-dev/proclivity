@@ -37,7 +37,7 @@ interface LiveUpdater {
 export interface GooglePhotosPaneProps {
   /** Resolved settings — used to read current slideshow prefs. */
   slideshowIntervalSeconds: number;
-  fitMode: "cover" | "contain";
+  displayMode: "crop" | "full" | "compact";
   shuffle: boolean;
   pendingPhotosVisible: boolean;
   setPendingPhotosVisible: (v: boolean) => void;
@@ -53,7 +53,7 @@ type ConnState =
 
 export function GooglePhotosPane({
   slideshowIntervalSeconds,
-  fitMode,
+  displayMode,
   shuffle,
   pendingPhotosVisible,
   setPendingPhotosVisible,
@@ -168,11 +168,11 @@ export function GooglePhotosPane({
       const clamped = Math.max(3, Math.min(300, Math.round(n)));
       live("googlePhotos", {
         slideshowIntervalSeconds: clamped,
-        fitMode,
+        displayMode,
         shuffle,
       });
     },
-    [live, fitMode, shuffle],
+    [live, displayMode, shuffle],
   );
 
   return (
@@ -313,22 +313,23 @@ export function GooglePhotosPane({
           </span>
         </div>
 
-        <SegmentedControl<"cover" | "contain">
-          name="settings-photos-fit"
-          legend="Fit"
+        <SegmentedControl<"crop" | "full" | "compact">
+          name="settings-photos-display"
+          legend="Display style"
           options={[
-            { value: "cover", label: "Cover" },
-            { value: "contain", label: "Contain" },
+            { value: "crop", label: "Banner" },
+            { value: "full", label: "Full" },
+            { value: "compact", label: "Compact" },
           ]}
-          value={fitMode}
+          value={displayMode}
           onChange={(v) =>
             live("googlePhotos", {
               slideshowIntervalSeconds,
-              fitMode: v,
+              displayMode: v,
               shuffle,
             })
           }
-          hint="Cover crops to fill the panel; Contain shows the whole frame with letterboxing."
+          hint="Banner is a fixed-height strip with the image cropped to fill. Full grows the banner so the whole image is visible. Compact shows a smaller centered version with breathing room around it."
         />
 
         <ToggleSwitch
@@ -337,11 +338,11 @@ export function GooglePhotosPane({
           onChange={(v) =>
             live("googlePhotos", {
               slideshowIntervalSeconds,
-              fitMode,
+              displayMode,
               shuffle: v,
             })
           }
-          hint="Randomise slide order each time the tab opens."
+          hint="Randomise slide order each time the page loads."
         />
       </section>
     </div>

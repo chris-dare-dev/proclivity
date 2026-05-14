@@ -53,7 +53,6 @@ export interface CachedPhoto {
  * Throws on non-2xx (caller decides per-photo whether to skip or abort).
  */
 export async function fetchAndEncode(
-  token: string,
   item: PickedMediaItem,
 ): Promise<CachedPhoto> {
   const url = `${item.mediaFile.baseUrl}=w${TARGET_WIDTH}-h${TARGET_HEIGHT}`;
@@ -68,17 +67,24 @@ export async function fetchAndEncode(
   })();
   let res: Response;
   try {
-    res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    // NO Authorization header. The Picker mediaFile.baseUrl is a pre-signed
+    // URL — the `/ppa/<token>` path segment carries the access grant. Adding
+    // `Authorization: Bearer <oauth_token>` would promote this from a simple
+    // CORS request to a preflighted one, and Google's CDN responds to those
+    // preflights with a malformed `Access-Control-Allow-Origin: chrome-extension://`
+    // header (no extension id appended) that Chrome correctly rejects.
+    //
+    // Note that MV3 host_permissions only grant CORS bypass to the service
+    // worker, not to extension pages, so we can't rely on the allowlist alone
+    // to skirt CORS here — keeping the fetch "simple" is the workable path.
+    res = await fetch(url);
   } catch (err) {
-    // A thrown fetch (TypeError) is almost always Chrome blocking the request
-    // because the host isn't in manifest.host_permissions. Surface the host
-    // explicitly so the user can see exactly what to allowlist.
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       `Network error fetching from ${host}: ${msg}. ` +
-        `If this says "Failed to fetch", add "https://${host}/*" to host_permissions in manifest.config.ts.`,
+        `If this says "Failed to fetch" it usually means the host isn't in ` +
+        `host_permissions, or the CDN refused the request — check DevTools ` +
+        `Network panel for the actual response.`,
     );
   }
   if (!res.ok) {
@@ -121,7 +127,6 @@ export interface CacheBatchResult {
 }
 
 export async function cacheBatch(
-  token: string,
   items: PickedMediaItem[],
   budgetBytes = CACHE_BUDGET_BYTES,
   maxPhotos = MAX_CACHED_PHOTOS,
@@ -145,7 +150,7 @@ export async function cacheBatch(
       continue;
     }
     try {
-      const cached = await fetchAndEncode(token, item);
+      const cached = await fetchAndEncode(item);
       if (used + cached.bytes > budgetBytes) {
         skipped.push({
           filename: item.mediaFile.filename,
