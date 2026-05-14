@@ -20,6 +20,15 @@ export const CARD_GRID_SIZE = 8;
 export const STORAGE_KEY = "proclivity:state:v1";
 
 /**
+ * chrome.storage.local key for the Google Photos picked-photo cache. Kept
+ * separate from STORAGE_KEY so its base64 payload (potentially several MB)
+ * never gets serialized into the export/import JSON blob or the in-memory
+ * React state tree. The Photos lib in `src/lib/googlePhotos/` is the sole
+ * read/writer for this key.
+ */
+export const PHOTOS_STORAGE_KEY = "proclivity:photos:v1";
+
+/**
  * Observability ring-buffer key. Stores up to ~500 LogEntry records
  * appended by the logger when persisted levels (warn/error always,
  * info when debug is on) fire. Separate from STORAGE_KEY so the app's
@@ -110,6 +119,10 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
     gantt: true,
     reminders: true,
     calendar: true,
+    // Photos starts hidden — surfaces only after the user connects Google
+    // Photos in Settings and picks at least one photo. The Photos pane flips
+    // this to true once a successful pick lands.
+    photos: false,
   },
   defaultReminderLeadMinutes: 10,
   defaultRecurrence: "none",
@@ -122,6 +135,11 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   geminiNano: {
     chatEnabled: false,
     chatPosition: "right",
+  },
+  googlePhotos: {
+    slideshowIntervalSeconds: 8,
+    fitMode: "cover",
+    shuffle: false,
   },
   layoutMode: "list",
   cardHintSeen: false,
@@ -172,6 +190,7 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
       gantt: sv.gantt ?? DEFAULT_SETTINGS.sectionVisibility.gantt,
       reminders: sv.reminders ?? DEFAULT_SETTINGS.sectionVisibility.reminders,
       calendar: sv.calendar ?? DEFAULT_SETTINGS.sectionVisibility.calendar,
+      photos: sv.photos ?? DEFAULT_SETTINGS.sectionVisibility.photos,
     },
     defaultReminderLeadMinutes:
       s.defaultReminderLeadMinutes ??
@@ -192,6 +211,15 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
       chatPosition:
         s.geminiNano?.chatPosition ??
         DEFAULT_SETTINGS.geminiNano.chatPosition,
+    },
+    googlePhotos: {
+      slideshowIntervalSeconds:
+        s.googlePhotos?.slideshowIntervalSeconds ??
+        DEFAULT_SETTINGS.googlePhotos.slideshowIntervalSeconds,
+      fitMode:
+        s.googlePhotos?.fitMode ?? DEFAULT_SETTINGS.googlePhotos.fitMode,
+      shuffle:
+        s.googlePhotos?.shuffle ?? DEFAULT_SETTINGS.googlePhotos.shuffle,
     },
     layoutMode: s.layoutMode ?? DEFAULT_SETTINGS.layoutMode,
     cardHintSeen: s.cardHintSeen ?? DEFAULT_SETTINGS.cardHintSeen,

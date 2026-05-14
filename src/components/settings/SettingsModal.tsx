@@ -26,6 +26,7 @@ import { AppearancePane } from "./panes/AppearancePane";
 import { NotificationsPane } from "./panes/NotificationsPane";
 import { TodosPane } from "./panes/TodosPane";
 import { GeminiNanoPane } from "./panes/GeminiNanoPane";
+import { GooglePhotosPane } from "./panes/GooglePhotosPane";
 import { TagsPane } from "./panes/TagsPane";
 import { DataPane } from "./panes/DataPane";
 import { AdvancedPane } from "./panes/AdvancedPane";
@@ -272,6 +273,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
       gantt: pendingVisibility.gantt,
       reminders: pendingVisibility.reminders,
       calendar: pendingVisibility.calendar,
+      photos: pendingVisibility.photos,
     };
     const trimmedName = pendingName.trim();
     const quietHours = pendingQuietEnabled
@@ -483,6 +485,20 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
           <GeminiNanoPane
             pendingChatPosition={pendingChatPosition}
             setPendingChatPosition={makeDirty(setPendingChatPosition)}
+          />
+        );
+      case "googlePhotos":
+        return (
+          <GooglePhotosPane
+            slideshowIntervalSeconds={rs.googlePhotos.slideshowIntervalSeconds}
+            fitMode={rs.googlePhotos.fitMode}
+            shuffle={rs.googlePhotos.shuffle}
+            pendingPhotosVisible={pendingVisibility.photos}
+            setPendingPhotosVisible={(v) => {
+              const next = { ...pendingVisibility, photos: v };
+              makeDirty(setPendingVisibility)(next);
+            }}
+            live={live}
           />
         );
       case "tags":

@@ -160,6 +160,7 @@ export type SettingsPaneId =
   | "notifications"
   | "todos"
   | "geminiNano"
+  | "googlePhotos"
   | "tags"
   | "data"
   | "advanced";
@@ -224,6 +225,7 @@ export interface UserSettings {
         gantt?: boolean | undefined;
         reminders?: boolean | undefined;
         calendar?: boolean | undefined;
+        photos?: boolean | undefined;
       }
     | undefined;
 
@@ -257,6 +259,24 @@ export interface UserSettings {
     | {
         chatEnabled?: boolean | undefined;
         chatPosition?: "right" | "bottom" | undefined;
+      }
+    | undefined;
+
+  /**
+   * Google Photos widget preferences. The picked-photo cache itself lives
+   * under its own chrome.storage key (PHOTOS_STORAGE_KEY) and is intentionally
+   * NOT mirrored into UserSettings so export/import payloads stay slim.
+   *
+   *   slideshowIntervalSeconds — seconds between slides in the Photos tab.
+   *     Default 8. Clamped to [3, 300] in the UI.
+   *   fitMode — "cover" crops to fill; "contain" letterboxes. Default "cover".
+   *   shuffle — randomise slide order. Default false (chronological).
+   */
+  googlePhotos?:
+    | {
+        slideshowIntervalSeconds?: number | undefined;
+        fitMode?: "cover" | "contain" | undefined;
+        shuffle?: boolean | undefined;
       }
     | undefined;
 
@@ -338,6 +358,7 @@ export interface ResolvedUserSettings {
     gantt: boolean;
     reminders: boolean;
     calendar: boolean;
+    photos: boolean;
   };
   defaultReminderLeadMinutes: LeadMinutes;
   defaultRecurrence: RecurrenceDefault;
@@ -349,6 +370,12 @@ export interface ResolvedUserSettings {
   settingsLastPane: SettingsPaneId;
   /** Whether the user has visited the Gemini Nano pane. Drives the sidebar "NEW" badge. */
   geminiNanoSeen: boolean;
+  /** Google Photos widget settings — always present with defaults in resolved form. */
+  googlePhotos: {
+    slideshowIntervalSeconds: number;
+    fitMode: "cover" | "contain";
+    shuffle: boolean;
+  };
   /** Gemini Nano chat panel settings — always present with defaults in resolved form. */
   geminiNano: {
     chatEnabled: boolean;

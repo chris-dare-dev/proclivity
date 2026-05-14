@@ -21,6 +21,7 @@ const SETTINGS_PANE_IDS: ReadonlySet<SettingsPaneId> = new Set<SettingsPaneId>([
   "notifications",
   "todos",
   "geminiNano",
+  "googlePhotos",
   "tags",
   "data",
   "advanced",
@@ -92,7 +93,20 @@ const ClosedTodosView = lazy(() =>
   })),
 );
 
-type Tab = "today" | "sprint" | "long" | "gantt" | "reminders" | "calendar" | "closed";
+// Photos slideshow — lazy so the base64 photo cache and slideshow CSS only
+// load if the user opens the tab. Hidden by default; visibility is flipped
+// on after the first successful pick.
+const Photos = lazy(() => import("@/sections/Photos"));
+
+type Tab =
+  | "today"
+  | "sprint"
+  | "long"
+  | "gantt"
+  | "reminders"
+  | "calendar"
+  | "photos"
+  | "closed";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "today", label: "Today" },
@@ -101,6 +115,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "gantt", label: "Gantt" },
   { id: "calendar", label: "Calendar" },
   { id: "reminders", label: "Reminders" },
+  { id: "photos", label: "Photos" },
   // "Closed" sits at the rightmost slot — archival semantics. Always visible
   // (no sectionVisibility gate) so the destination promised by the close
   // action is always findable; see .claude/notes/closed-todos-research-B.md §3.
@@ -304,6 +319,7 @@ const TAB_KEY: Record<
   gantt: "gantt",
   reminders: "reminders",
   calendar: "calendar",
+  photos: "photos",
 };
 
 /** Tabs whose visibility is user-controllable via Settings → Dashboard. */
@@ -460,11 +476,24 @@ export default function App() {
                       "gantt",
                       "reminders",
                       "calendar",
+                      "photos",
                       "closed",
                     ];
                     if ((valid as string[]).includes(t)) setTab(t as Tab);
                   }}
                 />
+              </Suspense>
+            </div>
+          )}
+          {rs.sectionVisibility.photos && (
+            <div
+              id="tabpanel-photos"
+              role="tabpanel"
+              aria-labelledby="tab-btn-photos"
+              hidden={tab !== "photos"}
+            >
+              <Suspense fallback={null}>
+                <Photos />
               </Suspense>
             </div>
           )}

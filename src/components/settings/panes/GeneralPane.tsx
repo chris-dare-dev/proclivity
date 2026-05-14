@@ -32,7 +32,13 @@ interface LiveUpdater {
   <K extends keyof UserSettings>(key: K, value: UserSettings[K]): void;
 }
 
-/** Visibility shape for the dashboard section checkboxes. */
+/**
+ * Visibility shape for the dashboard section checkboxes. `photos` is
+ * intentionally NOT in ROWS below — the Photos tab toggle lives in the
+ * dedicated Google Photos pane (it's coupled with the connect/pick flow,
+ * which doesn't belong in General). The field is still on the type so
+ * the SectionVisibility prop matches the resolved settings shape.
+ */
 interface SectionVisibility {
   today: boolean;
   sprint: boolean;
@@ -40,6 +46,7 @@ interface SectionVisibility {
   gantt: boolean;
   reminders: boolean;
   calendar: boolean;
+  photos: boolean;
 }
 
 export interface GeneralPaneProps {

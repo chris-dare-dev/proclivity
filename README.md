@@ -257,6 +257,60 @@ must pass cleanly before any change is considered done.
 
 ---
 
+## Google Photos setup (optional)
+
+The **Photos** tab plays a slideshow of photos the user picks from their
+Google account via the [Photos Picker API](https://developers.google.com/photos/picker).
+The feature is inert until you do the one-time Google Cloud setup below — the
+extension ships with a placeholder OAuth client_id that won't authenticate.
+
+1. **Pin the extension ID.** OAuth client_ids are bound to a specific extension
+   ID, so you need a stable one. After loading the unpacked extension once,
+   copy its ID from `chrome://extensions`. (For a long-lived install, add a
+   `"key"` field to the manifest with the public key Chrome generated for that
+   ID — see Chrome's docs on
+   [keeping an extension ID consistent](https://developer.chrome.com/docs/extensions/reference/manifest/key).)
+
+2. **Create a Google Cloud project.** In the
+   [Google Cloud console](https://console.cloud.google.com/), create a new
+   project (or reuse one).
+
+3. **Enable the Photos Picker API.** APIs & Services → Library → search for
+   "Photos Picker API" → Enable.
+
+4. **Configure the OAuth consent screen.**
+   - User type: **External** (with yourself added as a test user) is fine for
+     a personal install; you do not need to publish the app.
+   - Add the scope `https://www.googleapis.com/auth/photospicker.mediaitems.readonly`.
+
+5. **Create an OAuth client_id.** APIs & Services → Credentials → Create
+   credentials → OAuth client ID. Application type: **Chrome extension**.
+   Paste your pinned extension ID into the Application ID field.
+
+6. **Drop the client_id into the manifest.** Open
+   [`manifest.config.ts`](manifest.config.ts) and replace
+   `REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com` with
+   the client_id from step 5. Run `npm run build` and reload the unpacked
+   extension.
+
+7. **Connect from Settings.** Open Settings → **Google Photos** → **Connect
+   Google Photos**. Chrome will surface the consent dialog the first time;
+   subsequent picks reuse the cached token.
+
+**How the photo data is handled.** When you pick photos, the extension fetches
+each one downscaled to 1600×1000 with `Authorization: Bearer <token>`,
+encodes it as a base64 data URL, and writes the set under a dedicated
+`chrome.storage.local` key (`proclivity:photos:v1`). The total cache is
+budgeted at 6 MB so the main app data has headroom under Chrome's 10 MB
+quota. The cached photos are **not** included in the JSON export — they live
+outside `ProclivityState` by design.
+
+The `baseUrl` on a Picker mediaItem expires roughly an hour after the pick
+session, which is why we cache the bytes locally rather than storing the
+URLs. Re-picking from the settings pane replaces the cache.
+
+---
+
 ## Data model
 
 ```typescript
