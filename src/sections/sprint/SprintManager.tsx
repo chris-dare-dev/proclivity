@@ -682,6 +682,19 @@ export function SprintManager() {
    * (matches the m3 `goal` semantics — empty string is not a valid value).
    * The sprint relocates from the live tabs list to the archived rail in
    * the next render because `isArchived` now keys on `state === "closed"`.
+   *
+   * rect(m2) — M2: the `sp.state === "active"` guard mirrors `startSprint`'s
+   * defensive guard. Protects against a multi-tab race where one tab closes
+   * the sprint (persisting its retro) while another tab is mid-dialog —
+   * confirming the second dialog would otherwise overwrite the just-saved
+   * retroNote with an empty string spread.
+   *
+   * rect(m2) — M3: the conditional spread only WRITES retroNote when the
+   * draft is non-empty. Empty trimmed values intentionally do NOT clear an
+   * existing retroNote. This path is UI-unreachable in practice (a closed
+   * sprint never renders the active-sprint header so the close-sprint button
+   * is unreachable for re-close), but codifying it here documents the
+   * intended semantics.
    */
   const closeSprint = async () => {
     if (!activeSprintId) return;
@@ -689,7 +702,7 @@ export function SprintManager() {
     await update((s) => ({
       ...s,
       sprints: s.sprints.map((sp) =>
-        sp.id === activeSprintId
+        sp.id === activeSprintId && sp.state === "active"
           ? {
               ...sp,
               state: "closed",
@@ -900,9 +913,14 @@ export function SprintManager() {
           {/* sprint-backlog-redesign-m2: stale-sprint banner. Only renders
               for active sprints expired > 24h ago; dismissed flag is
               per-sprint-id in sessionStorage so accidental F5 doesn't
-              re-nag. */}
+              re-nag.
+              rect(m2) — H1: key={sprint.id} forces remount whenever the
+              user switches between stale sprints. Without it, React
+              reuses the component instance and `dismissed` state from
+              the previous sprint leaks into the new one. */}
           {isStaleSprint(activeSprint) && (
             <StaleSprintBanner
+              key={activeSprint.id}
               sprint={activeSprint}
               onClose={() => setConfirmingClose(true)}
             />

@@ -148,9 +148,23 @@ export function TodoEditModal({ open, todo, allTags, sprints, onClose, onSave }:
                 onChange={(e) => setSprintId(e.target.value || undefined)}
               >
                 <option value="">— select a sprint —</option>
-                {sprints.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
+                {/*
+                  rect(sprint-backlog-redesign-m2) — H2: hide closed sprints
+                  from the picker so users can't silently assign a todo to
+                  the archived rail. The current sprintId is kept as an
+                  option even if it's now closed, so an existing assignment
+                  is preserved without forcing a move (the user can still
+                  see "(closed)" on it and choose to move it elsewhere).
+                */}
+                {sprints
+                  .filter((s) => s.state !== "closed" || s.id === todo.sprintId)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                      {s.state === "draft" ? " (draft)" : ""}
+                      {s.state === "closed" ? " (closed)" : ""}
+                    </option>
+                  ))}
               </select>
             )}
           </div>
