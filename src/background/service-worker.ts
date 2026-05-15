@@ -457,6 +457,109 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   handleAlarm(alarm);
 });
 
+/* ─── Google Photos byte-fetch proxy ─────────────────────────
+ * The newtab page can't fetch Picker baseUrls with Authorization: Bearer
+ * directly: any extension-page request that promotes to CORS-preflight is
+ * answered by Google's CDN with a malformed Access-Control-Allow-Origin
+ * header, and Chrome rejects it. MV3 host_permissions, however, DO grant
+ * the service worker a real CORS bypass on listed hosts. So the newtab
+ * delegates the actual image / video byte-fetch to us here.
+ *
+ * Contract (newtab ↔ SW):
+ *   request: { type: "photos:fetchBytes", url, token, maxBytes? }
+ *   ok    : { ok: true, dataUrl, mimeType, sizeBytes }
+ *   fail  : { ok: false, status, message, code?, sizeBytes? }
+ *     - status = HTTP code, or 0 for network / size errors
+ *     - code   = "too_large" when sizeBytes > maxBytes
+ */
+interface PhotosFetchRequest {
+  type: "photos:fetchBytes";
+  url: string;
+  token: string;
+  maxBytes?: number;
+}
+
+type PhotosFetchResponse =
+  | { ok: true; dataUrl: string; mimeType: string; sizeBytes: number }
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      code?: string;
+      sizeBytes?: number;
+    };
+
+async function handlePhotosFetch(
+  req: PhotosFetchRequest,
+): Promise<PhotosFetchResponse> {
+  try {
+    const res = await fetch(req.url, {
+      headers: { Authorization: `Bearer ${req.token}` },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return {
+        ok: false,
+        status: res.status,
+        message: `${res.status} ${res.statusText}${body ? `: ${body.slice(0, 200)}` : ""}`,
+      };
+    }
+    const blob = await res.blob();
+    if (req.maxBytes !== undefined && blob.size > req.maxBytes) {
+      return {
+        ok: false,
+        status: 0,
+        code: "too_large",
+        sizeBytes: blob.size,
+        message: `payload ${formatMbSw(blob.size)} exceeds limit ${formatMbSw(req.maxBytes)}`,
+      };
+    }
+    const dataUrl = await blobToDataUrlSw(blob);
+    return {
+      ok: true,
+      dataUrl,
+      mimeType: blob.type,
+      sizeBytes: blob.size,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+function formatMbSw(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function blobToDataUrlSw(blob: Blob): Promise<string> {
+  // FileReader is exposed in the ServiceWorkerGlobalScope; safe to use here.
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result as string);
+    fr.onerror = () => reject(fr.error ?? new Error("FileReader failed"));
+    fr.readAsDataURL(blob);
+  });
+}
+
+chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
+  // Type guard before touching fields so any unrelated message just returns
+  // false (keeps the channel synchronous and lets other listeners respond).
+  if (
+    !msg ||
+    typeof msg !== "object" ||
+    (msg as { type?: unknown }).type !== "photos:fetchBytes"
+  ) {
+    return false;
+  }
+  const req = msg as PhotosFetchRequest;
+  void handlePhotosFetch(req).then(sendResponse);
+  // Returning true keeps the message channel open for the async response.
+  return true;
+});
+
 /* ─── Notification action: snooze ───────────────────────────── */
 
 chrome.notifications.onButtonClicked.addListener(

@@ -20,15 +20,17 @@
  *   - Enforce a hard byte budget per pick batch so chrome.storage.local
  *     never blows past the 10 MB cap.
  *
- * No Authorization header on either fetch — the Picker baseUrl is
- * pre-signed via the `/ppa/<token>` path segment; see fetchAndEncodePhoto
- * for the CORS-preflight rationale.
+ * Auth — fetched via the service-worker proxy.
+ *   Direct fetch from the newtab fails: with Authorization header it
+ *   triggers a CORS preflight Google's CDN answers with a malformed ACAO
+ *   header; without it the CDN returns 403 (no public read on real
+ *   user libraries). MV3 host_permissions grant CORS bypass to the
+ *   service worker only, so the SW does the authenticated fetch and
+ *   ships the base64-encoded bytes back via chrome.runtime.sendMessage.
+ *   See src/background/service-worker.ts "Google Photos byte-fetch proxy".
  */
 
-import {
-  GooglePhotosApiError,
-  type PickedMediaItem,
-} from "./api";
+import { type PickedMediaItem } from "./api";
 
 /** Target dimensions for cached photos — tuned for ~1080p screens. */
 export const TARGET_WIDTH = 1600;
@@ -74,52 +76,96 @@ export interface CachedPhoto {
   kind?: "photo" | "video";
 }
 
-/** Shared fetch shim — handles host extraction and error wrapping for both flavors. */
-async function fetchMediaBlob(
+/**
+ * Wire-format for the SW proxy. Mirrored in service-worker.ts —
+ * keep both sides in sync.
+ */
+interface PhotosFetchOk {
+  ok: true;
+  dataUrl: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+interface PhotosFetchErr {
+  ok: false;
+  status: number;
+  message: string;
+  code?: string;
+  sizeBytes?: number;
+}
+type PhotosFetchResponse = PhotosFetchOk | PhotosFetchErr;
+
+/**
+ * Round-trip through the service worker to fetch a Picker mediaFile.baseUrl
+ * with Authorization. Returns the bytes already base64-encoded as a data URL
+ * since chrome.runtime message passing handles large strings cheaply and we
+ * need a data URL downstream anyway.
+ *
+ * `maxBytes` (when supplied) is enforced on the SW side, before the proxy
+ * pays the base64-encode cost on a payload we'd throw away.
+ */
+async function fetchMediaViaSw(
   item: PickedMediaItem,
   suffix: string,
-): Promise<Blob> {
+  token: string,
+  maxBytes?: number,
+): Promise<PhotosFetchOk> {
   const url = `${item.mediaFile.baseUrl}${suffix}`;
-  // Parse the host eagerly so we can name it in any failure message — a bare
-  // "Failed to fetch" without a host is essentially undebuggable.
-  const host = (() => {
-    try {
-      return new URL(url).host;
-    } catch {
-      return "<unparseable-baseUrl>";
-    }
-  })();
-  let res: Response;
-  try {
-    // NO Authorization header. The Picker mediaFile.baseUrl is a pre-signed
-    // URL — the `/ppa/<token>` path segment carries the access grant. Adding
-    // `Authorization: Bearer <oauth_token>` would promote this from a simple
-    // CORS request to a preflighted one, and Google's CDN responds to those
-    // preflights with a malformed `Access-Control-Allow-Origin: chrome-extension://`
-    // header (no extension id appended) that Chrome correctly rejects.
-    //
-    // Note that MV3 host_permissions only grant CORS bypass to the service
-    // worker, not to extension pages, so we can't rely on the allowlist alone
-    // to skirt CORS here — keeping the fetch "simple" is the workable path.
-    res = await fetch(url);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+  if (
+    typeof chrome === "undefined" ||
+    !chrome.runtime?.sendMessage
+  ) {
+    // Dev / non-extension fallback. The direct fetch will almost certainly
+    // 403 against real Picker URLs, but we surface a meaningful error rather
+    // than a generic undefined-deref so `vite dev` sessions stay legible.
     throw new Error(
-      `Network error fetching from ${host}: ${msg}. ` +
-        `If this says "Failed to fetch" it usually means the host isn't in ` +
-        `host_permissions, or the CDN refused the request — check DevTools ` +
-        `Network panel for the actual response.`,
+      "chrome.runtime is unavailable — Google Photos requires the loaded extension (the SW handles the authenticated fetch).",
     );
   }
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new GooglePhotosApiError(
-      `Failed to fetch ${item.mediaFile.filename} from ${host}: ${res.status} ${res.statusText}`,
-      res.status,
-      body,
+  let resp: PhotosFetchResponse;
+  try {
+    resp = (await chrome.runtime.sendMessage({
+      type: "photos:fetchBytes",
+      url,
+      token,
+      ...(maxBytes !== undefined ? { maxBytes } : {}),
+    })) as PhotosFetchResponse;
+  } catch (err) {
+    // sendMessage rejects if the SW is unloaded / receiving end is missing.
+    // Chrome will spin the SW back up automatically on the next call, but
+    // we surface this one clearly so a transient miss is recognisable.
+    throw new Error(
+      `Service worker did not respond (will auto-recover on next attempt): ${
+        err instanceof Error ? err.message : String(err)
+      }`,
     );
   }
-  return res.blob();
+  if (!resp) {
+    throw new Error(
+      "Service worker returned no response — extension may need a reload",
+    );
+  }
+  if (!resp.ok) {
+    if (resp.code === "too_large") {
+      const size =
+        resp.sizeBytes !== undefined ? ` (${formatMb(resp.sizeBytes)})` : "";
+      throw new Error(`video too large for cache${size}: ${resp.message}`);
+    }
+    if (resp.status === 401) {
+      throw new Error(
+        "OAuth token rejected (401) — the picker session likely expired; re-pick to refresh",
+      );
+    }
+    if (resp.status === 403) {
+      throw new Error(
+        "Google denied access (403) — the picker session may have expired or the URL is no longer valid",
+      );
+    }
+    throw new Error(
+      `Fetch failed (${resp.status || "network"}): ${resp.message}`,
+    );
+  }
+  return resp;
 }
 
 /**
@@ -128,21 +174,25 @@ async function fetchMediaBlob(
  */
 export async function fetchAndEncodePhoto(
   item: PickedMediaItem,
+  token: string,
 ): Promise<CachedPhoto> {
-  const blob = await fetchMediaBlob(item, `=w${TARGET_WIDTH}-h${TARGET_HEIGHT}`);
-  const dataUrl = await blobToDataUrl(blob);
+  const r = await fetchMediaViaSw(
+    item,
+    `=w${TARGET_WIDTH}-h${TARGET_HEIGHT}`,
+    token,
+  );
   // `data:<mime>;base64,<payload>` — bytes ≈ payload length × 0.75. We use
   // dataUrl.length as a conservative byte estimate; it's <2% off and the
   // chrome.storage quota check uses the full string anyway.
   return {
     id: item.id,
     filename: item.mediaFile.filename,
-    mimeType: blob.type || item.mediaFile.mimeType,
+    mimeType: r.mimeType || item.mediaFile.mimeType,
     createTime: item.createTime,
     width: item.mediaFile.mediaFileMetadata.width,
     height: item.mediaFile.mediaFileMetadata.height,
-    dataUrl,
-    bytes: dataUrl.length,
+    dataUrl: r.dataUrl,
+    bytes: r.dataUrl.length,
     kind: "photo",
   };
 }
@@ -152,38 +202,27 @@ export async function fetchAndEncodePhoto(
  * CachedPhoto (kind: "video"). `=dv` is Google's "download video" form —
  * the only Picker endpoint that returns playable bytes for VIDEO items.
  *
- * Pre-checks the blob size against MAX_VIDEO_BYTES_RAW before encoding so we
- * don't pay the base64-encode cost on a video we'll throw away.
+ * The SW enforces MAX_VIDEO_BYTES_RAW before encoding, so oversized clips
+ * surface as a `too_large` error here instead of swallowing CPU on a 200 MB
+ * dataUrl we'd immediately discard.
  */
 export async function fetchAndEncodeVideo(
   item: PickedMediaItem,
+  token: string,
 ): Promise<CachedPhoto> {
-  const blob = await fetchMediaBlob(item, "=dv");
-  if (blob.size > MAX_VIDEO_BYTES_RAW) {
-    throw new Error(
-      `video too large for cache (${formatMb(blob.size)} > ${formatMb(MAX_VIDEO_BYTES_RAW)} limit)`,
-    );
-  }
-  const dataUrl = await blobToDataUrl(blob);
+  const r = await fetchMediaViaSw(item, "=dv", token, MAX_VIDEO_BYTES_RAW);
   return {
     id: item.id,
     filename: item.mediaFile.filename,
-    mimeType: blob.type || item.mediaFile.mimeType,
+    mimeType: r.mimeType || item.mediaFile.mimeType,
     createTime: item.createTime,
     width: item.mediaFile.mediaFileMetadata.width,
     height: item.mediaFile.mediaFileMetadata.height,
-    dataUrl,
-    bytes: dataUrl.length,
+    dataUrl: r.dataUrl,
+    bytes: r.dataUrl.length,
     kind: "video",
   };
 }
-
-/**
- * Back-compat alias: the original API name was `fetchAndEncode` (photos only).
- * Retained so any external caller / test still resolves; new code should
- * import the typed variants directly.
- */
-export const fetchAndEncode = fetchAndEncodePhoto;
 
 function formatMb(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -205,6 +244,7 @@ export interface CacheBatchResult {
 
 export async function cacheBatch(
   items: PickedMediaItem[],
+  token: string,
   budgetBytes = CACHE_BUDGET_BYTES,
   maxPhotos = MAX_CACHED_PHOTOS,
   maxVideos = MAX_CACHED_VIDEOS,
@@ -225,7 +265,7 @@ export async function cacheBatch(
         continue;
       }
       try {
-        const cached = await fetchAndEncodePhoto(item);
+        const cached = await fetchAndEncodePhoto(item, token);
         if (used + cached.bytes > budgetBytes) {
           skipped.push({ filename, reason: "would exceed cache budget" });
           continue;
@@ -254,7 +294,7 @@ export async function cacheBatch(
         continue;
       }
       try {
-        const cached = await fetchAndEncodeVideo(item);
+        const cached = await fetchAndEncodeVideo(item, token);
         if (used + cached.bytes > budgetBytes) {
           skipped.push({ filename, reason: "would exceed cache budget" });
           continue;
@@ -274,13 +314,4 @@ export async function cacheBatch(
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result as string);
-    fr.onerror = () => reject(fr.error ?? new Error("FileReader failed"));
-    fr.readAsDataURL(blob);
-  });
 }
