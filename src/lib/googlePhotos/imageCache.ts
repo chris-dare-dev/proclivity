@@ -36,8 +36,13 @@ import { type PickedMediaItem } from "./api";
 export const TARGET_WIDTH = 1600;
 export const TARGET_HEIGHT = 1000;
 
-/** Soft cap on total cached bytes (per batch). Items beyond this are dropped. */
-export const CACHE_BUDGET_BYTES = 8 * 1024 * 1024; // 8 MB
+/**
+ * Soft cap on total cached bytes (per batch, base64-inflated). Items beyond
+ * this are dropped. Sized to leave ~1 MB headroom against the 10 MB
+ * chrome.storage.local default quota — the rest of the budget is taken by
+ * main app state and the log ring buffer.
+ */
+export const CACHE_BUDGET_BYTES = 9 * 1024 * 1024; // 9 MB
 
 /** Hard cap on photo count regardless of size. */
 export const MAX_CACHED_PHOTOS = 30;
@@ -49,11 +54,12 @@ export const MAX_CACHED_PHOTOS = 30;
 export const MAX_CACHED_VIDEOS = 3;
 
 /**
- * Per-video raw (pre-base64) byte cap. 4 MB raw → ~5.3 MB base64. Picked
- * with the 8 MB total budget in mind: at this ceiling, one full-size video
- * plus a healthy spread of photos still fits.
+ * Per-video raw (pre-base64) byte cap. 6 MB raw → ~8 MB base64, which
+ * roughly fills the 9 MB total budget on its own. The remaining ~1 MB
+ * still fits a handful of photos. Raising this further would push us past
+ * the chrome.storage.local 10 MB ceiling — see CACHE_BUDGET_BYTES.
  */
-export const MAX_VIDEO_BYTES_RAW = 4 * 1024 * 1024;
+export const MAX_VIDEO_BYTES_RAW = 6 * 1024 * 1024;
 
 export interface CachedPhoto {
   id: string;
