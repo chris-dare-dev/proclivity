@@ -103,6 +103,13 @@
         "low": { "type": "integer", "minimum": 0 }
       }
     },
+    "critique_rect_order": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string",
+        "pattern": "^[CHMLI][0-9]+$"
+      }
+    },
     "rectification_commit": { "type": ["string", "null"] },
     "fixed_findings": { "type": "array", "items": { "type": "string" } },
     "deferred_findings": { "type": "array", "items": { "type": "string" } },

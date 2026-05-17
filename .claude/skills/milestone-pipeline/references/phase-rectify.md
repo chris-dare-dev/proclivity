@@ -75,12 +75,23 @@ The script asserts: if the rect commit changed any production code (anything out
 rect(<id>): close C1, H1, H2
 
 Closes critique findings: C1, H1, H2
-Reviewed-by: adversary-critic <noreply@anthropic.com>
-Reviewed-by: web-perf-reviewer <noreply@anthropic.com>
+Reviewed-by: milestone-adversary <noreply@anthropic.com>
+Reviewed-by: milestone-web-perf-critic <noreply@anthropic.com>
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 ```
 
-Use `git interpret-trailers --in-place --trailer "Reviewed-by: <agent> <noreply@anthropic.com>"` for each critic that ran (not just those that found something). Trailer normalization survives. `Co-Authored-By:` is added the same way.
+**Compose trailers BEFORE the commit, not after.** The earlier pattern of
+`git interpret-trailers --in-place .git/COMMIT_EDITMSG` after `git commit`
+is broken — `.git/COMMIT_EDITMSG` is a stale scratch file after the commit
+lands, so trailers added to it never reach the actual commit object. Build
+the full message via `git interpret-trailers --trailer "..."` piped from
+the subject+body, then pass to `git commit -S -m "$MSG"`. The command body
+at `.claude/commands/milestone-pipeline.md` Phase 4d shows the working
+sequence — match it.
+
+Use canonical agent names (`milestone-adversary`, `milestone-web-perf-critic`,
+`milestone-infra-critic`, `milestone-lfs-critic`, `milestone-oss-scout`) so
+the trailer cross-references the actual `.claude/agents/` definitions.
 
 Subject ≤ 50 chars after the prefix; if more findings to enumerate, list in body. Imperative, no period. Signed (GPG via `commit.gpgsign=true`).
 
@@ -107,7 +118,7 @@ After commit lands and `check-rect-tests.sh` passes:
 
 3. Wait for user-direct reply. Do NOT proceed without explicit per-write authorization. Do NOT auto-invoke `release-deputy` — that collapses the user-direct authorization chain (AGENTS.md is explicit on this point).
 4. As the user authorizes each, append to `state.external_writes_authorized`. Once the user marks each as completed (or explicitly skipped), append to `state.external_writes_completed`.
-5. When `external_writes_required ⊆ external_writes_authorized ∪ external_writes_skipped`, transition `rectify-running → complete`. Run `compute-metrics.py`. Release the lock.
+5. When `external_writes_required ⊆ external_writes_completed`, transition `rectify-running → complete`. Run `compute-metrics.py`. Release the lock. (`external_writes_completed` is the canonical "no longer pending" set — both authorized-and-run and explicitly-skipped items go here; there is no separate `external_writes_skipped` field, despite older drafts.)
 
 ## State reads / writes
 

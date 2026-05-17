@@ -39,27 +39,39 @@ fi
 
 DIFF_FILES="$(git -C "$REPO_ROOT" diff --name-only "${BASE}..HEAD" 2>/dev/null || true)"
 
+# Proclivity-specific gates. This codebase has no web/, bin/site, infra/,
+# Pulumi.*.yaml, or docker-compose.yml — those checks lived in the upstream
+# personal-website pipeline and are inert here. The trigger surfaces below
+# reflect proclivity's actual structure (Vite + MV3 Chrome extension + a
+# single GitHub Actions workflow).
 touches_web=0
 touches_infra=0
 touches_lfs=0
 
-if echo "$DIFF_FILES" | grep -qE '^web/'; then touches_web=1; fi
-if echo "$DIFF_FILES" | grep -qE '^(infra/|bin/site$|docker-compose\.yml$|.*Pulumi\..*\.yaml$|web/Dockerfile$|\.claude/scripts/(release-preflight|stack-outputs)\.sh$)'; then
+# Web/client surface — any TS/CSS/HTML/manifest/build-config change.
+if echo "$DIFF_FILES" | grep -qE '^(src/|public/|manifest\.config\.ts$|vite\.config\.ts$|tsconfig\.json$|package(-lock)?\.json$|index\.html$)'; then
+  touches_web=1
+fi
+# CI/workflow surface — proclivity's only "infra" today.
+if echo "$DIFF_FILES" | grep -qE '^\.github/workflows/'; then
   touches_infra=1
 fi
-if echo "$DIFF_FILES" | grep -qE '^\.gitattributes$'; then touches_lfs=1; fi
+# LFS surface — proclivity has no .gitattributes today; the gate fires
+# when one is introduced or when binary assets are added/replaced.
+if echo "$DIFF_FILES" | grep -qE '^(\.gitattributes$|.*\.(png|jpg|jpeg|gif|webp|heic|mp4|mov|webm|m4a|mp3|pdf|woff2?)$)'; then
+  touches_lfs=1
+fi
 
-# web/Dockerfile and docker-compose.yml route to infra-auditor (production runtime),
-# NOT web-perf-reviewer (client bundle). Even if web/ matches, prefer infra for these.
-# (We still let web-perf-reviewer also fire when other web/ files are touched.)
-
+# Canonical critic names match agent file names under .claude/agents/ so
+# the orchestrator's `subagent_type` lookup resolves directly — no legacy
+# name → file mapping required. See H8 in the conversion critique.
 conditional_critics=()
-[[ "$touches_web" -eq 1 ]] && conditional_critics+=("web-perf-reviewer")
-[[ "$touches_infra" -eq 1 ]] && conditional_critics+=("infra-auditor")
-[[ "$touches_lfs" -eq 1 ]] && conditional_critics+=("lfs")
+[[ "$touches_web" -eq 1 ]] && conditional_critics+=("milestone-web-perf-critic")
+[[ "$touches_infra" -eq 1 ]] && conditional_critics+=("milestone-infra-critic")
+[[ "$touches_lfs" -eq 1 ]] && conditional_critics+=("milestone-lfs-critic")
 
 optional_critics=()
-[[ "$INCLUDE_OSS" -eq 1 ]] && optional_critics+=("oss-scout")
+[[ "$INCLUDE_OSS" -eq 1 ]] && optional_critics+=("milestone-oss-scout")
 
 # Emit JSON
 python3 - "${conditional_critics[@]}" --opt "${optional_critics[@]}" <<'PYEOF'
@@ -69,7 +81,7 @@ opt_idx = args.index("--opt") if "--opt" in args else len(args)
 conditional = args[:opt_idx]
 optional = args[opt_idx + 1:] if opt_idx < len(args) else []
 print(json.dumps({
-    "always": ["adversary"],
+    "always": ["milestone-adversary"],
     "conditional": conditional,
     "optional": optional,
 }, indent=2))

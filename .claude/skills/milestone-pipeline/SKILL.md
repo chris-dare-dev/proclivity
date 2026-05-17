@@ -1,19 +1,21 @@
 ---
-name: milestone-pipeline
+name: milestone-pipeline-archive
 description: |
-  Drive a single milestone end-to-end through Research → Implement → Critique → Rectify
-  with sub-agent orchestration, durable state, and a hard external-write boundary.
-  Use when starting a milestone from a roadmap (`plans/<slug>-roadmap.md` with milestone
-  id `<slug>-mN`) or from a clear brief, and the work spans more than a one-shot edit.
-  Produces a signed `rect(<id>): close ...` commit on `main`, structured artifacts under
-  `.claude/notes/milestones/<id>/`, and never invokes `bin/site deploy/release/teardown`
-  — those remain explicit user actions. Pairs with `roadmap` (input) and `release-deputy`
-  (downstream). Skip for trivial bug fixes, single-file edits, or anything where you
-  already know the diff. Examples: "ship articles-redesign-m2", "execute milestone
-  articles-redesign-m1", "implement and review the next plan milestone end-to-end".
+  DEPRECATED — orchestration moved to `.claude/commands/milestone-pipeline.md` (slash command).
+  This file remains as a reference document only. See `.claude/skills/milestone-pipeline/MIGRATION.md`.
+  Triggering this skill no longer drives the pipeline; the canonical entry point is the
+  `/milestone-pipeline` slash command.
 ---
+> [!WARNING]
+> **This file is deprecated as the active orchestrator.**
+> The canonical pipeline lives at [`/milestone-pipeline`](../../commands/milestone-pipeline.md).
+> This SKILL.md is retained as the design-rationale reference until the first clean
+> end-to-end run via the new command completes (see [MIGRATION.md](MIGRATION.md)).
+>
+> Do NOT add new orchestration logic here. Edit `.claude/commands/milestone-pipeline.md` instead.
 
-# Milestone Pipeline
+
+# Milestone Pipeline (DEPRECATED — see banner above)
 
 Four sequential phases driven from this main session. The session IS the orchestrator. There is no `milestone-coordinator` sub-agent — that pattern is documented as Anti-pattern A in addyosmani/agent-skills and disallowed here.
 

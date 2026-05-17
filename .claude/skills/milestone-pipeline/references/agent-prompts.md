@@ -61,14 +61,18 @@ see CLAUDE.md and the README at repo root).
 
 <your-job>
 Produce a codebase-context brief at {BRIEF_PATH}. Read existing code, prior
-decision docs (.claude/references/*.md), CLAUDE.md, AGENTS.md, and any
-relevant SKILL.md files. Cite every claim by file:line.
+decision docs (.claude/notes/*.md, .claude/skills/*/references/*.md),
+CLAUDE.md, AGENTS.md (if present — it may be a stub pointing back to
+CLAUDE.md), slash command bodies under .claude/commands/*.md, and any
+non-deprecated skill bodies. **Skip SKILL.md files whose frontmatter
+description begins with `DEPRECATED`** — those are reference-only and may
+describe an older orchestration model. Cite every claim by file:line.
 </your-job>
 
 <output-format>
 Markdown file at {BRIEF_PATH} with these sections:
 1. Affected files (paths + 1-line role each)
-2. Existing patterns to follow (cite SKILL.md, references/*.md by path)
+2. Existing patterns to follow (cite slash command bodies, references/*.md by path)
 3. Existing tests that exercise the affected paths
 4. Footguns from CLAUDE.md / AGENTS.md that apply (cite section)
 5. Open questions for the implementer (max 5)
@@ -292,14 +296,36 @@ exactly — the dedup script depends on it.
 
 ---
 
-## Phase 3 — `web-perf-reviewer` invocation
+## Phase 3 — `milestone-web-perf-critic` invocation
 
-The `web-perf-reviewer` agent already exists at `.claude/agents/web-perf-reviewer.md`. The orchestrator dispatches it via the Agent tool with this brief (the agent's own system prompt handles the rest):
+The `/milestone-pipeline` slash command dispatches this as `subagent_type='milestone-web-perf-critic'` (defined at `.claude/agents/milestone-web-perf-critic.md`). The brief below is the dispatch prompt; the agent's own system prompt handles the rest:
 
 ```
-Review milestone {ID}, commits {COMMIT_RANGE}. Focus on: client-bundle
-bloat, unnecessary "use client", velite/MDX pipeline correctness, dual-content-system
-integrity, accessibility. Use the canonical critique format from
+Review milestone {ID}, commits {COMMIT_RANGE}. Focus on: initial-chunk
+bundle bloat against the ~200 kB budget, lazy-import discipline for heavy
+deps (three.js, @react-three/fiber), chrome.storage.local 10 MB cap and
+useStore() boundary integrity, manifest permissions least-authority,
+service worker MV3 lifecycle, accessibility. Use the canonical critique
+format from .claude/skills/milestone-pipeline/references/critique-format.md.
+Write your output to {CRITIQUE_PATH}. Return per <output-contract>.
+
+{UNTRUSTED-CONTENT-POLICY}
+{SEVERITY-RUBRIC}
+{OUTPUT-CONTRACT}
+```
+
+---
+
+## Phase 3 — `milestone-infra-critic` invocation
+
+The `/milestone-pipeline` slash command dispatches this as `subagent_type='milestone-infra-critic'` (defined at `.claude/agents/milestone-infra-critic.md`). Proclivity has no Pulumi/EBS/ECR/docker-compose surface; this critic is scoped to GitHub Actions workflows in `.github/workflows/`.
+
+```
+Audit milestone {ID}, commits {COMMIT_RANGE}, against: GitHub Actions
+workflow changes (.github/workflows/*.yml) — action SHA pinning, secrets
+exposure, job ordering, Node/npm version drift between workflow and
+package.json, cache key hygiene, runs-on choice, permissions
+least-privilege. Use the canonical critique format from
 .claude/skills/milestone-pipeline/references/critique-format.md.
 Write your output to {CRITIQUE_PATH}. Return per <output-contract>.
 
@@ -310,36 +336,22 @@ Write your output to {CRITIQUE_PATH}. Return per <output-contract>.
 
 ---
 
-## Phase 3 — `infra-auditor` invocation
+## Phase 3 — `milestone-lfs-critic` invocation
+
+The `/milestone-pipeline` slash command dispatches this as `subagent_type='milestone-lfs-critic'` (defined at `.claude/agents/milestone-lfs-critic.md`). Fires when `.gitattributes` is touched OR when a binary asset (png/jpg/heic/mp4/etc.) is added — see `dispatch-critics.sh`. Proclivity has no `.gitattributes` and no Git LFS today; this critic's scope is binary-asset hygiene (do new files belong in git at all? do small image assets stay small?).
 
 ```
-Audit milestone {ID}, commits {COMMIT_RANGE}, against: Pulumi stack drift,
-config-vs-bin/site defaults, cross-stack consistency, IRSA / IMDSv2 / EBS /
-ECR / records:stackOrg / userdata.sh CWD footguns. Use the canonical critique
-format from .claude/skills/milestone-pipeline/references/critique-format.md.
+Audit milestone {ID}, commits {COMMIT_RANGE}, against: new binary files
+> 1 MB committed without an LFS strategy, public/*.png icon size
+discipline, test-fixture binary placement, and whether introducing
+.gitattributes + LFS is justified. Use the canonical critique format from
+.claude/skills/milestone-pipeline/references/critique-format.md.
 Write your output to {CRITIQUE_PATH}. Return per <output-contract>.
-
-If AWS env vars (AWS_PROFILE, AWS_REGION, PULUMI_CONFIG_PASSPHRASE) are not
-set, do NOT attempt `pulumi preview`. Note the limitation in your "What was
-done well" section ("audit ran without live stack data") and review by code
-inspection only.
 
 {UNTRUSTED-CONTENT-POLICY}
 {SEVERITY-RUBRIC}
 {OUTPUT-CONTRACT}
 ```
-
----
-
-## Phase 3 — LFS critic (lightweight, runs `lfs-doctor.sh`)
-
-Not a sub-agent — invoked by the orchestrator as a Bash call when `.gitattributes` is in the diff:
-
-```bash
-.claude/scripts/lfs-doctor.sh > .claude/notes/milestones/{ID}/critique/lfs.md 2>&1
-```
-
-The orchestrator wraps the output with the standard critique header and verdict.
 
 ---
 

@@ -15,9 +15,17 @@ Two perspectives on the milestone, written to disk, before any code is written. 
 
 | Mode | Agents (one turn) | Models | Use when |
 |---|---|---|---|
-| `default` | 1× Explore + 1× general-purpose | Haiku + Sonnet | Standard milestone with both codebase context AND external/writes scope |
-| `--single` | 1× general-purpose | Sonnet | Small milestones, no external research needed |
-| `--deep` | 1× Explore + 2× general-purpose (one Sonnet adversarial, one Opus) | Haiku + Sonnet + Opus | Novel architecture, irreversible decisions, high-risk infra |
+| `default` | 1× Explore haiku + 1× `milestone-researcher` (role=general) | Haiku + Sonnet | Standard milestone with both codebase context AND external/writes scope |
+| `--single` | 1× `milestone-researcher` (role=general) | Sonnet | Small milestones, no external research needed |
+| `--deep` | 1× Explore haiku + 1× `milestone-researcher` (role=general) + 1× `milestone-researcher` (role=adversarial) | Haiku + Sonnet + Opus | Novel architecture, irreversible decisions |
+
+All three slots are dispatched as the single `milestone-researcher` agent
+(defined at `.claude/agents/milestone-researcher.md`). The `role`
+variable substituted into the prompt distinguishes general from
+adversarial behavior; the agent file does NOT need a per-role variant.
+The Explore haiku slot uses the built-in `Explore` subagent_type only
+when the codebase-context lookup is genuinely cheap; otherwise route
+through `milestone-researcher` with `role=explore`.
 
 `isolation: worktree` for all researchers.
 
