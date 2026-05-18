@@ -150,3 +150,46 @@ use the new path until the move actually happens.
 | `milestone-infra-critic` | Phase 3 (conditional) | GitHub Actions workflows review (`.github/workflows/**`) |
 | `milestone-lfs-critic` | Phase 3 (conditional) | Binary asset hygiene + `.gitattributes` introduction (proclivity has no LFS today) |
 | `milestone-oss-scout` | Phase 3 (optional) | Dependency license + CVE scan |
+
+
+---
+
+## When to trigger `/roadmap`
+
+Trigger via the `/roadmap` **slash command** when the user says something like
+"plan feature X", "make a roadmap for X", "sequence milestones for X", or
+"turn this brief into a plan". Use the `roadmap` skill description as a
+secondary trigger signal (it resolves to the same command).
+
+Roadmap slugs are kebab-case, e.g. `gantt-drag`, `reminders-recurrence`,
+`photos-redesign`.
+
+Do NOT trigger for single-milestone work — that's `/milestone-pipeline`.
+
+### /roadmap artifacts
+
+```
+.claude/commands/roadmap.md          # slash command (orchestrator)
+.claude/agents/roadmap-refiner.md    # Phase 1 — objectives + assumptions
+.claude/agents/roadmap-decomposer.md # Phase 2 — epic decomposition
+.claude/agents/roadmap-sequencer.md  # Phase 3 — RICE + MoSCoW + milestone AC
+.claude/agents/roadmap-materializer.md # Phase 4 — final doc + handoff block
+.claude/scripts/roadmap/             # init, validate, score-moscow, score-rice
+.claude/references/roadmap/          # templates + specialist-contracts
+.claude/notes/roadmaps/<slug>/       # state.json (ephemeral), audit log
+plans/<slug>-roadmap.md              # the output doc
+```
+
+### /roadmap state
+
+Active roadmap state lives at `.claude/notes/roadmaps/<slug>/state.json`
+(gitignored). Manage it via:
+
+```bash
+bash .claude/scripts/roadmap/init-roadmap.sh <slug> [--brief "..."]  # init or detect resume
+bash .claude/scripts/roadmap/init-roadmap.sh <slug> --advance <phase> # advance phase
+bash .claude/scripts/roadmap/init-roadmap.sh <slug> --status          # print current phase
+python3 .claude/scripts/roadmap/validate-roadmap.py <slug> --report-first-unpopulated
+```
+
+Valid phases: `init` → `refine` → `decompose` → `sequence` → `materialize` → `complete`.

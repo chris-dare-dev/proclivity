@@ -29,7 +29,7 @@ The orchestrator may catch itself rehearsing one of these. When it does, stop.
 | "REFINE is overkill — the user already wrote a brief." | REFINE *also* surfaces assumptions, names the Won't list, and writes Key Results. None of these are in a typical brief. Run REFINE. |
 | "The decomposition is obvious — skip DECOMPOSE." | DECOMPOSE picks the *technique* (vertical, by-actor, by-protocol) and tags epics enabler-vs-value. Skipping means the implementer guesses. Run it. |
 | "Most items are genuinely Must — the cap is wrong here." | Almost never true. If the brief implies > 60% Must, the brief is undersliced or the team is over-committed. Force-rank or split. |
-| "I'll write the GitHub bodies and just run `gh` myself — saves a step." | The skill never invokes `gh`. Per project policy, ticket creation is manual. Bodies + `create-tickets.sh` go in `plans/<slug>-tickets/`; user runs the script. |
+| "I'll write the GitHub bodies and just run `gh` myself — saves a step." | The skill never invokes `gh` directly. The roadmap-materializer drafts issue bodies to `.claude/notes/roadmaps/<slug>/issue-drafts/`; the `/roadmap` orchestrator runs `gh issue create` one at a time after explicit `[y]`. |
 | "Skip the spike — I'm confident in the assumption." | Confidence without evidence defaults to 50% (RICE Low tier). A spike ≤ 3 days converts confidence to evidence. Cheap insurance against re-work. |
 | "Auto-invoke milestone-pipeline at MATERIALIZE end — saves the user a step." | Auto-invoke costs cache (fresh prompt prefix) and removes the user gate. Offer; do not invoke. |
 

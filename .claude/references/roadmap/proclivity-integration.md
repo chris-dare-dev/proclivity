@@ -20,10 +20,10 @@ background.
 - **Solo project, single developer.** All work — including agent-driven
   work — runs directly on `main`. No feature branches, no PRs.
 
-## Pairing with `milestone-pipeline`
+## Pairing with `/milestone-pipeline`
 
-`milestone-pipeline` is the execution skill at
-[.claude/skills/milestone-pipeline/](.claude/skills/milestone-pipeline/).
+`milestone-pipeline` is the execution slash command at
+`.claude/commands/milestone-pipeline.md`.
 It runs ONE milestone end-to-end through Research → Implement → Critique
 → Rectify.
 
@@ -33,7 +33,7 @@ script greps for `### <ID> — ` headings. Proclivity convention:
 - `<slug>-mN` — milestones produced by THIS skill, written to
   `plans/<slug>-roadmap.md`.
 
-**The roadmap skill must:**
+**The /roadmap command must:**
 
 - Use `<slug>-mN` IDs (e.g. `gantt-drag-m1`, `gantt-drag-m2`,
   `reminders-recurrence-m1`).
@@ -52,7 +52,7 @@ script greps for `### <ID> — ` headings. Proclivity convention:
   to avoid collision with milestone IDs.
 
 **Bridge in milestone-pipeline:**
-[.claude/skills/milestone-pipeline/scripts/init-state.sh](.claude/skills/milestone-pipeline/scripts/init-state.sh)
+`.claude/skills/milestone-pipeline/scripts/init-state.sh`
 searches `plans/*.md` for milestone briefs. Optional override:
 `--brief-from <path>`.
 
@@ -72,22 +72,19 @@ tracking artifact.
 
 **Default:** no tickets created.
 
-**Opt-in:** `--github` flag creates Issues for the Now-lane epic and
-its child stories via `gh issue create`. Templates live at
-`references/templates/{epic-issue,story-issue}.md`.
+**Opt-in:** `--gh-issues` flag drafts Issues for the Now-lane epic and
+its child stories (materializer writes to local files; orchestrator runs
+`gh issue create` after explicit `[y]`). Templates live at
+`.claude/references/roadmap/templates/{epic-issue,story-issue}.md`.
 
-**The roadmap skill never invokes `gh` itself.** When `--github` is
+**The /roadmap command never invokes `gh` itself.** When `--gh-issues` is
 passed:
 
-- Per-issue body files written to `plans/<slug>-tickets/<ID>.md`.
-- A copy-paste `plans/<slug>-tickets/create-tickets.sh` is written. The
-  script's first line is a confirmation prompt.
+- Draft issue body files written by the materializer to `.claude/notes/roadmaps/<slug>/issue-drafts/`.
+- The orchestrator resolves the GitHub repo via `gh repo view` and prompts `[y/N]` before creating.
+- On `[y]`, the orchestrator runs `gh issue create` one at a time.
 
-The user runs the script manually after reviewing. The skill prints:
-
-> "Tickets bundle written to `plans/<slug>-tickets/`. Review the bodies,
-> then run `bash plans/<slug>-tickets/create-tickets.sh` to create them
-> on GitHub. The skill never invokes `gh` itself."
+The user must explicitly confirm before any issues are created.
 
 ## Repo conventions to mirror
 
@@ -95,7 +92,7 @@ The user runs the script manually after reviewing. The skill prints:
 |---|---|---|
 | Conventional commits, `<type>(<scope>): <subject>` ≤ 50 chars after prefix | recent `git log` | Any commit the skill or its scripts produce |
 | Conventional scopes: `gantt`, `sprint`, `reminders`, `mesh`, `storage`, `build`, `a11y`, `skill`, `roadmap`, `docs` | repo history | Pick the closest match |
-| Co-author trailer: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` | repo history | Suggest in `create-tickets.sh` and any commit suggestions |
+| Co-author trailer: `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` | repo history | Suggest in any commit suggestions produced by the roadmap skill |
 | Pre-commit hooks honored | git config | Never `--no-verify` unless the user explicitly authorizes |
 | Project check: `npm run build` (runs `tsc -b && vite build`) | [package.json](package.json) | Reference in story AC; run during MATERIALIZE validation |
 | TypeScript strict including `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess` | [tsconfig.json](tsconfig.json) | New code must compile under these flags |
@@ -137,19 +134,21 @@ rule violations, surface it explicitly in the Won't section.
 | produces | path |
 |---|---|
 | Roadmap doc | `plans/<slug>-roadmap.md` |
-| GitHub epic body files | `plans/<slug>-tickets/<EPIC-ID>.md` |
-| GitHub story body files | `plans/<slug>-tickets/<STORY-ID>.md` |
-| Copy-paste ticket script | `plans/<slug>-tickets/create-tickets.sh` |
+| GitHub epic body drafts | `.claude/notes/roadmaps/<slug>/issue-drafts/<EPIC-ID>.md` |
+| GitHub story body drafts | `.claude/notes/roadmaps/<slug>/issue-drafts/<STORY-ID>.md` |
+| Roadmap state | `.claude/notes/roadmaps/<slug>/state.json` (gitignored) |
 
-`plans/` is committed by default — these are cheap artifacts that make
-pairing legible across sessions.
+Draft issue files live under `.claude/notes/roadmaps/<slug>/issue-drafts/` —
+written by the materializer, consumed by the orchestrator's `gh issue create`
+loop (one at a time, after explicit `[y]`). There is no `create-tickets.sh`
+script. The orchestrator IS the script.
 
-## What the skill must NOT touch
+`plans/` is committed by default — the roadmap doc is the tracking artifact.
+
+## What the /roadmap command must NOT touch
 
 - `.claude/notes/` (if present) — design notes, manually authored.
   Read-only.
-- `.claude/skills/milestone-pipeline/` — sibling skill. The roadmap
-  skill triggers a one-time bridge edit (init-state.sh + state-schema.md)
-  during initial install; ongoing runs do not modify it.
+- `.claude/commands/milestone-pipeline.md` — sibling slash command. Read-only.
 - `dist/` — build output. Never commit.
-- `src/` — application code. The roadmap skill produces plans, not code.
+- `src/` — application code. The roadmap command produces plans, not code.

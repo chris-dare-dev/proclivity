@@ -70,7 +70,8 @@ question pair (Kano 1984).
 survey to run.
 
 **In Proclivity context:** mostly internal. Skip unless an epic explicitly
-targets external researcher delight.
+targets user satisfaction differentiation (e.g., a dashboard UX overhaul
+vs a storage refactor).
 
 ---
 
@@ -93,9 +94,9 @@ Walk SPIDR in order; first axis that yields independent slices wins.
 **Don't use when:** the story is small but unfamiliar — research first
 (an actual Spike), don't pre-emptively split.
 
-**In Proclivity context:** **D**ata is the most common axis (split by paper
-subset, chunk type, or arXiv category). Use SPIDR to get from "build the
-search server" to milestones each ≤ 3 days.
+**In Proclivity context:** **D**ata is the most common axis (split by todo
+category, date range, or storage key subset). Use SPIDR to get from
+"build the Gantt drag feature" to milestones each ≤ 3 days.
 
 ---
 
@@ -130,10 +131,10 @@ row = walking skeleton (Cockburn).
 user behavior changes through a multi-step journey.
 
 **Don't use when:** infrastructure / library / protocol work where there
-is no narrative actor. Proclivity's MCP server is mostly *infrastructure
-for agents* — Story Mapping is a poor fit at the system level. It
-*could* fit at the meta-roadmap level ("the researcher's journey:
-discover paper → traverse citations → ground a proof").
+is no narrative actor. Pure storage or bundle-split work has no journey.
+Story Mapping fits well when a Proclivity feature has a discoverable
+user flow (e.g., "open new tab → review todos → drag a card → see
+updated Gantt").
 
 ---
 
@@ -147,8 +148,8 @@ out commands, aggregates, policies. Three variants — Big Picture,
 Process Modelling, Software Design.
 
 **Use when:** the brief describes a process with non-trivial event
-flow (corpus ingestion is one — fetch → tar → LaTeXML → normalize →
-chunk → embed → write).
+flow (Google Photos ingestion is one — pick → fetch → downscale →
+base64 → cache → render).
 
 **Don't use when:** CRUD / stateless tooling — no interesting events.
 
@@ -242,9 +243,9 @@ outcome).
 - When <some event>
 - Then <some outcome>
 
-**Use when:** the AC describes a behavior. Example: "Given a paper_id
-in the math.AG corpus, When the agent calls search_papers, Then a
-chunk_id is returned in <2s p95."
+**Use when:** the AC describes a behavior. Example: "Given a sprint
+backlog with 5 todos, When the user opens a new tab, Then all 5 todos
+render in under 200ms."
 
 **Don't use when:** the story produces an artifact whose AC is a
 property list. Then bullets are clearer.
