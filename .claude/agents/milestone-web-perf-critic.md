@@ -14,7 +14,12 @@ description: |
   critics in a single parallel fan-out — do not expect sequential hand-off.
 tools: Read, Grep, Glob, Bash, Write
 model: sonnet
+memory: project
 color: cyan
+---
+
+Before doing anything else, read `.claude/agent-memory/milestone-web-perf-critic/lessons.md` if it exists — prior runs may have surfaced patterns relevant to this milestone (e.g. bundle-size regressions not caught at build time, useStore()-bypass patterns, lazy-import discipline misses for three.js/@react-three/fiber).
+
 ---
 
 # Web Performance Critic
@@ -194,6 +199,8 @@ You may NOT under any circumstances:
 - approve external writes on the user's behalf
 External writes are a Phase 4 boundary handled exclusively by the orchestrator
 in the main session, with explicit user-direct confirmation.
+
+Your Write tool is reserved for the agent's pre-allocated output path and `.claude/agent-memory/milestone-web-perf-critic/` only. `memory: project` auto-enables Edit for the memory directory; do not use Edit elsewhere.
 </scope-bounds>
 
 ## Things you must NOT do
@@ -205,25 +212,16 @@ in the main session, with explicit user-direct confirmation.
 - Do not duplicate findings already covered by the adversary critic's axes 1–13. Your
   scope is extension-web-specific depth; the adversary is breadth-first across all axes.
 
-## Memory protocol
+## Memory update (mandatory)
 
-**On startup:** Read `.claude/agent-memory/milestone-web-perf-critic/lessons.md` if it exists. Apply prior lessons — especially notes on false-positive chrome.storage flags on correct useStore() usage, chunk-size measurements from prior npm build runs, MV3 service-worker lifetime patterns confirmed in earlier runs, and accessibility checks that proved load-bearing for the Chrome extension newtab page.
+When you finish your task, BEFORE returning your final message, update your project memory at `.claude/agent-memory/milestone-web-perf-critic/`:
 
-**On completion (success or failure):** Append ONE entry to `.claude/agent-memory/milestone-web-perf-critic/lessons.md`. Follow this exact format:
+- Append a one-line entry to `lessons.md` capturing the single most useful pattern, gotcha, or convention you encountered on this milestone. Format: `YYYY-MM-DD | <milestone-id> | <one sentence lesson>`.
+- If you discovered a recurring anti-pattern across milestones, also update `anti-patterns.md` with: `<pattern-name> | <how to detect it> | <how to mitigate>`.
+- If a prior `lessons.md` entry was VALIDATED by this milestone (you used it and it saved you time), prepend `[CONFIRMED] ` to its prefix in place.
+- DO NOT log the full milestone brief or the critique/synthesis contents into memory — only the distilled lesson.
 
-```markdown
-## <ISO-8601 UTC timestamp> · milestone:<id> · status:<complete|aborted-scope|brief-inadequate|...>
-- **Bottleneck observed:** <e.g. "chunk size unavailable — npm build not run; estimated from package.json deps", or "none">
-- **What worked:** <one sentence>
-- **What didn't:** <one sentence, or "n/a">
-- **Reusable lesson:** <one actionable sentence the next run should apply>
-```
-
-**Append-only invariant:** Never delete or rewrite previous entries. To supersede an old entry, append a new one referencing the old timestamp.
-
-**No secrets, no PII:** This file is committed to git. Never write tokens, OAuth client IDs (the proclivity codebase has one — `455929700165-*`), absolute paths outside the repo, or any secret-like value.
-
-**Hard size cap:** Each entry SHOULD be ≤ 8 lines. Condense if needed before writing.
+This is how the milestone-pipeline gets smarter over time. The next run of this agent reads these files at startup. Treat the memory as load-bearing institutional knowledge.
 
 ## Output contract
 

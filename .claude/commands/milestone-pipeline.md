@@ -6,20 +6,14 @@ argument-hint: <milestone-id> | --brief "<text>" | --from-roadmap <path> [--deep
 
 You are the milestone-pipeline orchestrator for the proclivity project. You run the full four-phase pipeline end-to-end. Read this entire prompt before touching anything.
 
-## Token budget
+<!-- This slash command body loads on every invocation. Phase reference files load lazily at phase entry. Read them from disk at the phase they're needed; do NOT echo their content into the main session. -->
 
-This slash command body loads on every invocation. Keep it lean. The `references/` files
-load lazily at phase entry — heavier phase logic lives there. Sub-agent prompts are bounded
-by their own agent file. Do NOT echo reference-file contents into the main session for
-"convenience" — read them from disk at the phase they're needed.
-
-## Constants
-
-```
-REPO_ROOT=/Users/chris.dare/Personal/SourceCode/proclivity
-SCRIPTS=$REPO_ROOT/.claude/skills/milestone-pipeline/scripts
-REFS=$REPO_ROOT/.claude/skills/milestone-pipeline/references
-NOTES=$REPO_ROOT/.claude/notes/milestones
+Paths used below (export once at session start):
+```bash
+export REPO_ROOT=/Users/chris.dare/Personal/SourceCode/proclivity
+export SCRIPTS=$REPO_ROOT/.claude/skills/milestone-pipeline/scripts
+export REFS=$REPO_ROOT/.claude/skills/milestone-pipeline/references
+export NOTES=$REPO_ROOT/.claude/notes/milestones
 ```
 
 ## Argument parsing
@@ -65,33 +59,9 @@ flag — the script is the single source of truth.
 
 ---
 
-## Memory contract (body-driven, not frontmatter)
+## Sub-agent memory
 
-Each `milestone-*` sub-agent implements persistent memory in its **body**, not via a
-`memory: project` frontmatter field (that field is not currently a documented Claude
-Code feature — verified by `grep -r "memory:" ~/.claude/plugins/marketplaces/claude-plugins-official/plugins/*/agents/*.md`
-returning zero matches). Each agent's `## Memory protocol` section instructs it to:
-
-- **On startup:** `Read .claude/agent-memory/<agent-name>/lessons.md` if it exists, and
-  apply prior lessons to its current run.
-- **On completion (success or failure):** `mkdir -p` the directory and append exactly
-  ONE entry to `lessons.md`, formatted per the body spec (≤ 8 lines, no secrets,
-  no PII).
-
-Implications for the orchestrator (this body):
-
-- Do **NOT** pass memory content into the dispatch prompt — the agent reads its own
-  memory file from disk.
-- Memory files are append-only. The orchestrator never writes to them.
-- After Phase 3 and Phase 4 complete, the orchestrator MAY read recent entries from
-  each agent's memory file to look for patterns (repeated finding classes, systematic
-  scope creep, repeated invalidation triggers).
-- The directory `.claude/agent-memory/<agent-name>/` is created lazily by the agent
-  on its first successful run. There is no setup step.
-
-If/when Claude Code ships a real `memory: project` frontmatter feature, the
-body-driven pattern can be deprecated in favor of it. See `.claude/agents/README.md`
-§ "Persistent memory (body-driven, not frontmatter)" for the longer rationale.
+Every `milestone-*` agent has `memory: project` in its frontmatter and its own body-side `## Memory update (mandatory)` block. Memory accumulates under `.claude/agent-memory/<agent>/{lessons.md, anti-patterns.md}` across runs — append-only institutional knowledge. The orchestrator does NOT inject memory content into the dispatch prompt; the agent reads its own file at startup. Do not clear, truncate, or rewrite any agent-memory file.
 
 ---
 
@@ -270,10 +240,10 @@ Read `$REFS/phase-critique.md` and `$REFS/critique-format.md` fully.
 CRITICS_JSON=$($SCRIPTS/dispatch-critics.sh "$MILESTONE_ID" ${INCLUDE_OSS:+--include-oss})
 ```
 
-Output is JSON: `{"always": ["milestone-adversary"], "conditional": [...], "optional": [...]}`.
+Output is JSON: `{"always": ["milestone-adversary-critic"], "conditional": [...], "optional": [...]}`.
 
 `dispatch-critics.sh` emits canonical `milestone-*` agent names directly
-(`milestone-adversary`, `milestone-web-perf-critic`, `milestone-infra-critic`,
+(`milestone-adversary-critic`, `milestone-web-perf-critic`, `milestone-infra-critic`,
 `milestone-lfs-critic`, `milestone-oss-scout`) — those are the exact filenames
 under `.claude/agents/`, so `subagent_type=$NAME` resolves without an
 intermediate map.
@@ -296,7 +266,7 @@ $SCRIPTS/log-event.sh "$MILESTONE_ID" phase-enter phase=critique-running
 
 **Dispatch ALL applicable critics in ONE message** using the agent names from
 `$CRITICS_JSON` directly as `subagent_type`:
-- `milestone-adversary` — always (13-axis sweep per `$REFS/phase-critique.md`)
+- `milestone-adversary-critic` — always (13-axis sweep per `$REFS/phase-critique.md`)
 - `milestone-web-perf-critic` — if present in `$CRITICS_JSON.conditional`
 - `milestone-infra-critic` — if present in `$CRITICS_JSON.conditional`
 - `milestone-lfs-critic` — if present in `$CRITICS_JSON.conditional`
@@ -348,56 +318,24 @@ $SCRIPTS/log-event.sh "$MILESTONE_ID" phase-exit phase=critique-complete
 
 ## Phase 4 — RECTIFY (MAIN SESSION ONLY — never delegate)
 
-Read `$REFS/phase-rectify.md` fully. Do NOT dispatch a sub-agent for this phase. If the main session is out of context budget, the only permissible delegation is to a sub-agent that did NOT write the implementation.
+**Read `$REFS/phase-rectify.md` fully before starting.** It is the canonical source for the re-verification protocol, severity decisions, loop caps, and escalation triggers — do NOT duplicate those rules here. This phase body keeps only the executable commands the orchestrator runs.
+
+Phase 4 runs in the main session. Do NOT dispatch a sub-agent unless the main session is genuinely out of context budget, and only then to a sub-agent that did NOT write the implementation.
 
 ```bash
 $SCRIPTS/checkpoint.py "$MILESTONE_ID" rectify-running
 $SCRIPTS/log-event.sh "$MILESTONE_ID" phase-enter phase=rectify-running
 ```
 
-### 4a — Re-verification (anchor each CRITICAL + HIGH against live code)
+### 4a — Re-verification + fix loop
 
-For every CRITICAL and HIGH finding in `critique/dedup.md`:
+Walk every CRITICAL + HIGH per the protocol in `phase-rectify.md`. Log invalidations:
 
-```python
-# Conceptually:
-cited_text = finding.anchor_field  # first 40 chars of cited line
-window = read_file(finding.file, finding.line - WINDOW, finding.line + WINDOW)
-WINDOW = 30  # code; 10 for prose/MDX/config
-
-if cited_text not in window:
-    mark_invalidated(finding, reason="anchor-not-found")
-elif live_code_no_longer_matches_critic_claim(finding):
-    mark_invalidated(finding, reason="code-no-longer-matches-claim")
-else:
-    proceed_to_fix(finding)
-```
-
-Log each invalidation:
 ```bash
 $SCRIPTS/log-event.sh "$MILESTONE_ID" finding-invalidated id=<id> reason=<reason>
 ```
 
-**If invalidation rate > 40%:** Re-run `dispatch-critics.sh` against the post-implement diff and re-dispatch critics (back to Phase 3, transition via `checkpoint.py --rollback-to critique-running`). Do NOT push through.
-
-### 4b — Fix loop
-
-Ordered per `## Recommended rectification order` in `dedup.md`.
-
-Severity actions:
-- **CRITICAL**: Always fix. Add regression test/assert/snapshot.
-- **HIGH**: Always fix. Add regression test/assert/snapshot.
-- **MEDIUM**: Fix iff ≤ 30 LOC AND no new test files needed beyond a single assert. Else defer.
-- **LOW**: Defer.
-
-Inner cap: 3 attempts per finding. Outer cap: 3 full check-matrix iterations.
-
-Escalation triggers (any one suffices):
-- Cap exhausted.
-- Same error string twice in a row.
-- Zero diff overlap between attempt N and N-1.
-
-On escalation: write `rectify/escalation.md` with last error + diff history. Surface with "human needed". Exit Phase 4 in `rectify-running`. User decides: `--resume rectify --start-fresh [--model opus]`.
+If invalidation rate > 40%: `checkpoint.py --rollback-to critique-running`, re-run `dispatch-critics.sh`, re-critique. Don't push through stale findings.
 
 Record each fix:
 ```bash
@@ -405,16 +343,17 @@ $SCRIPTS/checkpoint.py "$MILESTONE_ID" --append "fixed_findings=[\"<id>\"]"
 $SCRIPTS/log-event.sh "$MILESTONE_ID" finding-fixed id=<id>
 ```
 
-### 4c — Regression-guard structural check
+On escalation (cap exhausted, same error twice, zero diff overlap): write `rectify/escalation.md`, exit Phase 4 in `rectify-running`, surface to user.
 
-After local commit:
+### 4b — Regression-guard structural check (after commit lands)
+
 ```bash
 $SCRIPTS/check-rect-tests.sh
 ```
 
-If fails: `git reset --soft HEAD~1`. Fix. Re-commit. Prompt-only enforcement is not enough.
+If fails: `git reset --soft HEAD~1`, fix, re-commit. Prompt-only enforcement is not enough.
 
-### 4d — Rect commit
+### 4c — Rect commit
 
 **Critical sequencing:** build the full commit message (subject + body + ALL trailers)
 in one pass, then `git commit -S -m "$MSG"`. The earlier approach of committing first
@@ -452,46 +391,24 @@ do NOT retry with `--no-gpg-sign`. The user restarts the gpg-agent and runs
 
 Record: `$SCRIPTS/checkpoint.py "$MILESTONE_ID" --set "rectification_commit=$(git rev-parse HEAD)"`
 
-### 4e — External-write boundary (STOP HERE)
+### 4d — External-write boundary (STOP HERE)
+
+Full rules in `$REFS/phase-rectify.md` § "External-write boundary". The orchestrator MUST NOT auto-invoke `release-deputy`, MUST NOT `git push`, MUST NOT call any `bin/site` mutating verb. Surface the pending writes to the user and wait for explicit per-write authorization.
 
 ```bash
 EXTERNAL_WRITES=$($SCRIPTS/checkpoint.py "$MILESTONE_ID" --get external_writes_required)
+# If non-empty, print the standard pending-writes block and STOP.
 ```
 
-If non-empty, print EXACTLY this block to the user and STOP:
-
-```
-Pipeline complete locally. External writes pending:
-  <list each item from external_writes_required>
-
-To proceed:
-  - For release: invoke /release-deputy (it will run preflight, then prompt).
-  - For git push: confirm authorization, then run: git push origin main
-  - To skip any item: reply with "skip <item>".
-
-None of these will run automatically. The pipeline is paused at rectify-running
-until you reply with explicit per-write authorization.
-```
-
-Do NOT auto-invoke `release-deputy`. Do NOT push. Do NOT call any `bin/site` mutating verb. Wait for user-direct reply.
-
-As the user authorizes (or skips) each item, append to
-`external_writes_completed` — that is the canonical "this item is no longer
-pending" set per `state.schema.json`. Both "authorize" and "skip" replies
-update the same field; a separate skipped list is intentionally not modeled
-because the user's intent is identical from the pipeline's perspective
-(item is done, do not block).
+As the user authorizes or skips each item, append to `external_writes_completed` (a single field carries both states — see `state.schema.json`):
 
 ```bash
-# For an authorized item (user replied "authorize <item>" then ran it):
+$SCRIPTS/checkpoint.py "$MILESTONE_ID" --append "external_writes_completed=[\"<item>\"]"
+# For authorized items, ALSO record in external_writes_authorized:
 $SCRIPTS/checkpoint.py "$MILESTONE_ID" --append "external_writes_authorized=[\"<item>\"]"
-$SCRIPTS/checkpoint.py "$MILESTONE_ID" --append "external_writes_completed=[\"<item>\"]"
-
-# For a skipped item (user replied "skip <item>"):
-$SCRIPTS/checkpoint.py "$MILESTONE_ID" --append "external_writes_completed=[\"<item>\"]"
 ```
 
-When `external_writes_required ⊆ external_writes_completed`:
+When `external_writes_required ⊆ external_writes_completed`, close the pipeline:
 
 ```bash
 $SCRIPTS/checkpoint.py "$MILESTONE_ID" complete
@@ -499,7 +416,7 @@ $SCRIPTS/compute-metrics.py "$MILESTONE_ID"
 $SCRIPTS/log-event.sh "$MILESTONE_ID" pipeline-complete
 ```
 
-Write `rectify/summary.md` with: fixed findings, deferred findings (with rationale), invalidated findings, regression tests added.
+Write `rectify/summary.md` with fixed/deferred/invalidated findings + regression tests added.
 
 ---
 
@@ -526,14 +443,6 @@ Write `rectify/summary.md` with: fixed findings, deferred findings (with rationa
 
 ## Resume behavior
 
-If `state.json` exists and `--start-fresh` is NOT set for rectify, resume from the recorded `phase`:
-- `research-running` → re-read brief paths from state; retry any incomplete researchers
-- `research-complete` → skip to Phase 2
-- `implement-running` → re-read base SHA from state; continue or re-delegate
-- `implement-complete` → skip to Phase 3
-- `critique-running` → re-read critic list from state; retry any incomplete critics
-- `critique-complete` → skip to Phase 4
-- `rectify-running` → re-read `fixed_findings`, continue loop from next unfixed finding
-- `complete` → print final summary from `metrics.json`; no-op
+`init-state.sh` is the single source of truth for resume detection: it prints `RESUMING phase=<X>` and exits 0 when `state.json` already exists. Skip forward to that phase's section. The state-machine table in `$REFS/state-schema.md` documents per-phase resume semantics.
 
-`--resume rectify --start-fresh` resets `fixed_findings`, `deferred_findings`, `invalidated_findings`, rectify loop counters, and `rectification_commit` to null, then enters Phase 4 fresh (critique artifacts preserved).
+`--resume rectify --start-fresh` resets `fixed_findings`, `deferred_findings`, `invalidated_findings`, rectify loop counters, and `rectification_commit`; then re-enters Phase 4 (critique artifacts preserved).

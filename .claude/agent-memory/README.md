@@ -28,7 +28,7 @@ This invariant is documented in `.claude/CLAUDE.md` § "Agent memory".
 │   └── lessons.md                   # append-only log; see agent definition for format
 ├── milestone-implementer/
 │   └── lessons.md
-├── milestone-adversary/
+├── milestone-adversary-critic/
 │   └── lessons.md
 ├── milestone-web-perf-critic/
 │   └── lessons.md

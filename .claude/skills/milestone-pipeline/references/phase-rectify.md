@@ -75,7 +75,7 @@ The script asserts: if the rect commit changed any production code (anything out
 rect(<id>): close C1, H1, H2
 
 Closes critique findings: C1, H1, H2
-Reviewed-by: milestone-adversary <noreply@anthropic.com>
+Reviewed-by: milestone-adversary-critic <noreply@anthropic.com>
 Reviewed-by: milestone-web-perf-critic <noreply@anthropic.com>
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 ```
@@ -89,7 +89,7 @@ the subject+body, then pass to `git commit -S -m "$MSG"`. The command body
 at `.claude/commands/milestone-pipeline.md` Phase 4d shows the working
 sequence — match it.
 
-Use canonical agent names (`milestone-adversary`, `milestone-web-perf-critic`,
+Use canonical agent names (`milestone-adversary-critic`, `milestone-web-perf-critic`,
 `milestone-infra-critic`, `milestone-lfs-critic`, `milestone-oss-scout`) so
 the trailer cross-references the actual `.claude/agents/` definitions.
 

@@ -81,7 +81,7 @@ opt_idx = args.index("--opt") if "--opt" in args else len(args)
 conditional = args[:opt_idx]
 optional = args[opt_idx + 1:] if opt_idx < len(args) else []
 print(json.dumps({
-    "always": ["milestone-adversary"],
+    "always": ["milestone-adversary-critic"],
     "conditional": conditional,
     "optional": optional,
 }, indent=2))

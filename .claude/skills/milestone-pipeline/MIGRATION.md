@@ -42,7 +42,7 @@ ls /Users/chris.dare/Personal/SourceCode/proclivity/.claude/commands/
 
 # 2. Confirm agents exist (written by sibling agent)
 ls /Users/chris.dare/Personal/SourceCode/proclivity/.claude/agents/ | grep milestone
-# Expected: milestone-researcher.md, milestone-implementer.md, milestone-adversary.md,
+# Expected: milestone-researcher.md, milestone-implementer.md, milestone-adversary-critic.md,
 #           milestone-web-perf-critic.md, milestone-infra-critic.md,
 #           milestone-lfs-critic.md, milestone-oss-scout.md
 
@@ -136,7 +136,7 @@ Plugin manifest skeleton (save as `manifest.json` at the plugin root):
   "agents": [
     "milestone-researcher",
     "milestone-implementer",
-    "milestone-adversary",
+    "milestone-adversary-critic",
     "milestone-web-perf-critic",
     "milestone-infra-critic",
     "milestone-lfs-critic",
@@ -254,7 +254,7 @@ See bottom of this file for discrepancies spotted between `SKILL.md` and the
 
 4. **Phase 3 critic agent names:** **RESOLVED.** `dispatch-critics.sh` was
    updated in the remediation pass (2026-05-17) to emit canonical agent file
-   names (`milestone-adversary`, `milestone-web-perf-critic`, etc.) directly,
+   names (`milestone-adversary-critic`, `milestone-web-perf-critic`, etc.) directly,
    eliminating the legacy→canonical mapping table. The `critique.schema.json`
    enum was updated in the same pass. The legacy mapping table in the command
    body is retained as historical context but is no longer functionally needed.

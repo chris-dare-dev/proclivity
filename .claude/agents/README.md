@@ -18,7 +18,7 @@ Chrome extension; no `web/`, `bin/`, `infra/`, `Pulumi.*.yaml`, or
 |---|---|---|---|---|
 | `milestone-researcher` | Phase 1, always (general-purpose Sonnet slot) | `.claude/notes/milestones/<id>/research/brief-2.md` | sonnet | yes (manual append) |
 | `milestone-implementer` | Phase 2, delegated path (300–800 LOC or >5 files) | `.claude/notes/milestones/<id>/implement/synthesis.md` | sonnet | yes (manual append) |
-| `milestone-adversary` | Phase 3, always | `.claude/notes/milestones/<id>/critique/adversary.md` | opus | yes (manual append) |
+| `milestone-adversary-critic` | Phase 3, always | `.claude/notes/milestones/<id>/critique/adversary.md` | opus | yes (manual append) |
 | `milestone-web-perf-critic` | Phase 3, when diff touches `src/`, `public/`, `manifest.config.ts`, `vite.config.ts`, `tsconfig.json`, `package(-lock)?.json`, or `index.html` | `.claude/notes/milestones/<id>/critique/web.md` | sonnet | yes (manual append) |
 | `milestone-infra-critic` | Phase 3, when diff touches `.github/workflows/**` | `.claude/notes/milestones/<id>/critique/infra.md` | sonnet | yes (manual append) |
 | `milestone-lfs-critic` | Phase 3, when diff touches `.gitattributes` or adds any binary asset (png/jpg/heic/mp4/etc.) | `.claude/notes/milestones/<id>/critique/lfs.md` | sonnet | yes (manual append) |
@@ -38,7 +38,7 @@ Return per <output-contract>.
 """)
 
 # Phase 3 — parallel (one turn, all critics at once)
-Agent(subagent_type='milestone-adversary', prompt=f"Review milestone {id}, commits {commit_range}. Write to {critique_path}.")
+Agent(subagent_type='milestone-adversary-critic', prompt=f"Review milestone {id}, commits {commit_range}. Write to {critique_path}.")
 Agent(subagent_type='milestone-web-perf-critic', prompt=f"Review milestone {id}, commits {commit_range}. Write to {critique_path}.")
 # etc.
 ```

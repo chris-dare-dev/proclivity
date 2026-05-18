@@ -145,7 +145,7 @@ use the new path until the move actually happens.
 |---|---|---|
 | `milestone-researcher` | Phase 1 | Codebase + external research; writes brief |
 | `milestone-implementer` | Phase 2 (delegated) | Writes code; commits to main |
-| `milestone-adversary` | Phase 3 | 13-axis adversarial critique (always fires) |
+| `milestone-adversary-critic` | Phase 3 | 13-axis adversarial critique (always fires) |
 | `milestone-web-perf-critic` | Phase 3 (conditional) | web/** bundle + perf review |
 | `milestone-infra-critic` | Phase 3 (conditional) | GitHub Actions workflows review (`.github/workflows/**`) |
 | `milestone-lfs-critic` | Phase 3 (conditional) | Binary asset hygiene + `.gitattributes` introduction (proclivity has no LFS today) |

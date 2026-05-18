@@ -1,10 +1,10 @@
-# milestone-adversary lessons
+# milestone-adversary-critic lessons
 
 This file is an **append-only log**. Each entry records what was learned during a single
 Phase 3 adversarial critique. Never delete or rewrite previous entries. To correct a
 prior entry, append a new one that references the old timestamp.
 
-Entry format (defined in `.claude/agents/milestone-adversary.md` § Memory protocol):
+Entry format (defined in `.claude/agents/milestone-adversary-critic.md` § Memory protocol):
 
 ```
 ## <ISO-8601 UTC timestamp> · milestone:<id> · status:<status>
@@ -16,4 +16,4 @@ Entry format (defined in `.claude/agents/milestone-adversary.md` § Memory proto
 
 ---
 
-<!-- Entries will be appended below this line by the milestone-adversary agent. -->
+<!-- Entries will be appended below this line by the milestone-adversary-critic agent. -->

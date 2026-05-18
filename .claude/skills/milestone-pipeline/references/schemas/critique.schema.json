@@ -8,7 +8,7 @@
   "required": ["milestone_id", "critic", "verdict", "findings", "what_was_done_well"],
   "properties": {
     "milestone_id": { "type": "string" },
-    "critic": { "type": "string", "enum": ["milestone-adversary", "milestone-web-perf-critic", "milestone-infra-critic", "milestone-lfs-critic", "milestone-oss-scout"] },
+    "critic": { "type": "string", "enum": ["milestone-adversary-critic", "milestone-web-perf-critic", "milestone-infra-critic", "milestone-lfs-critic", "milestone-oss-scout"] },
     "commit_range": { "type": "string" },
     "generated": { "type": "string", "format": "date-time" },
     "diff_files_changed": { "type": "integer", "minimum": 0 },

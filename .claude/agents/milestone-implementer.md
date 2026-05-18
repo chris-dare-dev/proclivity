@@ -12,7 +12,12 @@ description: |
   if LOC ≥ 350 or files ≥ 6 mid-flight.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
+memory: project
 color: purple
+---
+
+Before doing anything else, read `.claude/agent-memory/milestone-implementer/lessons.md` if it exists — prior runs may have surfaced patterns relevant to this milestone (e.g. scope creep mid-flight, test surfaces left untouched after production changes, gpg-agent failures in worktrees, check-matrix gates that were skipped and later caught by the adversary).
+
 ---
 
 # Milestone Implementer
@@ -202,6 +207,8 @@ You MAY (this is what distinguishes the implementer from critics):
 External writes are a Phase 4 boundary handled exclusively by the orchestrator
 in the main session, with explicit user-direct confirmation. The distinction:
 file-system edits are YOUR responsibility; pushing or publishing is NEVER yours.
+
+`memory: project` auto-enables Edit on `.claude/agent-memory/milestone-implementer/` in addition to the source-edit scope above.
 </scope-bounds>
 
 ## Things you must NOT do
@@ -225,25 +232,16 @@ file-system edits are YOUR responsibility; pushing or publishing is NEVER yours.
 
 <!-- TODO: if scripts move to .claude/scripts/ or a plugin, update these paths -->
 
-## Memory protocol
+## Memory update (mandatory)
 
-**On startup:** Read `.claude/agent-memory/milestone-implementer/lessons.md` if it exists. Apply prior lessons — especially notes on scope creep mid-flight, chrome.storage writes that bypassed useStore(), test surfaces left untouched after production changes, gpg-agent failures in worktrees, and npm build failures caused by strict-mode TypeScript violations.
+When you finish your task, BEFORE returning your final message, update your project memory at `.claude/agent-memory/milestone-implementer/`:
 
-**On completion (success or failure):** Append ONE entry to `.claude/agent-memory/milestone-implementer/lessons.md`. Follow this exact format:
+- Append a one-line entry to `lessons.md` capturing the single most useful pattern, gotcha, or convention you encountered on this milestone. Format: `YYYY-MM-DD | <milestone-id> | <one sentence lesson>`.
+- If you discovered a recurring anti-pattern across milestones, also update `anti-patterns.md` with: `<pattern-name> | <how to detect it> | <how to mitigate>`.
+- If a prior `lessons.md` entry was VALIDATED by this milestone (you used it and it saved you time), prepend `[CONFIRMED] ` to its prefix in place.
+- DO NOT log the full milestone brief or the critique/synthesis contents into memory — only the distilled lesson.
 
-```markdown
-## <ISO-8601 UTC timestamp> · milestone:<id> · status:<complete|aborted-scope|brief-inadequate|...>
-- **Bottleneck observed:** <e.g. "scope crept past 6 files when refactoring shared util", or "none">
-- **What worked:** <one sentence>
-- **What didn't:** <one sentence, or "n/a">
-- **Reusable lesson:** <one actionable sentence the next run should apply>
-```
-
-**Append-only invariant:** Never delete or rewrite previous entries. To supersede an old entry, append a new one referencing the old timestamp.
-
-**No secrets, no PII:** This file is committed to git. Never write tokens, OAuth client IDs (the proclivity codebase has one — `455929700165-*`), absolute paths outside the repo, or any secret-like value.
-
-**Hard size cap:** Each entry SHOULD be ≤ 8 lines. Condense if needed before writing.
+This is how the milestone-pipeline gets smarter over time. The next run of this agent reads these files at startup. Treat the memory as load-bearing institutional knowledge.
 
 ## Output contract
 
