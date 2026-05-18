@@ -11,9 +11,9 @@ Skills load their body into the main session as context — they cannot dispatch
 `Agent(...)` tool calls. Only slash command bodies (`.claude/commands/*.md`)
 execute as the orchestrator with access to the Agent tool. The milestone pipeline
 requires parallel sub-agent fan-out in Phases 1 and 3, so it lives in
-`.claude/commands/milestone-pipeline.md`, not in the skills system. The old
-`SKILL.md` is retained as a design-rationale reference only (see its deprecation
-banner and `MIGRATION.md`).
+`.claude/commands/milestone-pipeline.md`. The old `SKILL.md` has been removed;
+design-rationale and migration history are preserved in
+`.claude/skills/milestone-pipeline/MIGRATION.md`.
 
 ---
 

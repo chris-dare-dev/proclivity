@@ -205,7 +205,7 @@ future readers don't assume the hook is active.
 | `critique_rect_order` added to state schema (H2) | COMPLETED | 2026-05-17 | Remediation |
 | `AGENTS.md` stub created at repo root (H7) | COMPLETED | 2026-05-17 | Remediation |
 | `phase-rectify.md` interpret-trailers pattern corrected to compose-before-commit (H5) | COMPLETED | 2026-05-17 | Remediation |
-| SKILL.md **deleted** | NOT YET — requires clean end-to-end run first | — | — |
+| SKILL.md **deleted** | COMPLETED | 2026-05-17 | User-directed cleanup |
 
 **Memory note (correction from initial Agent A output):** the original conversion
 declared `memory: project` in each agent's frontmatter. The adversarial opus critic
@@ -217,11 +217,14 @@ agent) is the actual mechanism: agents Read `.claude/agent-memory/<agent>/lesson
 on startup and append a single bullet on completion. If/when Claude Code ships a
 real `memory: project` frontmatter feature, the manual pattern can be deprecated.
 
-**Remaining gate before SKILL.md deletion:** a full end-to-end run
-(`init → research → implement → critique → rectify → complete`) must
-complete without manual intervention on a real milestone, with `metrics.json`
-written and no phase retries attributable to prompt-text gaps from the
-conversion. See "When (and only when) to delete SKILL.md" above.
+**SKILL.md deletion (2026-05-17):** user authorized the deletion before the
+first end-to-end milestone run, choosing to commit fully to the slash-command
+approach rather than keep the deprecated stub around as a safety net. The
+scripts and references under `.claude/skills/milestone-pipeline/{scripts,references}/`
+remain in place — they are still referenced by the slash command body and by
+each milestone-* agent. Only `SKILL.md` itself was removed. The original
+"When (and only when) to delete SKILL.md" gate below is preserved as design
+rationale but no longer load-bearing.
 
 ---
 
