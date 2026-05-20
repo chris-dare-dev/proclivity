@@ -653,30 +653,139 @@ Specialist: Visual reviewer — confirm no layout shift during the 220 ms transi
 
 ---
 
+### `frontend-uplift-2026q2-m6` — UPL-9 todo-row lift-on-hover
+
+Promoted from Later lane on 2026-05-20 after e2 (m4 + m5) shipped. First milestone in epic e3 (UX Polish). Pure CSS — no library, no React state changes. Fast XS win.
+
+**Stories:**
+
+**`frontend-uplift-2026q2-e3-s12` — UPL-9: CSS lift-on-hover for `.todo-item`** (XS)
+
+Given todo rows today render flat in `.todo-list` with no hover affordance, and the codebase already has `.todo-item` styled in `src/sections/sections.css` with `display: flex; padding: 10px 12px; border: 1px solid var(--border)`
+When the developer adds `transition: transform 120ms ease-out, box-shadow 120ms ease-out;` to `.todo-item` and a `:hover` block (gated by `@media (hover: hover) and (pointer: fine)` so touch devices don't get a sticky hover state) that applies `transform: translateY(-2px)` and a subtle `box-shadow: 0 4px 12px oklch(0 0 0 / 0.18)` to create the lift, paired with the canonical dual-guard reduced-motion block (`[data-reduced-motion="true"]` AND `@media (prefers-reduced-motion: reduce)`) that collapses both the transform and shadow to `none`
+Then hovering a todo row on desktop produces a visible ~2 px lift + soft shadow within 120 ms; on touch devices (no hover support) the hover state never engages and the row stays flat; under reduced-motion the transform and shadow are suppressed entirely; `npm run build` passes with zero TypeScript strict errors and no measurable initial-chunk delta (pure CSS additions)
+
+Specialist: Visual reviewer — confirm the lift reads as a clear affordance without feeling jittery or competing with the m5-s9 stagger on tab activation (the stagger sets opacity, this sets transform — they shouldn't interfere); confirm the shadow color works in both light and dark themes (use `oklch(0 0 0 / N%)` per the m3 rect convention to stay theme-invariant)
+
+---
+
+### `frontend-uplift-2026q2-m7` — UPL-4 modal scale-in (motion library)
+
+Modal `<AnimatePresence>` scale-in / scale-out via the `motion` library shipped in m2. No new dependency — reuses the LazyMotion + domAnimation foundation. Reduced-motion respected via `useReducedMotion()`. Three modals exist today: SettingsModal, TodoEditModal, and the QuickPrompt confirmation flow — start with SettingsModal (highest-frequency open) and TodoEditModal; QuickPrompt is a banner not a modal and is out of scope.
+
+**Stories:**
+
+**`frontend-uplift-2026q2-e3-s13` — UPL-4: motion `<AnimatePresence>` scale-in/out on SettingsModal + TodoEditModal** (S)
+
+Given SettingsModal (`src/components/settings/SettingsModal.tsx`) and TodoEditModal (`src/components/TodoEditModal.tsx`) currently mount instantly via conditional rendering with no entry/exit animation, and `motion/react` is already in the bundle (m2 foundation, behind `LazyMotion`)
+When the developer wraps each modal's root `<div>` in `<AnimatePresence mode="wait">` (mounted in the parent component that conditionally renders the modal), converts the root `<div>` to `motion.div` with `initial={{ opacity: 0, scale: 0.96 }}`, `animate={{ opacity: 1, scale: 1 }}`, `exit={{ opacity: 0, scale: 0.96 }}`, and `transition={{ duration: 0.18, ease: "easeOut" }}`; calls `useReducedMotion()` inside each modal and passes through `transition: { duration: 0 }` when it returns true; verifies the modal backdrop (typically a separate fixed-position overlay) ALSO fades via paired motion props
+Then opening SettingsModal or TodoEditModal produces a visible scale-in over 180 ms (opacity 0→1 + scale 0.96→1); closing reverses it (the unmount is delayed by `<AnimatePresence>` until the exit animation completes); under reduced-motion the animation collapses to instant via the `useReducedMotion()` short-circuit; focus management is preserved (focus moves to the modal on open, returns to the trigger on close — verify the m1-era focus-trap implementation still works); `npm run build` passes with zero TS errors and the initial newtab chunk grows by ≤ 1 KB (motion is already lazy-loaded; the modal components themselves are already lazy-loaded via React.lazy)
+
+Specialist: A11y reviewer — focus-trap verification (Tab cycles through modal controls; Shift+Tab reverses; Escape closes); confirm `useReducedMotion()` collapses the animation to a single render frame (not a "fast animation"); confirm the backdrop click-to-close still works during the exit animation window
+
+Specialist: Bundle-budget reviewer — confirm `motion-features.js` chunk size unchanged (no new motion API surface added that would inflate the deferred chunk); confirm the modal lazy chunks (SettingsModal.js, TodoEditModal.js) grow by ≤ 2 KB each for the motion.div wrapper code
+
+---
+
+### `frontend-uplift-2026q2-m8` — UPL-25 sonner toasts + UPL-13 auto-animate
+
+Two new dependencies in one milestone: `sonner` (~9 KB gz) for in-page toast feedback and `@formkit/auto-animate` (~3 KB gz) for FLIP-style list-mutation animations. Bundled together so a single OSS scout pass covers both license / CVE / size checks. Total deferred-chunk delta target: ≤ 15 KB.
+
+**Stories:**
+
+**`frontend-uplift-2026q2-e3-s14` — UPL-25: sonner toast feedback wired to action callbacks** (XS)
+
+Given proclivity has no in-page feedback primitive — `chrome.notifications` is OS-level only, and reminder-created / settings-saved / quick-action-completed actions provide no confirmation, leaving the user unsure whether the action took
+When the developer runs `npm install sonner@latest`, imports `<Toaster />` and `toast` from `sonner` in `src/newtab/App.tsx`, mounts `<Toaster position="bottom-right" />` once at the App root inside the existing `LazyMotion` provider but outside the `.app` content div, wraps the Toaster mount in a `useReducedMotion()` short-circuit that sets `theme="system"` + `closeButton` + the explicit `duration={3500}` baseline plus a `richColors` flag, and calls `toast.success("Reminder created")` / `toast.success("Settings saved")` from the 2–3 action callbacks that warrant confirmation (start with `Reminders.tsx`'s `addReminder` and `SettingsModal.tsx`'s save path — those are the highest-frequency action completions today)
+Then performing a reminder-create or settings-save action displays a bottom-right toast with the success message that auto-dismisses after 3.5 s; the toast position never causes a layout shift in the main content area (verify CLS = 0 via DevTools Performance panel); under reduced-motion the toast animates with a 0 ms duration and shows / hides instantly; `npm run build` passes with sonner in the dependency tree; the deferred chunk that includes sonner grows by ~9 KB gz (verify via `vite build --report`)
+
+Specialist: A11y reviewer — verify sonner's `aria-live="polite"` is on by default; confirm screen readers announce the toast text on render; confirm `useReducedMotion()` is wired to sonner's `duration` prop rather than expecting the library to detect it natively
+
+Specialist: OSS scout — license confirmation (sonner is MIT), CVE check, MV3 CSP compatibility (sonner ships SVGs and inline styles only — no eval, no Function constructor), caret-pin discipline
+
+**`frontend-uplift-2026q2-e3-s15` — UPL-13: `@formkit/auto-animate` on todo list mutations** (XS)
+
+Given todo rows today appear/disappear instantly when added or removed — the m5-s9 stagger only fires on tab activation, not on per-item mutations — and small list deltas (add a single todo, complete a todo) currently feel jarring
+When the developer runs `npm install @formkit/auto-animate@latest`, imports `useAutoAnimate` from `@formkit/auto-animate/react`, applies the hook to the `<ul className="todo-list">` containers in `TodoList.tsx`, `SprintManager.tsx` (active sprint `<ul>` AND ArchivedSprintRow `<ul>`), and any other surface where rows are added/removed (`ClosedTodosView.tsx`); confirms that the hook respects `prefers-reduced-motion` natively (the library's docs cite `respectMotionPreference: true` as default — verify); does NOT apply auto-animate to the `.card-canvas` card-mode container (different visual paradigm)
+Then adding or completing a todo produces a smooth FLIP transition (item slides into / out of position over ~250 ms); under reduced-motion the FLIP collapses to instant; the m5-s9 stagger animation on tab activation is unaffected (auto-animate runs on list-mutation events, stagger runs on tab-data-staggered-attribute changes — distinct trigger paths); `npm run build` passes with `@formkit/auto-animate` in the dependency tree; the deferred chunk grows by ~3 KB gz
+
+Specialist: Bundle-budget reviewer — verify auto-animate's tree-shaking via the named React entry (`@formkit/auto-animate/react`); confirm the package's `sideEffects: false` claim via the npm registry tarball metadata
+
+Specialist: OSS scout — license (MIT), CVE, MV3 CSP compatibility (auto-animate uses Web Animations API natively — no inline scripts), caret-pin discipline
+
+---
+
+### `frontend-uplift-2026q2-m9` — UPL-14 empty-state illustrations + CTA
+
+Design-heavier than the other e3 milestones. Adds inline SVG illustrations + a contextual CTA to the empty states of the highest-leverage sections (Gantt, LongTerm). Lower-leverage sections (Sprint when no active sprint, Calendar when no events) get a lightweight text-only treatment now; the illustrations are deferred for a later design pass. Pure SVG — no new dependency, no library; illustrations live as inline `<svg>` components in `src/components/illustrations/`.
+
+**Stories:**
+
+**`frontend-uplift-2026q2-e3-s16` — UPL-14: empty-state illustrations + CTA for Gantt and LongTerm** (S)
+
+Given the Gantt section renders `<div className="section-empty">No tasks yet. Click "+ Task" to begin.</div>` when no tasks exist (`src/sections/gantt/ChartView.tsx` or equivalent), and the LongTerm section renders a similar bare-text empty state, and both feel uninviting on cold accounts
+When the developer creates two new inline-SVG illustration components (`src/components/illustrations/GanttEmpty.tsx` and `src/components/illustrations/LongTermEmpty.tsx`) — each a self-contained `<svg viewBox="0 0 240 160">` ~3 KB serialized, drawn with stroke + fill tokens from theme.css (`var(--accent)`, `var(--text-dim)`, `var(--border)`) so they adapt to light/dark; updates each empty-state container to render the illustration above the existing text, plus a primary CTA `<button>` styled with `.btn-primary` (existing class) that focuses the section's add-task input on click (`document.getElementById('gantt-add-task-input')?.focus()` or equivalent); paired with the dual-guard reduced-motion convention if any subtle SVG animations are introduced (e.g. a slow fade-in on mount)
+Then opening the Gantt section with zero tasks shows a soft illustration + "Add your first task" CTA above the existing instructional text; same for LongTerm; clicking the CTA focuses the section's add-task input; illustrations re-color correctly when the user toggles light/dark theme (because they use `var(--accent)` / `var(--text-dim)` tokens, not hex literals); `npm run build` passes with the two new files; the initial chunk delta is ≤ 2 KB (SVGs ship as JSX, gzipped well)
+
+Specialist: Visual reviewer — confirm illustrations work in both light and dark themes; confirm the CTA button styling matches existing primary buttons; confirm the illustrations don't dominate the section header layout at narrow viewports (390 px); confirm the illustration → text → CTA vertical rhythm reads as a coherent layout group
+
+---
+
+### `frontend-uplift-2026q2-m10` — UPL-20 react-hotkeys-hook + UPL-19 Cmd+/ help overlay
+
+The first half of epic e4. UPL-20 installs the declarative shortcut foundation; UPL-19 immediately exercises that foundation by adding a Cmd+/ keyboard help overlay. UPL-19 hard-depends on UPL-20's `useHotkeys` API — bundling them in one milestone keeps the dep + first-consumer atomic and gives the OSS scout one pass on the new library.
+
+**Stories:**
+
+**`frontend-uplift-2026q2-e4-s17` — UPL-20: adopt `react-hotkeys-hook` and replace ad-hoc keydown listeners** (S)
+
+Given proclivity has ad-hoc `document.addEventListener("keydown", ...)` calls scattered across the codebase (verify via `grep -rn 'addEventListener.*keydown' src/`) — typically for modal-Escape-to-close handling — and each one is a manual lifecycle-management chore with no shared registry of "what keys are bound where"
+When the developer runs `npm install react-hotkeys-hook@latest`, imports `useHotkeys` from `react-hotkeys-hook`, replaces every ad-hoc `keydown` listener with `useHotkeys("escape", handler, { enableOnFormTags: true })` or the appropriate-scope variant at the consumer site, ensures the `enableOnContentEditable` flag is set where needed for the Calendar / chat input contexts, and verifies the library's React 18 compatibility via the bundled types
+Then every previous ad-hoc `keydown` listener is removed (`grep -rn 'addEventListener.*keydown' src/` returns empty or only platform-level listeners); modals still close on Escape; chat input shortcuts still work; `npm run build` passes with `react-hotkeys-hook` in the dependency tree; the initial chunk grows by ~3 KB gz (the library is ~3 KB and zero-dep per its npm page)
+
+Specialist: A11y reviewer — confirm `useHotkeys` respects `aria-keyshortcuts` semantics (no automatic announcement; the hook is for behavior, not announcement); confirm no shortcut conflicts with assistive-tech defaults (Cmd+/ is fine; avoid Cmd+H, Cmd+W, etc.)
+
+Specialist: OSS scout — license (MIT), CVE, zero-dep claim verification, caret-pin
+
+**`frontend-uplift-2026q2-e4-s18` — UPL-19: Cmd+/ keyboard help overlay** (XS)
+
+Given the application has multiple keyboard shortcuts (Escape to close modals, soon Cmd+K for palette, soon Cmd+/ for help) but no discoverable surface for the user to see what's available, leading to "what keys does this app respond to?" friction
+When the developer creates `src/components/help/KeyboardHelpOverlay.tsx` — a lazy-loaded modal that lists every active keyboard shortcut (sourced from a single `src/lib/shortcuts.ts` const array that becomes the source of truth for both the registry and the overlay), wraps the modal in `<AnimatePresence>` reusing the m7 motion-library pattern (scale-in/out, 180 ms, reduced-motion respected), wires `useHotkeys("meta+slash, ctrl+slash", () => setHelpOpen(open => !open))` in App.tsx, ensures focus moves to the modal on open + returns to the previously focused element on close
+Then pressing Cmd+/ (Mac) or Ctrl+/ (Windows/Linux) opens a modal listing every active shortcut grouped by category (Navigation, Editing, App); Escape dismisses it (via the same `useHotkeys` foundation s17 just installed); focus returns to the previously focused element on close; the modal renders with the m7 motion pattern under no-preference, instantly under reduced-motion; `npm run build` passes; the modal code is lazy-loaded via `React.lazy()` so initial chunk grows only by the registry size (~0.5 KB)
+
+Specialist: A11y reviewer — confirm focus management (return-to-trigger on close); confirm the modal has `role="dialog"` + `aria-labelledby` + focus-trap; confirm Escape and the toggle key both close it
+
+---
+
+### `frontend-uplift-2026q2-m11` — UPL-18 cmdk Cmd+K command palette (lazy-loaded)
+
+The heaviest single piece in epic e4 — `cmdk` is ~15–20 KB gz per the challenger's revised estimate, with 4 Radix peer-deps. The `React.lazy()` boundary is MANDATORY so the palette code never appears in the initial chunk. V0 surfaces 4–6 commands; the full action registry is a deferred v1.
+
+**Stories:**
+
+**`frontend-uplift-2026q2-e4-s19` — UPL-18: `cmdk` Cmd+K palette, lazy-loaded, 4–6 commands at v0** (M)
+
+Given the app has no fast keyboard surface for cross-section navigation or quick actions (open settings, switch section, create todo, open help) — every action requires mouse navigation or tab-cycling — and competitive tools (Linear, Raycast, Cron, Notion) all anchor on Cmd+K palettes as the keyboard primitive
+When the developer runs `npm install cmdk@latest`, creates `src/components/palette/CommandPalette.tsx` as a lazy-loaded component (`const CommandPalette = lazy(() => import("@/components/palette/CommandPalette"))` from App.tsx), defines a small `src/lib/palette-commands.ts` registry with the v0 commands (open settings, switch to each section, create todo, open keyboard help), wraps the palette in `<Suspense fallback={null}>` so the lazy load doesn't render an empty modal slot, wires `useHotkeys("meta+k, ctrl+k", () => setPaletteOpen(open => !open))` in App.tsx, and verifies the palette uses `@radix-ui/react-dialog` (cmdk's peer) for its overlay (focus-trap, Escape, backdrop click — all free)
+Then pressing Cmd+K (or Ctrl+K) opens a centered command palette that lists the 4–6 v0 commands; typing filters the list (cmdk's built-in fuzzy match); arrow keys + Enter select; Escape dismisses; selecting "open settings" dispatches the existing settings-open event; selecting a section command calls `setTab(...)` in App.tsx; `npm run build` passes with `cmdk` and its Radix peers in the dependency tree; `vite build --report` confirms the palette code is in a separate lazy chunk (NOT the initial newtab chunk), and the initial chunk delta is ≤ 1 KB (only the lazy-import boilerplate)
+
+Specialist: A11y reviewer — `@radix-ui/react-dialog` provides focus-trap by default; verify Escape returns focus to the previously focused element; verify the command list is announced as a `role="listbox"` with each item as `role="option"` (cmdk's defaults); verify the palette doesn't trap keyboard navigation when closed
+
+Specialist: Bundle-budget reviewer — run `vite build --report` and confirm the cmdk chunk lives in `dist/assets/CommandPalette-*.js` (or similar), NOT in `dist/assets/index.html-*.js` (the initial chunk); confirm the initial chunk delta is ≤ 1 KB despite cmdk's ~15–20 KB gz total weight
+
+Specialist: OSS scout — license (cmdk is MIT, Radix peers are MIT), CVE, MV3 CSP compatibility (cmdk + Radix use React refs + Portal — no inline scripts), version-pin discipline; flag the 4 Radix peer-deps explicitly in the brief so the reviewer can size them individually
+
+---
+
 ### Next (shaped)
 
-#### `frontend-uplift-2026q2-e2` — Section Transitions `[VALUE]`
-
-**Goal:** Deliver the two highest-visibility motion improvements (UPL-2 section-fade cross-dissolve on tab switches, UPL-3 stagger-reveal on todo list cold loads) and the mobile layout fix (UPL-16), making every tab navigation and list load feel alive and fixing the clock-overflow / tab-clip at narrow viewports.
-
-**Candidates:** UPL-2 (CSS-only Path a, `hidden=` retained, `[data-leaving]` state machine), UPL-3 (CSS Path a stagger), UPL-16 (mobile clock `clamp` + tab overflow)
-
-**INVEST check:** 6/6 — Independent of e3 and e4; Negotiable (UPL-2 can drop to reveal-only if `[data-leaving]` causes flash-of-content); Valuable (most-frequent daily interaction path); Estimable (UPL-2 is S/M per challenger; UPL-3 + UPL-16 are XS/S); Small (≤2 weeks); Testable (visual regression on all 8 tab transitions, stagger fires once per activation, 390 px mobile renders without overflow).
-
-**Predecessors:** `frontend-uplift-2026q2-e1`
-
-**Key constraint:** UPL-2 v0 MUST use CSS-only Path a (keep `hidden=` intact, animate with `[data-leaving="true"]`). Do NOT replace `hidden=` with `aria-hidden="true"` + opacity — that allows Tab key to reach inactive panel descendants (a11y regression per challenger Axis 3). The `[data-leaving]` state machine is a React useState toggle that fires on tab click and clears after the CSS animation duration (~220 ms).
-
-**Milestones:**
-- `frontend-uplift-2026q2-m4` — UPL-2 v0: CSS `[data-leaving]` section-fade state machine
-- `frontend-uplift-2026q2-m5` — UPL-3 CSS stagger-reveal + UPL-16 mobile header fix
+_All epics promoted to Now lane._ Historic Next-lane entries (e2: UPL-2 + UPL-3 + UPL-16 → m4 + m5, e3: UPL-9 + UPL-4 + UPL-25 + UPL-13 + UPL-14 → m6–m9, e4: UPL-20 + UPL-19 + UPL-18 → m10 + m11) are now fully spec'd above. e2 shipped 2026-05-20 (commits `e9960d4`/`690b20b`/`9473337`); e3 and e4 milestones are queued for `/milestone-pipeline` execution in m-id order.
 
 ---
 
 ### Later (outcomes only)
 
-- `frontend-uplift-2026q2-e3` — Layer in post-foundation UX polish (modal animations, hover microinteractions, sonner toast feedback, auto-animate list mutations, empty-state illustrations) to make every interaction point feel intentionally crafted.
-- `frontend-uplift-2026q2-e4` — Install keyboard-first interaction shell (`react-hotkeys-hook` + Cmd+/ help overlay + `cmdk` Cmd+K palette) to align Proclivity's keyboard ergonomics with Raycast / Linear.
+_Empty._ All identified candidates (UPL-1 through UPL-26) are either shipped (UPL-1/2/3/6/8/16/21/22 in m1–m5), promoted to Now lane (UPL-4/9/13/14/18/19/20/25 in m6–m11), or in §5d's parking lot (UPL-7 / UPL-10 / UPL-11 / UPL-12 / UPL-17 / UPL-23 / UPL-24 / UPL-26 — defer indefinitely per the original synthesis).
 
 <!-- ROADMAP:section:spikes -->
 ## 9. Spike lane
