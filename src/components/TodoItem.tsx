@@ -12,6 +12,7 @@
  */
 
 import type { Tag, Todo } from "@/types";
+import { Pencil, X } from "lucide-react";
 import { TagChip } from "./TagChip";
 
 interface TodoItemProps {
@@ -65,7 +66,7 @@ export function TodoItem({ todo, allTags, onToggle, onDelete, onEdit }: TodoItem
           title={`Edit: ${todo.title}`}
           tabIndex={0}
         >
-          ✎
+          <Pencil size={14} aria-hidden="true" />
         </button>
       )}
       <button
@@ -77,7 +78,7 @@ export function TodoItem({ todo, allTags, onToggle, onDelete, onEdit }: TodoItem
         title={`Delete: ${todo.title}`}
         aria-label={`Delete: ${todo.title}`}
       >
-        ✕
+        <X size={14} aria-hidden="true" />
       </button>
     </li>
   );

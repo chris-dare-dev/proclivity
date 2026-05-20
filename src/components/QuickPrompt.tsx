@@ -19,6 +19,7 @@ import { useStore } from "@/storage/useStore";
 import { resolvedSettings } from "@/storage/constants";
 import { availability as nanoAvailability, type NanoAvailability } from "@/llm/nano";
 import { useQuickPrompt } from "@/hooks/useQuickPrompt";
+import { Check, X } from "lucide-react";
 import "./QuickPrompt.css";
 
 const PLACEHOLDER =
@@ -114,7 +115,7 @@ function QuickResultBanner({ result, onDismiss, onUndo }: BannerProps) {
   if (result.kind === "action") {
     return (
       <div className="quick-prompt-banner action" role="status">
-        <span className="quick-prompt-banner-text">✓ {result.summary}</span>
+        <span className="quick-prompt-banner-text"><Check size={13} aria-hidden="true" /> {result.summary}</span>
         <div className="quick-prompt-banner-actions">
           <button
             type="button"
@@ -130,7 +131,7 @@ function QuickResultBanner({ result, onDismiss, onUndo }: BannerProps) {
             aria-label="Dismiss"
             title="Dismiss"
           >
-            ✕
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
       </div>

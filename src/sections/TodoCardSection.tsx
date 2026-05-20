@@ -21,6 +21,7 @@ import { TaskCard } from "@/components/card/TaskCard";
 import { useCardLayout } from "@/hooks/useCardLayout";
 import type { CardLayoutMap, Tag, Todo } from "@/types";
 import { TodoItem } from "@/components/TodoItem";
+import { RotateCcw } from "lucide-react";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 
 interface Props {
@@ -127,7 +128,7 @@ export function TodoCardSection({
           onClick={() => void handlers.onResetLayout()}
           title="Reset card positions to default (preserves card sizes)"
         >
-          ↺ Reset layout
+          <RotateCcw size={13} aria-hidden="true" /> Reset layout
         </button>
       </div>
 

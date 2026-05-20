@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Reminder, Tag, CardLayoutMap } from "@/types";
 import type { ProclivityState } from "@/types";
+import { Pencil, RotateCcw } from "lucide-react";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
 import { TagChip } from "@/components/TagChip";
 import { filterByTags } from "@/storage/tags";
@@ -236,7 +237,7 @@ function ReminderListItem({
           aria-label={`Edit reminder: ${reminder.title}`}
           onClick={() => onEdit(reminder.id)}
         >
-          ✎
+          <Pencil size={14} aria-hidden="true" />
         </button>
         <button
           className="btn-danger"
@@ -361,7 +362,7 @@ function ReminderCardCanvas({
           onClick={() => void handlers.onResetLayout()}
           title="Reset card positions to default (preserves card sizes)"
         >
-          ↺ Reset layout
+          <RotateCcw size={13} aria-hidden="true" /> Reset layout
         </button>
       </div>
 

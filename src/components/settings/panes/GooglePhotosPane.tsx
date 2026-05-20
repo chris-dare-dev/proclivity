@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Play } from "lucide-react";
 import { SegmentedControl, ToggleSwitch } from "../SettingsControls";
 import {
   EMPTY_PHOTOS_STATE,
@@ -537,12 +538,12 @@ function ThumbnailGrid({
                 lineHeight: 1,
                 padding: "2px 5px",
                 borderRadius: 3,
-                background: "rgba(0, 0, 0, 0.6)",
-                color: "white",
+                background: "color-mix(in srgb, var(--bg) 40%, transparent)",
+                color: "var(--accent-on)",
                 pointerEvents: "none",
               }}
             >
-              ▶
+              <Play size={11} aria-hidden="true" />
             </span>
           </div>
         ) : (

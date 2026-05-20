@@ -1,5 +1,6 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useState } from "react";
 import { LazyMotion } from "motion/react";
+import { Settings, MessageCircle } from "lucide-react";
 import "./App.css";
 import { Today } from "@/sections/Today";
 import { Sprint } from "@/sections/Sprint";
@@ -241,7 +242,7 @@ const Header = memo(function Header() {
               aria-pressed={chatOpen}
               onClick={() => setChatOpen((prev) => !prev)}
             >
-              <ChatBubbleIcon />
+              <MessageCircle size={20} aria-hidden="true" />
             </button>
           )}
           <button
@@ -252,7 +253,7 @@ const Header = memo(function Header() {
             title="Settings"
             onClick={() => setSettingsOpen(true)}
           >
-            <GearIcon />
+            <Settings size={20} aria-hidden="true" />
           </button>
         </div>
       </header>
@@ -284,43 +285,6 @@ const Header = memo(function Header() {
     </>
   );
 });
-
-function GearIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
-    </svg>
-  );
-}
-
-function ChatBubbleIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
 
 /**
  * Mapping from Tab id to sectionVisibility key.

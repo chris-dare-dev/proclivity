@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MonthGrid } from "./calendar/MonthGrid";
 import {
   addMonths,
@@ -77,7 +78,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
             aria-label="Previous month"
             title="Previous month"
           >
-            <ChevronLeft />
+            <ChevronLeft size={16} aria-hidden="true" />
           </button>
           {/* M3: visible heading without aria-live (to avoid SR double-announce).
               A visually-hidden live region below announces month changes. */}
@@ -91,7 +92,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
             aria-label="Next month"
             title="Next month"
           >
-            <ChevronRight />
+            <ChevronRight size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -160,38 +161,3 @@ function Legend() {
   );
 }
 
-function ChevronLeft() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ChevronRight() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}

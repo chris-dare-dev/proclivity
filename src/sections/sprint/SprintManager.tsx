@@ -3,6 +3,7 @@ import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Tag, Todo } from "@/types";
 import { ConfirmDialog } from "@/components/Modal";
+import { ChevronDown } from "lucide-react";
 import { TodoItem } from "@/components/TodoItem";
 import type { TodoEditFields } from "@/components/TodoEditModal";
 import { TagFilterToolbar } from "@/components/TagFilterToolbar";
@@ -579,7 +580,7 @@ function ArchivedSprintRow({
       >
         <div className="sprint-archived-name">{sprint.name}</div>
         <div className="sprint-archived-dates">{sprintDateRange(sprint)}</div>
-        <span className={`sprint-archived-caret ${open ? "open" : ""}`}>▾</span>
+        <span className={`sprint-archived-caret ${open ? "open" : ""}`}><ChevronDown size={14} aria-hidden="true" /></span>
       </button>
       {/* sprint-backlog-redesign-m3: goal line renders between the row
           button and the expanded task block when present. Italic-muted

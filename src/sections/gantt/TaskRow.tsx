@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { GanttTask } from "@/types";
+import { ChevronRight, ChevronDown, X } from "lucide-react";
 import {
   ROW_H,
   checkBounds,
@@ -126,7 +127,7 @@ export function TaskRow({
           onClick={() => onToggleCollapse(task.id)}
           title={task.collapsed ? "Expand" : "Collapse"}
         >
-          {task.collapsed ? "▸" : "▾"}
+          {task.collapsed ? <ChevronRight size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
         </button>
       ) : (
         <span className="gantt-chevron" />
@@ -182,7 +183,7 @@ export function TaskRow({
         title={`Delete task: ${task.title}`}
         aria-label={`Delete task: ${task.title}`}
       >
-        ✕
+        <X size={14} aria-hidden="true" />
       </button>
     </div>
   );

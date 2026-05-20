@@ -3,6 +3,7 @@ import { useChatSession } from "@/hooks/useChatSession";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useStore } from "@/storage/useStore";
 import { resolvedSettings } from "@/storage/constants";
+import { X } from "lucide-react";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import "./ChatPanel.css";
@@ -84,7 +85,7 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
           aria-label="Close chat panel"
           title="Close"
         >
-          <CloseIcon />
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
 
@@ -130,22 +131,3 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
   );
 }
 
-/* ── Close icon ──────────────────────────────────────────────────── */
-
-function CloseIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <line x1="2" y1="2" x2="14" y2="14" />
-      <line x1="14" y1="2" x2="2" y2="14" />
-    </svg>
-  );
-}

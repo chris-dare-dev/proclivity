@@ -43,6 +43,7 @@ import {
 } from "@/storage/constants";
 import { ConfirmDialog } from "@/components/Modal";
 import { TagChip } from "@/components/TagChip";
+import { X } from "lucide-react";
 import "./ClosedTodosView.css";
 
 const SCOPE_LABELS: Record<TodoScope, string> = {
@@ -406,7 +407,7 @@ function ClosedRow({
         title={`Delete forever: ${todo.title}`}
         aria-label={`Delete forever: ${todo.title}`}
       >
-        ✕
+        <X size={14} aria-hidden="true" />
       </button>
     </li>
   );

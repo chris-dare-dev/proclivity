@@ -13,6 +13,7 @@
 
 import type { ReactNode } from "react";
 import type { Tag } from "@/types";
+import { Pencil, X } from "lucide-react";
 import { TagChip } from "@/components/TagChip";
 
 export interface TaskCardProps {
@@ -79,7 +80,7 @@ export function TaskCard({
                 aria-label={`Edit: ${title}`}
                 tabIndex={0}
               >
-                ✎
+                <Pencil size={13} aria-hidden="true" />
               </button>
             )}
             {onDelete && (
@@ -89,7 +90,7 @@ export function TaskCard({
                 aria-label={`Delete: ${title}`}
                 tabIndex={0}
               >
-                ✕
+                <X size={13} aria-hidden="true" />
               </button>
             )}
           </div>

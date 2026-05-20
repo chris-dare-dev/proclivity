@@ -10,6 +10,7 @@
  * from the initial bundle by having one function body instead of two.
  */
 import { NAV_CLOSED_EVENT } from "@/storage/constants";
+import { Check, ArrowRight } from "lucide-react";
 
 interface Props {
   count: number;
@@ -26,13 +27,13 @@ export function ClosedScopeCounter({ count, suffix = "" }: Props) {
       aria-label={`View ${count} closed task${count === 1 ? "" : "s"}${suffix} in the Closed tab`}
     >
       <span className="closed-scope-counter-check" aria-hidden="true">
-        ✓
+        <Check size={13} aria-hidden="true" />
       </span>
       <span className="closed-scope-counter-text">
         {count} closed{suffix}
       </span>
       <span className="closed-scope-counter-arrow" aria-hidden="true">
-        →
+        <ArrowRight size={13} aria-hidden="true" />
       </span>
     </button>
   );

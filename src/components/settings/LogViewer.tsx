@@ -19,6 +19,7 @@ import {
   subscribe,
 } from "@/observability/ring-buffer";
 import type { LogEntry, LogLevel } from "@/observability/types";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import "./LogViewer.css";
 
 type LevelOrAll = LogLevel | "all";
@@ -264,7 +265,7 @@ function LogRow({ entry, redact }: { entry: LogEntry; redact: boolean }) {
         <span className="log-viewer__msg">{displayed.msg}</span>
         {hasCtx && (
           <span className="log-viewer__caret" aria-hidden="true">
-            {open ? "▾" : "▸"}
+            {open ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
           </span>
         )}
       </button>
