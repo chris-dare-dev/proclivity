@@ -1,5 +1,25 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useState } from "react";
+import { LazyMotion } from "motion/react";
 import "./App.css";
+
+// Motion v12 (LazyMotion + domAnimation) — m2 frontend-uplift foundation.
+// LazyMotion is a Context provider; the actual feature pack
+// (domAnimation, ~41 kB raw / ~15.5 kB gzipped) loads lazily via the
+// `features` prop which receives a dynamic-import loader.
+//
+// Why the indirection through `./motion-features` instead of inlining
+// `import("motion/react").then(r => r.domAnimation)`: when the dynamic
+// import target is the same module as a static import elsewhere in the
+// file, Rollup merges them into the main chunk and the lazy split is
+// lost. The motion-features.ts re-export module gives Rollup a distinct
+// dependency-graph entry to split on. See the m2 research synthesis §3
+// and the scope-exceeded post-mortem for the diagnosis trail.
+//
+// The `strict` prop on LazyMotion enforces that downstream consumers use
+// the minimal `m.*` component family rather than `motion.*` (which would
+// bring in the heavier feature set synchronously).
+const loadDomAnimation = () =>
+  import("./motion-features").then((mod) => mod.default);
 import { Today } from "@/sections/Today";
 import { Sprint } from "@/sections/Sprint";
 import { LongTerm } from "@/sections/LongTerm";
@@ -361,7 +381,7 @@ export default function App() {
   }, []);
 
   return (
-    <>
+    <LazyMotion features={loadDomAnimation} strict>
       {rs.meshEnabled && (
         <Suspense fallback={null}>
           <MeshBackground
@@ -514,6 +534,6 @@ export default function App() {
           )}
         </main>
       </div>
-    </>
+    </LazyMotion>
   );
 }
