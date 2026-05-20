@@ -633,6 +633,26 @@ Specialist: Visual reviewer — confirm at 390 px, 768 px, and 1280 px the layou
 
 ---
 
+### `frontend-uplift-2026q2-m4` — UPL-2 v0: CSS `[data-leaving]` section-fade cross-dissolve
+
+Promoted from Next lane on 2026-05-20 after m5 shipped. Single story (s11). The §9 spike "CSS `[data-leaving]` section-fade — a11y and flash-of-content validation" is embedded in the implementation: research the mechanics, implement the state machine, then the Phase 3 critique fan-out (especially the adversary's a11y + flash-of-content axis) effectively runs the spike outputs. Fallback to "reveal-only fade-in" (no fade-out of the outgoing panel) if either the flash-of-content or Tab-escape conditions trip in critique.
+
+**Key constraint (from epic e2 §):** UPL-2 v0 MUST use CSS-only Path a — keep `hidden=` on tabpanels intact (do NOT swap to `aria-hidden="true"` + opacity, which would allow Tab key to reach inactive panel descendants per challenger Axis 3). The `[data-leaving]` state machine is a React `useState<Tab | null>` toggle that fires on tab click and clears after the CSS animation duration (~220 ms). No `motion` library involvement at v0 — Path b (`<AnimatePresence>`) is a future v1 that requires adding `inert` or `tabindex` management to all tabpanel descendants when exiting.
+
+**Stories:**
+
+**`frontend-uplift-2026q2-e2-s11` — UPL-2 v0: CSS `[data-leaving]` cross-dissolve state machine** (S/M)
+
+Given the current App.tsx tab switching pattern hard-cuts between tabpanels (instant `hidden=` toggle) and the most-frequent navigation event in the app feels static compared to Linear / Cron / Notion Calendar
+When the developer (a) adds a `leavingTab: Tab | null` state to App.tsx that is set to the outgoing tab on every `setTab` call and cleared ~220 ms later via a `useRef<number>`-tracked timeout (rapid switches cancel pending timeouts cleanly per the m5-s9 pattern); (b) widens each tabpanel `<div>`'s `hidden` predicate from `tab !== "<id>"` to `tab !== "<id>" && leavingTab !== "<id>"` so the leaving panel stays mounted for the duration of the fade-out; (c) adds `data-leaving={leavingTab === "<id>" ? "true" : undefined}` to each tabpanel; (d) in `App.css`, declares `.content { position: relative; }` and `.content > [data-leaving="true"] { position: absolute; inset: 0; opacity: 0; transition: opacity 220ms ease-out; pointer-events: none; }` so the leaving panel overlaps the incoming one and fades out; (e) adds an entry animation on the incoming panel via `@keyframes tabpanel-fade-in` applied to `.content > div:not([hidden]):not([data-leaving])` for a paired 220 ms ease-out opacity 0→1; (f) wraps both rules in the dual reduced-motion guards (`[data-reduced-motion="true"]` AND `@media (prefers-reduced-motion: reduce)`) so the animation collapses to instant under either signal
+Then on every tab switch, the outgoing panel fades to opacity 0 in 220 ms while the incoming panel fades from opacity 0 to 1 over the same window (cross-dissolve); `hidden=` is preserved on inactive panels at rest so Tab key never reaches their descendants; no flash-of-content is observable during the 220 ms transition; rapid tab switching (e.g. 5 clicks in 500 ms) does not stack pending timeouts or leave `leavingTab` in a stale state; under `prefers-reduced-motion: reduce` (in-app OR OS-level) the transition collapses to an instant hard-cut matching today's behavior; `npm run build` passes with zero TypeScript strict errors and the initial newtab chunk delta is < 1 KB
+
+Specialist: A11y reviewer — verify with DevTools forced reduced-motion that the animation collapses to instant; verify with keyboard Tab navigation that focus never escapes into a panel that is mid-fade-out (the `pointer-events: none` on `[data-leaving]` is necessary but not sufficient — `hidden=` must reassert ≤ 220 ms after the click); also verify axe-core reports no new ARIA violations on tabpanel role+labelledby+selected pattern
+
+Specialist: Visual reviewer — confirm no layout shift during the 220 ms transition window (the absolutely-positioned `[data-leaving]` panel should sit exactly over the incoming panel via `inset: 0`); confirm that under quick tab switching the cross-dissolve doesn't accumulate ghosted panels or cause flicker; if flash-of-content IS visible, fall back to the reveal-only variant: drop the `[data-leaving]` `position: absolute` rule and the leaving-tab predicate widening, keeping only the `@keyframes tabpanel-fade-in` on the incoming panel (instant hide on the outgoing one, fade-in on the incoming)
+
+---
+
 ### Next (shaped)
 
 #### `frontend-uplift-2026q2-e2` — Section Transitions `[VALUE]`
