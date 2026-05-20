@@ -25,7 +25,7 @@
 .sprint-tab.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-on);
 }
 
 .sprint-tab-new {
@@ -326,7 +326,7 @@
   background: var(--accent);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
-  color: #fff;
+  color: var(--accent-on);
   padding: 6px 14px;
   font-size: 13px;
   font-weight: 600;
@@ -436,7 +436,7 @@
   background: var(--accent);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
-  color: #fff;
+  color: var(--accent-on);
   padding: 4px 12px;
   font-size: 12px;
   cursor: pointer;
