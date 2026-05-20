@@ -19,6 +19,9 @@ import "react";
 
 declare module "react" {
   interface HTMLAttributes<T> {
-    inert?: boolean | "" | undefined;
+    // React 19's declaration is `boolean | undefined`; matching that shape
+    // (no empty-string member) discourages the `inert=""` antipattern at
+    // call sites (m4 rect L2).
+    inert?: boolean | undefined;
   }
 }

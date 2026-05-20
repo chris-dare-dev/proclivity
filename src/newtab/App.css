@@ -170,7 +170,11 @@ button:focus-visible {
    BEFORE the first paint frame — the load-bearing flash-of-content
    defense (without it, the incoming panel paints at default opacity 1
    for one frame before the @keyframes from-state takes hold). */
-.content > div:not([hidden]):not([data-leaving]):not([data-staggered]) {
+/* Scoped to div[role="tabpanel"] so the .section-empty "all sections
+   hidden" notice and any other future direct .content child don't get
+   fan-out fade-ins (m4 rect H1). The 7 tabpanel <div>s all carry
+   role="tabpanel"; .section-empty does not. */
+.content > div[role="tabpanel"]:not([hidden]):not([data-leaving]):not([data-staggered]) {
   animation: tabpanel-fade-in 220ms ease-out both;
 }
 
@@ -182,14 +186,14 @@ button:focus-visible {
 [data-reduced-motion="true"] .content > [data-leaving="true"] {
   transition: none;
 }
-[data-reduced-motion="true"] .content > div:not([hidden]):not([data-leaving]):not([data-staggered]) {
+[data-reduced-motion="true"] .content > div[role="tabpanel"]:not([hidden]):not([data-leaving]):not([data-staggered]) {
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .content > [data-leaving="true"] {
     transition: none;
   }
-  .content > div:not([hidden]):not([data-leaving]):not([data-staggered]) {
+  .content > div[role="tabpanel"]:not([hidden]):not([data-leaving]):not([data-staggered]) {
     animation: none;
   }
 }

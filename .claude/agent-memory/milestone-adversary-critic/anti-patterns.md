@@ -1,0 +1,13 @@
+# Recurring anti-patterns observed by milestone-adversary-critic
+
+Append-only log. Each entry: `<pattern-name> | <how to detect> | <how to mitigate>`.
+
+---
+
+**Selector-fan-out via shared markers (className or tag+attribute)** | Any new CSS rule whose selector relies on a tag or className that ALSO appears on non-target DOM nodes inside the scoped subtree. Detected by reading the parent's full JSX (not just the children the synthesis lists) and enumerating every direct child + every node carrying the keyed marker. Observed in m5 (`.todo-list` matched card-fallback-list and ArchivedSprintRow `<ul>`s) and m4 (`.content > div` matched `.section-empty`). | Prefer a positive semantic anchor (`[role="tabpanel"]`, explicit `data-tabpanel`) over `:not()` chains. When the implementer copies a selector verbatim from research synthesis, the critic must re-derive the match-set against the real JSX tree, not the synthesis's listed targets.
+
+**Commit-subject ≤50-char drift (off-by-2)** | Subject after `feat(scope): ` prefix measured by `printf '%s' "..." | wc -c` exceeds 50 by 1–3 chars. Eyeball estimates consistently undercount. Observed in m4 (52 chars) and at least one prior milestone per m5 lesson. | Implementer should run the printf-wc-c check as a pre-commit local step. Repo would benefit from a commit-msg hook enforcing this; until then, every adversary critic should measure programmatically and flag HIGH on overrun.
+
+**Synthesis-prescribed classifications copied verbatim by implementer** | Research synthesis enumerates "covered/uncovered" buckets or "matches/excludes" selector targets; implementer trusts the list as ground truth without re-verifying. Observed in m3 (theme.css "fully uncovered" was wrong on 2/9 files) and m5 (`.card-fallback-list` exclusion claim was illusory) and m4 (`.section-empty` fan-out unflagged in synthesis selector). | Critic's standing rule: synthesis classifications are hypotheses. Independently re-derive via `grep` / file-read before judging fit. The synthesis writer and the implementer never close the loop on bucketing accuracy — only the critic does.
+
+**Scope `motion` used but not in CLAUDE.md scopes list** | Commit subject `feat(motion): ...` lands when CLAUDE.md "Scopes in active use" list (gantt, sprint, reminders, mesh, storage, build, a11y, skill, roadmap, docs, tune, style, perf, refactor, fix, feat) does not include `motion`. Observed m5-M1 (deferred) and m4-M1. | Either add `motion` to the CLAUDE.md scopes list (justified by the frontend-uplift roadmap's 9 motion-themed UPL candidates) or instruct implementers to use `style` going forward. Decision should not be deferred a third time.

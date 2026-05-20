@@ -415,7 +415,21 @@ export default function App() {
     if (visibleTabs.length === 0) return;
     if (isVisibilityGated(tab) && !rs.sectionVisibility[TAB_KEY[tab]]) {
       const firstVisible = visibleTabs[0];
-      if (firstVisible) setTab(firstVisible.id);
+      if (firstVisible) {
+        // m4 rect L4: skip the cross-dissolve for visibility-driven tab
+        // changes — the outgoing panel's <div> is unmounted by the
+        // conditional render gate, so a fade-out has no DOM node to apply
+        // to. Sync prevTabRef to the incoming tab BEFORE setTab so the
+        // leavingTab useLayoutEffect sees prev === tab and skips
+        // setLeavingTab(prev). Also cancel any in-flight timeout.
+        prevTabRef.current = firstVisible.id;
+        if (leavingTimeoutRef.current !== undefined) {
+          window.clearTimeout(leavingTimeoutRef.current);
+          leavingTimeoutRef.current = undefined;
+        }
+        setLeavingTab(null);
+        setTab(firstVisible.id);
+      }
     }
   }, [rs.sectionVisibility, tab, visibleTabs]);
 
