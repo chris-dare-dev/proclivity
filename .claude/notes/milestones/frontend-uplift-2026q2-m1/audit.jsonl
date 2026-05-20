@@ -8,3 +8,4 @@
 {"ts": "2026-05-20T16:44:50Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-enter", "phase": "critique-running"}
 {"ts": "2026-05-20T16:51:13Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-exit", "phase": "critique-complete"}
 {"ts": "2026-05-20T16:51:13Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-20T17:09:42Z", "milestone": "frontend-uplift-2026q2-m1", "event": "pipeline-complete"}
