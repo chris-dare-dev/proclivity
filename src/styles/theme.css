@@ -128,10 +128,25 @@
 }
 
 /* ── Reduced motion ──────────────────────────────────────────── */
-/* User-set (or OS-derived) preference. The OS-level media query below
+/*
+ * CANONICAL GUARD MECHANISM — this global nuclear reset is the primary
+ * reduced-motion protection for the entire app. It uses `!important`
+ * on `*` so every animation/transition site is functionally covered
+ * regardless of per-site guards.
+ *
+ * Per-site guards (e.g. Modal.css, App.css, MeshBackground.css) are
+ * belt-and-suspenders for audit clarity and refactor resilience; they
+ * are NOT load-bearing for functional correctness at runtime.
+ *
+ * Files without per-site guards are intentionally relying on this
+ * global reset (sprint.css, ChatPanel.css, sections.css, ClosedTodosView.css).
+ * See frontend-uplift-2026q2-m3 synthesis for the architecture rationale.
+ *
+ * User-set (or OS-derived) preference. The OS-level media query below
  * provides a belt-and-suspenders fallback that always applies regardless
  * of in-app override. The user setting can only ADD reduced motion;
- * it cannot suppress an OS-level preference. */
+ * it cannot suppress an OS-level preference.
+ */
 [data-reduced-motion="true"] *,
 [data-reduced-motion="true"] *::before,
 [data-reduced-motion="true"] *::after {

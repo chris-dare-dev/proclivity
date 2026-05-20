@@ -41,9 +41,17 @@
   to { opacity: 1; }
 }
 
+/* Dual guard: [data-reduced-motion] for in-app override;
+   @media for OS-level preference (belt-and-suspenders per Modal.css pattern). */
 [data-reduced-motion="true"] .card-canvas.is-dragging::before {
   animation: none;
   opacity: 0.4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-canvas.is-dragging::before {
+    animation: none;
+    opacity: 0.4;
+  }
 }
 
 /* Narrow viewport: hide canvas; a fallback list shown in its place.

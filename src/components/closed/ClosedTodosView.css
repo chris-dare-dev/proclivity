@@ -10,6 +10,8 @@
  * Layout note: this file is loaded lazily alongside ClosedTodosView.tsx
  * (Vite splits the import) so it does not contribute to the initial-page
  * CSS payload.
+ *
+ * Reduced-motion coverage: see theme.css §reduced-motion global reset
  */
 
 /* ─── Layout shell ─────────────────────────────────────────────────────── */

@@ -6,6 +6,8 @@
  *
  * Default layout: fixed right-side drawer, 380px wide, full viewport height.
  * Narrow viewport (≤ 900px): fixed bottom drawer, full width, 50vh max height.
+ *
+ * Reduced-motion coverage: see theme.css §reduced-motion global reset
  */
 
 /* ── Panel container ─────────────────────────────────────────────── */

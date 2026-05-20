@@ -72,9 +72,16 @@
 }
 
 /* Honour the resolved reduced-motion preference. The transition is the only
-   animation here; flipping it to 0 makes slide changes instant. */
+   animation here; flipping it to 0 makes slide changes instant.
+   Dual guard: [data-reduced-motion] for the in-app override;
+   @media for the OS-level preference (belt-and-suspenders per Modal.css pattern). */
 .photos-stage[data-reduced-motion="true"] .photos-slide {
   transition: opacity 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .photos-slide {
+    transition: opacity 0ms;
+  }
 }
 
 .photos-caption {

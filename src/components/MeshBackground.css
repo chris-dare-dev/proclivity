@@ -15,10 +15,15 @@
   to   { opacity: var(--mesh-intensity, 0.2); }
 }
 
+/* Dual guard: @media for OS-level preference;
+   [data-reduced-motion] for in-app override (belt-and-suspenders per Modal.css pattern). */
 @media (prefers-reduced-motion: reduce) {
   .mesh-background {
     animation: none;
   }
+}
+[data-reduced-motion="true"] .mesh-background {
+  animation: none;
 }
 
 .mesh-background canvas {

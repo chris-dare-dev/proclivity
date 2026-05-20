@@ -1,3 +1,4 @@
+/* Reduced-motion coverage: see theme.css §reduced-motion global reset */
 .todo-input {
   display: flex;
   gap: 8px;

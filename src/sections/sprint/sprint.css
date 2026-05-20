@@ -1,3 +1,4 @@
+/* Reduced-motion coverage: see theme.css §reduced-motion global reset */
 /* ─── Sprint switcher ────────────────────────────────────────── */
 .sprint-tabs {
   display: flex;

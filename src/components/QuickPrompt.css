@@ -147,8 +147,13 @@
   color: var(--text);
 }
 
+/* Dual guard: @media for OS-level preference;
+   [data-reduced-motion] for in-app override (belt-and-suspenders per Modal.css pattern). */
 @media (prefers-reduced-motion: reduce) {
   .quick-prompt-banner {
     animation: none;
   }
+}
+[data-reduced-motion="true"] .quick-prompt-banner {
+  animation: none;
 }
