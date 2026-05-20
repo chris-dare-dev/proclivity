@@ -249,7 +249,7 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
             </div>
           ) : (
             <ul className="todo-list">
-              {filteredItems.map((t) => (
+              {filteredItems.map((t, idx) => (
                 <TodoItem
                   key={t.id}
                   todo={t}
@@ -257,6 +257,7 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
                   onToggle={toggle}
                   onDelete={remove}
                   onEdit={(id) => setEditingId(id)}
+                  index={idx}
                 />
               ))}
             </ul>

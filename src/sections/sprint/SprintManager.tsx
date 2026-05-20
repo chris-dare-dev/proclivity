@@ -1240,7 +1240,7 @@ export function SprintManager() {
                 </div>
               ) : (
                 <ul className="todo-list">
-                  {activeSprintTodos.map((t) => (
+                  {activeSprintTodos.map((t, idx) => (
                     <TodoItem
                       key={t.id}
                       todo={t}
@@ -1248,6 +1248,7 @@ export function SprintManager() {
                       onToggle={(id) => void toggleTodo(id)}
                       onDelete={deleteTodo}
                       onEdit={(id) => setEditingId(id)}
+                      index={idx}
                     />
                   ))}
                 </ul>

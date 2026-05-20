@@ -250,3 +250,46 @@
     transform: none;
   }
 }
+
+/* ── Stagger-reveal on todo list cold loads (UPL-3 / m5-s9) ─────────────────
+   Fires when a section tabpanel gains data-staggered="true" (toggled by
+   App.tsx on tab activation, cleared ~250 ms later via a useRef timeout
+   so storage-driven re-renders never replay the animation mid-display).
+
+   Per-item delay via the inline custom property --stagger-idx, which the
+   call site (TodoList / SprintManager) injects via Math.min(idx, 9) so
+   the cascade caps at 10 items (last delay = 9 * 55ms = 495ms; with the
+   220ms animation duration, the last item finishes at 715ms — fast
+   enough to read as a single fluid motion).
+
+   animation-fill-mode: both ensures the from-state (opacity 0, transform
+   translateY(8px)) holds during the delay window and the to-state holds
+   after the animation completes. */
+@keyframes stagger-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+[data-staggered="true"] .todo-list li {
+  animation: stagger-fade-up 220ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation-delay: calc(var(--stagger-idx, 0) * 55ms);
+}
+
+/* Dual guard: [data-reduced-motion] for the in-app override;
+   @media for the OS-level preference (m5-s9; mirrors the closed-scope-
+   counter pattern above). The global theme.css §reduced-motion reset
+   would also catch this — these per-site guards are belt-and-suspenders
+   for audit clarity. */
+[data-reduced-motion="true"] [data-staggered="true"] .todo-list li {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-staggered="true"] .todo-list li {
+    animation: none;
+  }
+}

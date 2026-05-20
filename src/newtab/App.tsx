@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { LazyMotion } from "motion/react";
 import { Settings, MessageCircle } from "lucide-react";
 import "./App.css";
@@ -312,8 +312,38 @@ function isVisibilityGated(tabId: Tab): tabId is Exclude<Tab, "closed"> {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
+  // m5-s9 (UPL-3): which tab currently owns the staggered-reveal animation.
+  // Seeded with the initial tab so first paint plays the cascade. The
+  // useRef-tracked timeout below clears this ~250 ms after each tab change
+  // so subsequent storage-driven re-renders never replay the animation
+  // mid-display. brief-2 §4 risk: rapid tab switching must cancel the
+  // pending timeout before scheduling a new one.
+  const [staggeredTab, setStaggeredTab] = useState<Tab | null>("today");
+  const staggerTimeoutRef = useRef<number | undefined>(undefined);
   const { state } = useStore();
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+
+  // Whenever the active tab changes, fire the stagger on the new tab and
+  // schedule a clear so re-renders don't replay it. Clear any pending
+  // timeout first to handle rapid tab switches cleanly.
+  useEffect(() => {
+    setStaggeredTab(tab);
+    if (staggerTimeoutRef.current !== undefined) {
+      window.clearTimeout(staggerTimeoutRef.current);
+    }
+    staggerTimeoutRef.current = window.setTimeout(() => {
+      // Clear so subsequent storage-update re-renders see staggeredTab !== tab
+      // and don't apply data-staggered="true".
+      setStaggeredTab((current) => (current === tab ? null : current));
+      staggerTimeoutRef.current = undefined;
+    }, 250);
+    return () => {
+      if (staggerTimeoutRef.current !== undefined) {
+        window.clearTimeout(staggerTimeoutRef.current);
+        staggerTimeoutRef.current = undefined;
+      }
+    };
+  }, [tab]);
 
   const visibleTabs = useMemo(
     () =>
@@ -406,6 +436,7 @@ export default function App() {
               role="tabpanel"
               aria-labelledby="tab-btn-today"
               hidden={tab !== "today"}
+              data-staggered={staggeredTab === "today" ? "true" : undefined}
             >
               <Today />
             </div>
@@ -416,6 +447,7 @@ export default function App() {
               role="tabpanel"
               aria-labelledby="tab-btn-sprint"
               hidden={tab !== "sprint"}
+              data-staggered={staggeredTab === "sprint" ? "true" : undefined}
             >
               <Sprint />
             </div>
@@ -426,6 +458,7 @@ export default function App() {
               role="tabpanel"
               aria-labelledby="tab-btn-long"
               hidden={tab !== "long"}
+              data-staggered={staggeredTab === "long" ? "true" : undefined}
             >
               <LongTerm />
             </div>
