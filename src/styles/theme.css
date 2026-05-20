@@ -18,15 +18,21 @@
 :root {
   color-scheme: dark;
 
-  /* Elevation / surface — dark theme (the historic baseline) */
-  --bg: oklch(0.10 0.012 252);
-  --panel: oklch(0.14 0.014 252);
-  --panel-2: oklch(0.17 0.016 252);
-  --border: oklch(0.22 0.018 252);
+  /* Elevation / surface — dark theme (the historic baseline)
+     m1 warm-palette token shift (UPL-6): chroma halved on every neutral
+     to recede the cool-blue tension. At L≤0.22 with C≤0.009, hue is
+     "powerless" (CSS Color 4) — keeping hue=252 lets the chroma drop
+     carry the warming. Linear's March 2026 refresh used the same lever
+     (chroma reduction, not hue rotation). --text and --accent are
+     intentionally NOT changed. */
+  --bg: oklch(0.10 0.006 252);
+  --panel: oklch(0.14 0.007 252);
+  --panel-2: oklch(0.17 0.008 252);
+  --border: oklch(0.22 0.009 252);
 
   /* Text */
   --text: oklch(0.93 0.008 252);
-  --text-dim: oklch(0.68 0.018 252);
+  --text-dim: oklch(0.68 0.009 252);
 
   /* Accent — overridden inline by useThemeSync() for user-chosen color */
   --accent: #7c9cff;
@@ -66,12 +72,16 @@
 [data-theme="light"] {
   color-scheme: light;
 
+  /* m1 chroma-halve sweep — light-theme symmetry. --bg already at C=0.004
+     (effectively neutral) so the only meaningful halve targets are
+     --panel-2, --border, and --text-dim. --text holds at C=0.012 because
+     dark text needs slight tonal grounding to avoid feeling clinical. */
   --bg: oklch(0.97 0.004 252);
   --panel: oklch(1.00 0 0);
-  --panel-2: oklch(0.95 0.005 252);
-  --border: oklch(0.88 0.008 252);
+  --panel-2: oklch(0.95 0.003 252);
+  --border: oklch(0.88 0.004 252);
   --text: oklch(0.18 0.012 252);
-  --text-dim: oklch(0.45 0.018 252);
+  --text-dim: oklch(0.45 0.009 252);
   --accent: #4859d0;
   --accent-2: oklch(0.55 0.15 179);
   /* H5: light-theme accent-on — dark text on lighter accents maintains AA contrast. */
