@@ -322,6 +322,22 @@ export default function App() {
   // pending timeout before scheduling a new one.
   const [staggeredTab, setStaggeredTab] = useState<Tab | null>(tab);
   const staggerTimeoutRef = useRef<number | undefined>(undefined);
+
+  // m4-s11 (UPL-2): which tab is currently fading OUT during a cross-
+  // dissolve. The useLayoutEffect below captures the previous tab via
+  // prevTabRef and sets leavingTab=prev whenever tab changes, then
+  // schedules a 250 ms clear (matches the m5 stagger precedent; gives
+  // a small safety buffer past the CSS 220 ms transition before hidden=
+  // reasserts). Initial null is correct — there is no leaving panel on
+  // first paint. App.css §section-fade handles the visual cross-dissolve:
+  // [data-leaving] panel position:absolute over the incoming one, opacity
+  // transition 1→0; the incoming panel runs @keyframes tabpanel-fade-in
+  // with fill-mode:both. `inert` is set on the leaving panel as the
+  // load-bearing a11y guard (blocks Tab + a11y tree while hidden=false
+  // for the 220 ms fade window).
+  const [leavingTab, setLeavingTab] = useState<Tab | null>(null);
+  const leavingTimeoutRef = useRef<number | undefined>(undefined);
+  const prevTabRef = useRef<Tab>(tab);
   const { state } = useStore();
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
 
@@ -347,6 +363,38 @@ export default function App() {
       if (staggerTimeoutRef.current !== undefined) {
         window.clearTimeout(staggerTimeoutRef.current);
         staggerTimeoutRef.current = undefined;
+      }
+    };
+  }, [tab]);
+
+  // m4-s11 (UPL-2): cross-dissolve state machine. Capture the previous
+  // tab via prevTabRef so we know which panel was OUTGOING on each tab
+  // change; set it as leavingTab for 250 ms, then clear so hidden=
+  // reasserts and the panel exits the layout. Cancel any pending
+  // timeout on rapid switching (same useRef pattern as the stagger
+  // above — proven canonical in m5-s9). useLayoutEffect commits the
+  // data-leaving + inert toggles synchronously before the browser
+  // paints, eliminating the same paint-frame flash class as m5 rect M6.
+  useLayoutEffect(() => {
+    const prev = prevTabRef.current;
+    if (prev !== tab) {
+      setLeavingTab(prev);
+      if (leavingTimeoutRef.current !== undefined) {
+        window.clearTimeout(leavingTimeoutRef.current);
+      }
+      leavingTimeoutRef.current = window.setTimeout(() => {
+        // Clear only if still tracking the same outgoing tab. Functional
+        // updater avoids racing a more-recent leavingTab set from a
+        // subsequent tab change.
+        setLeavingTab((current) => (current === prev ? null : current));
+        leavingTimeoutRef.current = undefined;
+      }, 250);
+    }
+    prevTabRef.current = tab;
+    return () => {
+      if (leavingTimeoutRef.current !== undefined) {
+        window.clearTimeout(leavingTimeoutRef.current);
+        leavingTimeoutRef.current = undefined;
       }
     };
   }, [tab]);
@@ -441,8 +489,10 @@ export default function App() {
               id="tabpanel-today"
               role="tabpanel"
               aria-labelledby="tab-btn-today"
-              hidden={tab !== "today"}
+              hidden={tab !== "today" && leavingTab !== "today"}
               data-staggered={staggeredTab === "today" ? "true" : undefined}
+              data-leaving={leavingTab === "today" ? "true" : undefined}
+              inert={leavingTab === "today" ? true : undefined}
             >
               <Today />
             </div>
@@ -452,8 +502,10 @@ export default function App() {
               id="tabpanel-sprint"
               role="tabpanel"
               aria-labelledby="tab-btn-sprint"
-              hidden={tab !== "sprint"}
+              hidden={tab !== "sprint" && leavingTab !== "sprint"}
               data-staggered={staggeredTab === "sprint" ? "true" : undefined}
+              data-leaving={leavingTab === "sprint" ? "true" : undefined}
+              inert={leavingTab === "sprint" ? true : undefined}
             >
               <Sprint />
             </div>
@@ -463,8 +515,10 @@ export default function App() {
               id="tabpanel-long"
               role="tabpanel"
               aria-labelledby="tab-btn-long"
-              hidden={tab !== "long"}
+              hidden={tab !== "long" && leavingTab !== "long"}
               data-staggered={staggeredTab === "long" ? "true" : undefined}
+              data-leaving={leavingTab === "long" ? "true" : undefined}
+              inert={leavingTab === "long" ? true : undefined}
             >
               <LongTerm />
             </div>
@@ -474,7 +528,9 @@ export default function App() {
               id="tabpanel-gantt"
               role="tabpanel"
               aria-labelledby="tab-btn-gantt"
-              hidden={tab !== "gantt"}
+              hidden={tab !== "gantt" && leavingTab !== "gantt"}
+              data-leaving={leavingTab === "gantt" ? "true" : undefined}
+              inert={leavingTab === "gantt" ? true : undefined}
             >
               <Gantt />
             </div>
@@ -484,7 +540,9 @@ export default function App() {
               id="tabpanel-reminders"
               role="tabpanel"
               aria-labelledby="tab-btn-reminders"
-              hidden={tab !== "reminders"}
+              hidden={tab !== "reminders" && leavingTab !== "reminders"}
+              data-leaving={leavingTab === "reminders" ? "true" : undefined}
+              inert={leavingTab === "reminders" ? true : undefined}
             >
               <Reminders />
             </div>
@@ -494,7 +552,9 @@ export default function App() {
               id="tabpanel-calendar"
               role="tabpanel"
               aria-labelledby="tab-btn-calendar"
-              hidden={tab !== "calendar"}
+              hidden={tab !== "calendar" && leavingTab !== "calendar"}
+              data-leaving={leavingTab === "calendar" ? "true" : undefined}
+              inert={leavingTab === "calendar" ? true : undefined}
             >
               <Suspense fallback={null}>
                 <Calendar
@@ -524,7 +584,9 @@ export default function App() {
             id="tabpanel-closed"
             role="tabpanel"
             aria-labelledby="tab-btn-closed"
-            hidden={tab !== "closed"}
+            hidden={tab !== "closed" && leavingTab !== "closed"}
+            data-leaving={leavingTab === "closed" ? "true" : undefined}
+            inert={leavingTab === "closed" ? true : undefined}
           >
             <Suspense fallback={null}>
               <ClosedTodosView />

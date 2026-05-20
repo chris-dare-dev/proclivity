@@ -129,6 +129,69 @@ button:focus-visible {
 
 .content {
   min-height: 400px;
+  /* Required for the [data-leaving] cross-dissolve (m4-s11 / UPL-2):
+     leaving tabpanel goes position: absolute; inset: 0 — must size
+     against .content, not the ancestor .app. The min-height also
+     provides a soft floor so the area doesn't visibly collapse when
+     fading from a tall panel (Gantt) to a short one (Calendar). */
+  position: relative;
+}
+
+/* ── Section-fade cross-dissolve (m4-s11 / UPL-2 v0) ──────────────────────
+   Cross-dissolve on tab switches. The state machine in App.tsx widens the
+   `hidden=` predicate so the outgoing tabpanel stays mounted for 250 ms,
+   sets data-leaving="true" + inert on it, and sets the new tab. The
+   leaving panel absolutely-positions over the incoming one and fades to
+   opacity 0; the incoming panel runs @keyframes tabpanel-fade-in 0→1.
+
+   `inert` (set in App.tsx) is the load-bearing a11y guard — it removes
+   the panel from focus order and the a11y tree while visually present
+   during the 220 ms fade. `pointer-events: none` here is belt-and-
+   suspenders for mouse-click suppression. */
+.content > [data-leaving="true"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+  pointer-events: none;
+}
+
+@keyframes tabpanel-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Apply the panel-level fade-in ONLY to panels that are NOT already
+   covered by the m5-s9 stagger (Today/Sprint/LongTerm). Stacking the
+   parent fade with the child stagger produces visually competing
+   opacity curves (parent 0.3 × child 1.0 ≠ child 1.0 looks "dimmer"
+   until parent completes). Stagger already provides the fade-in feel
+   for those tabs. animation-fill-mode: both holds opacity:0 at t=0
+   BEFORE the first paint frame — the load-bearing flash-of-content
+   defense (without it, the incoming panel paints at default opacity 1
+   for one frame before the @keyframes from-state takes hold). */
+.content > div:not([hidden]):not([data-leaving]):not([data-staggered]) {
+  animation: tabpanel-fade-in 220ms ease-out both;
+}
+
+/* Dual guard: [data-reduced-motion] for in-app override; @media for
+   OS-level preference (m4 mirrors m5-s9 pattern + closed-scope-counter
+   in sections.css). The global theme.css §reduced-motion reset would
+   collapse these to 0.01ms anyway — these per-site guards are belt-and-
+   suspenders for audit clarity per sections.css:1 commentary. */
+[data-reduced-motion="true"] .content > [data-leaving="true"] {
+  transition: none;
+}
+[data-reduced-motion="true"] .content > div:not([hidden]):not([data-leaving]):not([data-staggered]) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .content > [data-leaving="true"] {
+    transition: none;
+  }
+  .content > div:not([hidden]):not([data-leaving]):not([data-staggered]) {
+    animation: none;
+  }
 }
 
 .section-empty {
