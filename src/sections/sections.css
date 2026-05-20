@@ -26,6 +26,50 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 12px;
+  /* Lift-on-hover (m6-s12 / UPL-9). Transition declared unconditionally
+     here so it's also armed for hover-leave; the actual lift values live
+     in the @media (hover: hover) and (pointer: fine) block below so
+     touch devices never engage the affordance. */
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+/* Hover lift — gated to devices that genuinely support hover (mouse +
+   trackpad). Touchscreen phones/tablets evaluate (hover: hover) as
+   `none`/false and skip this block entirely. position:relative + z-index:1
+   keeps the soft shadow from being clipped by the next .todo-item
+   stacked 4px below in .todo-list's gap. Shadow is theme-invariant
+   oklch(0 0 0 / 0.18) per the m3 rect convention — works on both light
+   and dark panels. */
+@media (hover: hover) and (pointer: fine) {
+  .todo-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.18);
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* Dual-guard reduced-motion (m6-s12). Mirrors the stagger pattern at
+   sections.css §stagger-reveal. Both [data-reduced-motion="true"] (in-app
+   toggle) and @media (prefers-reduced-motion: reduce) (OS-level) null
+   the lift entirely — reduced-motion users see no transform, no shadow,
+   no transition. The base .todo-item transition: none is belt-and-
+   suspenders with theme.css's global !important reset. */
+[data-reduced-motion="true"] .todo-item {
+  transition: none;
+}
+[data-reduced-motion="true"] .todo-item:hover {
+  transform: none;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .todo-item {
+    transition: none;
+  }
+  .todo-item:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }
 .todo-item.done .todo-title {
   text-decoration: line-through;
