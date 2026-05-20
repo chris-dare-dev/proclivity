@@ -1,0 +1,10 @@
+{"ts": "2026-05-20T16:34:48Z", "milestone": "frontend-uplift-2026q2-m1", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0}
+{"ts": "2026-05-20T16:35:00Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-20T16:41:18Z", "milestone": "frontend-uplift-2026q2-m1", "event": "researcher-returned", "status": "complete", "role": "explore", "path": "brief-1.md"}
+{"ts": "2026-05-20T16:41:18Z", "milestone": "frontend-uplift-2026q2-m1", "event": "researcher-returned", "status": "complete", "role": "general", "path": "brief-2.md"}
+{"ts": "2026-05-20T16:42:47Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-20T16:42:47Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-20T16:44:38Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-20T16:44:50Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-20T16:51:13Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-exit", "phase": "critique-complete"}
+{"ts": "2026-05-20T16:51:13Z", "milestone": "frontend-uplift-2026q2-m1", "event": "phase-enter", "phase": "rectify-running"}
