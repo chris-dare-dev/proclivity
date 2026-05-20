@@ -607,7 +607,7 @@ function ArchivedSprintRow({
             </div>
           ) : (
             <ul className="todo-list">
-              {sprintTodos.map((t) => (
+              {sprintTodos.map((t, idx) => (
                 <TodoItem
                   key={t.id}
                   todo={t}
@@ -615,6 +615,7 @@ function ArchivedSprintRow({
                   onToggle={onToggleTodo}
                   onDelete={onDeleteTodo}
                   // No onEdit for archived rows — read-only (cross-plan #14)
+                  index={idx}
                 />
               ))}
             </ul>

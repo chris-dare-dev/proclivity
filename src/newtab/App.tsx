@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LazyMotion } from "motion/react";
 import { Settings, MessageCircle } from "lucide-react";
 import "./App.css";
@@ -313,20 +313,26 @@ function isVisibilityGated(tabId: Tab): tabId is Exclude<Tab, "closed"> {
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   // m5-s9 (UPL-3): which tab currently owns the staggered-reveal animation.
-  // Seeded with the initial tab so first paint plays the cascade. The
-  // useRef-tracked timeout below clears this ~250 ms after each tab change
-  // so subsequent storage-driven re-renders never replay the animation
+  // Seeded from `tab` so first paint plays the cascade AND so any future
+  // change to the initial-tab source (e.g. honoring chrome.storage's last-
+  // active-tab) is reflected here automatically (m5 rect L1). The useRef-
+  // tracked timeout below clears this ~250 ms after each tab change so
+  // subsequent storage-driven re-renders never replay the animation
   // mid-display. brief-2 §4 risk: rapid tab switching must cancel the
   // pending timeout before scheduling a new one.
-  const [staggeredTab, setStaggeredTab] = useState<Tab | null>("today");
+  const [staggeredTab, setStaggeredTab] = useState<Tab | null>(tab);
   const staggerTimeoutRef = useRef<number | undefined>(undefined);
   const { state } = useStore();
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
 
-  // Whenever the active tab changes, fire the stagger on the new tab and
-  // schedule a clear so re-renders don't replay it. Clear any pending
-  // timeout first to handle rapid tab switches cleanly.
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the data-staggered toggle commits
+  // BEFORE the browser paints the new tab's contents. Otherwise items
+  // would flash visible for ~1 frame at full opacity, then jump back to
+  // opacity 0 when the animation's `from` state takes hold — a visible
+  // FOUC on every tab switch (m5 rect M6 from web-perf critic).
+  // The effect is synchronous + cheap (two state sets and a setTimeout
+  // schedule), so the layout-blocking cost is negligible.
+  useLayoutEffect(() => {
     setStaggeredTab(tab);
     if (staggerTimeoutRef.current !== undefined) {
       window.clearTimeout(staggerTimeoutRef.current);

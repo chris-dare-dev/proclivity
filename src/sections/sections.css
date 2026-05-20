@@ -275,7 +275,11 @@
     transform: none;
   }
 }
-[data-staggered="true"] .todo-list li {
+/* Scoped with :not(.card-fallback-list) because TodoCardSection /
+   RemindersCardSection render <ul class="todo-list card-fallback-list">
+   for the <600 px viewport fallback — card mode is a different visual
+   paradigm and shouldn't share the list-mode cascade (m5 rect M3). */
+[data-staggered="true"] .todo-list:not(.card-fallback-list) li {
   animation: stagger-fade-up 220ms cubic-bezier(0.2, 0, 0, 1) both;
   animation-delay: calc(var(--stagger-idx, 0) * 55ms);
 }
@@ -285,11 +289,11 @@
    counter pattern above). The global theme.css §reduced-motion reset
    would also catch this — these per-site guards are belt-and-suspenders
    for audit clarity. */
-[data-reduced-motion="true"] [data-staggered="true"] .todo-list li {
+[data-reduced-motion="true"] [data-staggered="true"] .todo-list:not(.card-fallback-list) li {
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-staggered="true"] .todo-list li {
+  [data-staggered="true"] .todo-list:not(.card-fallback-list) li {
     animation: none;
   }
 }
