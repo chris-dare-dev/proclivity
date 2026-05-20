@@ -1,0 +1,7 @@
+
+## frontend-uplift-2026q2 (2026-05-20)
+- Vertical slicing is the correct default for Proclivity visual-uplift roadmaps: each epic maps to a catalog cluster (foundation, transitions, polish, interaction) and cuts through CSS, component, and library layers in a single pass — no horizontal schema-first anti-pattern.
+- When the upstream research pipeline produces a ranked candidate catalog with explicit FOUNDATIONAL tags, those candidates naturally form a single [ENABLER] e1 epic; keeping enabler ratio at 1/4 (25%) satisfies the <40% cap while leaving three [VALUE] epics that run in parallel post-e1.
+- The `motion` library bundle-math gate (vite build --report before AND after UPL-1) is a hard acceptance signal for the foundation epic — embed it explicitly in the acceptance signals, not just as a specialist hint, so the milestone-pipeline implementer cannot miss it.
+- specialist-area hints for visual-uplift epics: `bundle-budget-reviewer` fires on every epic that adds a new npm dependency; `a11y-reviewer` fires specifically on any epic touching opacity/visibility toggling (risk of focus-reachability regression on inactive panels) and on any new overlay/modal component (focus-trap verification).
+- `manifest-permissions-reviewer` is relevant when adding new npm dependencies with unknown license provenance (even ISC) — flag it in e1 (motion + lucide-react) as a one-time license check, not on every downstream epic.

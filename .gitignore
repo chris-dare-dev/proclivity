@@ -23,3 +23,7 @@ plans/*.md
 .claude/notes/milestones/*/state.json
 # git worktrees created by the Agent harness for delegated sub-agents
 .claude/worktrees/
+# roadmap + frontend-uplift transient state — same convention as milestones/*/state.json
+.claude/notes/roadmaps/*/state.json
+.claude/notes/frontend-uplifts/*/state.json
+.claude/scheduled_tasks.lock
