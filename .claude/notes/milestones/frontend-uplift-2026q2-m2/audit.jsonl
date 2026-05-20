@@ -1,0 +1,8 @@
+{"ts": "2026-05-20T17:11:30Z", "milestone": "frontend-uplift-2026q2-m2", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0, "include_oss": 1}
+{"ts": "2026-05-20T17:12:06Z", "milestone": "frontend-uplift-2026q2-m2", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0, "include_oss": 1}
+{"ts": "2026-05-20T17:12:23Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-20T17:18:41Z", "milestone": "frontend-uplift-2026q2-m2", "event": "researcher-returned", "status": "complete", "role": "explore"}
+{"ts": "2026-05-20T17:18:41Z", "milestone": "frontend-uplift-2026q2-m2", "event": "researcher-returned", "status": "complete", "role": "general"}
+{"ts": "2026-05-20T17:20:03Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-20T17:20:03Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-20T17:24:58Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-exit", "phase": "implement-aborted-scope", "reason": "chunk-ceiling-breach"}

@@ -1,0 +1,38 @@
+{
+  "milestone_id": "frontend-uplift-2026q2-m2",
+  "started": "2026-05-20T17:12:06Z",
+  "completed": null,
+  "wall_clock_seconds": null,
+  "phases": {
+    "init": {
+      "wall_seconds": 17.0
+    },
+    "research-running": {
+      "wall_seconds": 460.0
+    },
+    "research-complete": {
+      "wall_seconds": 0.0
+    },
+    "implement-running": {
+      "wall_seconds": 295.0
+    }
+  },
+  "findings": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  },
+  "fixed": [],
+  "deferred": [],
+  "invalidated": [],
+  "invalidation_rate": 0.0,
+  "external_writes_required": [
+    "npm install motion",
+    "git push origin main"
+  ],
+  "external_writes_completed": [],
+  "total_usd": 0.0,
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}
