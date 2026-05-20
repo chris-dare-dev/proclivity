@@ -1,6 +1,14 @@
 import { lazy, memo, Suspense, useEffect, useMemo, useState } from "react";
 import { LazyMotion } from "motion/react";
 import "./App.css";
+import { Today } from "@/sections/Today";
+import { Sprint } from "@/sections/Sprint";
+import { LongTerm } from "@/sections/LongTerm";
+import { Gantt } from "@/sections/Gantt";
+import { Reminders } from "@/sections/Reminders";
+import { useStore } from "@/storage/useStore";
+import { configure as configureObservability } from "@/observability/logger";
+import type { SettingsPaneId } from "@/types";
 
 // Motion v12 (LazyMotion + domAnimation) — m2 frontend-uplift foundation.
 // LazyMotion is a Context provider; the actual feature pack
@@ -20,14 +28,6 @@ import "./App.css";
 // bring in the heavier feature set synchronously).
 const loadDomAnimation = () =>
   import("./motion-features").then((mod) => mod.default);
-import { Today } from "@/sections/Today";
-import { Sprint } from "@/sections/Sprint";
-import { LongTerm } from "@/sections/LongTerm";
-import { Gantt } from "@/sections/Gantt";
-import { Reminders } from "@/sections/Reminders";
-import { useStore } from "@/storage/useStore";
-import { configure as configureObservability } from "@/observability/logger";
-import type { SettingsPaneId } from "@/types";
 
 /**
  * Valid SettingsPaneId values for deep-link URL parsing. Must stay in sync

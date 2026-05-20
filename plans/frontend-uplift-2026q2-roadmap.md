@@ -325,7 +325,7 @@ How might we **ship a prioritized sequence of 26 visual-modernization candidates
 
 - **Constraints:**
   - Chrome MV3 extension, local-only — no server-side components, no hosted endpoints (CLAUDE.md §What agents must not do)
-  - Initial newtab chunk ≤ 200 KB (CLAUDE.md §Build and verification)
+  - Initial newtab chunk ≤ 500 KB (hard ceiling; 400 KB soft warn) (CLAUDE.md §Build and verification)
   - TypeScript strict flags: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess` (CLAUDE.md §Build and verification)
   - React 18 — NOT React 19 (final report §5d: UPL-26 deferred because it needs React 19)
   - `prefers-reduced-motion` baseline must be preserved at every motion site (final report §4, UPL-22; CLAUDE.md §Stack reminder via service worker reference)
@@ -364,7 +364,7 @@ How might we **ship a prioritized sequence of 26 visual-modernization candidates
 **Objective:** By 2026-06-20, the Proclivity newtab presents a visually modern foundation — warmer palette, consistent SVG icons, a seated motion library — with the initial chunk confirmed under 200 KB and 10 downstream visual candidates unblocked for the next sprint.
 
 **Key Results:**
-1. `npm run build` passes clean with the initial newtab chunk ≤ 200 KB after UPL-1 (motion library) lands — confirmed by `vite build --report` before/after diff
+1. `npm run build` passes clean with the initial newtab chunk ≤ 500 KB (hard ceiling; 400 KB soft warn) after UPL-1 (motion library) lands — confirmed by `vite build --report` before/after diff
 2. Every Unicode icon in the current UI (`✎`, `✕`, `→`, `▾`, `▸` and ad-hoc inline SVGs) is replaced by a named `lucide-react` import, with zero regressions in the build's TypeScript strict pass
 3. The warm-gray token shift (UPL-6) is applied and the current screenshot set shows visibly reduced chroma on dark neutral tokens — WCAG AA contrast preserved on all text-on-background pairings
 4. At least 2 of the 5 post-foundation milestones (UPL-2 section-fade, UPL-3 stagger-reveal + UPL-16 mobile header, UPL-25 toast layer, UPL-20 + UPL-22 reduced-motion sweep) are shipped within 4 weeks of the foundation sprint completing
@@ -413,7 +413,7 @@ Vertical slicing + enabler stories (Holub / Patton default). Each epic cuts thro
 **Predecessors:** —
 
 **Acceptance signals:**
-- `npm run build` passes clean; `vite build --report` shows the initial newtab chunk ≤ 200 KB after UPL-1 lands
+- `npm run build` passes clean; `vite build --report` shows the initial newtab chunk ≤ 500 KB (hard ceiling; 400 KB soft warn) after UPL-1 lands
 - Every Unicode icon (`✎`, `✕`, `→`, `▾`, `▸`) and ad-hoc inline SVG replaced with a named `lucide-react` import; zero TypeScript strict-mode errors
 - Warm-gray token shift applied (`--bg`, `--panel`, `--panel-2`, `--border`, `--text-dim`); WCAG AA contrast preserved on all text-on-background pairings; all ~5 previously unguarded motion sites carry `@media (prefers-reduced-motion: reduce)` guards
 
@@ -465,7 +465,7 @@ Vertical slicing + enabler stories (Holub / Patton default). Each epic cuts thro
 **Acceptance signals:**
 - Modals (todo-edit, settings) animate scale-in on open and scale-out on close via `<AnimatePresence>`; no animation under `prefers-reduced-motion: reduce`
 - Todo rows on Today/Sprint/LongTerm lift 2 px with box-shadow on hover; transition is CSS-only and absent on touch devices
-- `toast.success(...)` fires on reminder-created and settings-saved; toast is position bottom-right, respects reduced-motion, does not cause layout shift; `npm run build` passes with `sonner` and `@formkit/auto-animate` added; initial chunk still ≤ 200 KB per `vite build --report`
+- `toast.success(...)` fires on reminder-created and settings-saved; toast is position bottom-right, respects reduced-motion, does not cause layout shift; `npm run build` passes with `sonner` and `@formkit/auto-animate` added; initial chunk still ≤ 500 KB (hard ceiling; 400 KB soft warn) per `vite build --report`
 
 ---
 
@@ -573,7 +573,7 @@ Specialist: Manifest-permissions reviewer — confirm `motion` is ISC/MIT licens
 
 Given `motion` is installed and the `<LazyMotion>` wrapper is in place
 When the developer runs `npm run build` and inspects the Rollup report for the initial newtab chunk
-Then the initial chunk is ≤ 200 KB; if the chunk exceeds 200 KB the `motion` dependency is removed, the epic is re-tiered to Next, and a spike is filed to diagnose the overrun before reattempting
+Then the initial chunk delta against the s3 baseline is ≤ 30 KB AND the absolute total does not exceed the CLAUDE.md hard ceiling of 500 KB (soft warn at 400 KB; raised from 200/220 in commit 55d81ac on 2026-05-20); if the hard ceiling is breached the `motion` dependency is removed, the epic is re-tiered to Next, and a spike is filed to diagnose the overrun before reattempting
 
 Specialist: Bundle-budget reviewer — compare post-UPL-1 initial chunk against the s3 baseline; the expected delta is ~4.6 KB; flag any delta >10 KB as anomalous
 

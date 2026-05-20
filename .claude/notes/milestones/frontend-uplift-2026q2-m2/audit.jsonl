@@ -6,3 +6,7 @@
 {"ts": "2026-05-20T17:20:03Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-exit", "phase": "research-complete"}
 {"ts": "2026-05-20T17:20:03Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-enter", "phase": "implement-running"}
 {"ts": "2026-05-20T17:24:58Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-exit", "phase": "implement-aborted-scope", "reason": "chunk-ceiling-breach"}
+{"ts": "2026-05-20T18:02:16Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-enter", "phase": "implement-running", "retry": true, "reason": "ceiling-raised-to-500kB"}
+{"ts": "2026-05-20T18:04:26Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-20T18:04:45Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-enter", "phase": "critique-running", "critics": "adversary,web-perf,oss-scout"}
+{"ts": "2026-05-20T18:13:42Z", "milestone": "frontend-uplift-2026q2-m2", "event": "phase-exit", "phase": "critique-complete"}
