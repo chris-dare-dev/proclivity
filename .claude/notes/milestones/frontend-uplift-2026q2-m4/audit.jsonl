@@ -1,0 +1,19 @@
+{"ts": "2026-05-20T21:52:49Z", "milestone": "frontend-uplift-2026q2-m4", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0}
+{"ts": "2026-05-20T21:52:49Z", "milestone": "frontend-uplift-2026q2-m4", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-20T21:59:13Z", "milestone": "frontend-uplift-2026q2-m4", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-20T21:59:13Z", "milestone": "frontend-uplift-2026q2-m4", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-20T22:03:06Z", "milestone": "frontend-uplift-2026q2-m4", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-20T22:03:15Z", "milestone": "frontend-uplift-2026q2-m4", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-20T22:11:58Z", "milestone": "frontend-uplift-2026q2-m4", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-20T22:12:32Z", "milestone": "frontend-uplift-2026q2-m4", "event": "commit-amended", "old_sha": "64fb75b", "new_sha": "e9960d488505c69aa986ff57759a141b66fdcb3b", "reason": "H2-subject-50-cap"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-fixed", "id": "H1"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-fixed", "id": "H2"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-fixed", "id": "L2"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-fixed", "id": "L4"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-deferred", "id": "M1", "reason": "hook-blocked-or-no-test-infra-or-per-critic-recommendation"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-deferred", "id": "M2", "reason": "hook-blocked-or-no-test-infra-or-per-critic-recommendation"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-deferred", "id": "M3", "reason": "hook-blocked-or-no-test-infra-or-per-critic-recommendation"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-deferred", "id": "M4", "reason": "hook-blocked-or-no-test-infra-or-per-critic-recommendation"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-deferred", "id": "L1", "reason": "hook-blocked-or-no-test-infra-or-per-critic-recommendation"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-deferred", "id": "L3", "reason": "hook-blocked-or-no-test-infra-or-per-critic-recommendation"}
+{"ts": "2026-05-20T22:14:25Z", "milestone": "frontend-uplift-2026q2-m4", "event": "finding-deferred", "id": "L5", "reason": "hook-blocked-or-no-test-infra-or-per-critic-recommendation"}
