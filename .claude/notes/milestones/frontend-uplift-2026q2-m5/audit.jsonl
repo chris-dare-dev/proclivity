@@ -1,0 +1,17 @@
+{"ts": "2026-05-20T21:23:06Z", "milestone": "frontend-uplift-2026q2-m5", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0}
+{"ts": "2026-05-20T21:23:06Z", "milestone": "frontend-uplift-2026q2-m5", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-20T21:29:47Z", "milestone": "frontend-uplift-2026q2-m5", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-20T21:29:47Z", "milestone": "frontend-uplift-2026q2-m5", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-20T21:33:56Z", "milestone": "frontend-uplift-2026q2-m5", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-20T21:34:06Z", "milestone": "frontend-uplift-2026q2-m5", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-20T21:42:15Z", "milestone": "frontend-uplift-2026q2-m5", "event": "phase-exit", "phase": "critique-complete"}
+{"ts": "2026-05-20T21:42:42Z", "milestone": "frontend-uplift-2026q2-m5", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-fixed", "id": "H1"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-fixed", "id": "M3"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-fixed", "id": "M4"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-fixed", "id": "M6"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-fixed", "id": "L1"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-deferred", "id": "M1", "reason": "hook-blocked-or-pushed-or-per-finding-recommendation"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-deferred", "id": "M2", "reason": "hook-blocked-or-pushed-or-per-finding-recommendation"}
+{"ts": "2026-05-20T21:44:44Z", "milestone": "frontend-uplift-2026q2-m5", "event": "finding-deferred", "id": "M5", "reason": "hook-blocked-or-pushed-or-per-finding-recommendation"}
+{"ts": "2026-05-20T21:45:11Z", "milestone": "frontend-uplift-2026q2-m5", "event": "pipeline-complete"}
