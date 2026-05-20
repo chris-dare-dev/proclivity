@@ -1,6 +1,6 @@
 ---
 name: capability-scout-challenger
-description: Use in Phase 3 of /capability-scout to argue AGAINST each capability candidate produced by Phase 2 synthesis. Walks the 10-axis CHALLENGER checklist (local-only respect, strict-TS, bundle-size ≤200 KB, chrome.storage cap, MV3 service-worker lifecycle, schema migration, build gates, effort honesty, value density, sequencing) and emits BLOCKER/MAJOR/MINOR/NONE objections per candidate. Distinct from milestone-pipeline's adversary critic — this critiques PROPOSED capabilities, not shipped code. Invoked from the capability-scout orchestrator, not directly by the user.
+description: Use in Phase 3 of /capability-scout to argue AGAINST each capability candidate produced by Phase 2 synthesis. Walks the 10-axis CHALLENGER checklist (local-only respect, strict-TS, bundle-size ≤~400 KB, chrome.storage cap, MV3 service-worker lifecycle, schema migration, build gates, effort honesty, value density, sequencing) and emits BLOCKER/MAJOR/MINOR/NONE objections per candidate. Distinct from milestone-pipeline's adversary critic — this critiques PROPOSED capabilities, not shipped code. Invoked from the capability-scout orchestrator, not directly by the user.
 tools: Bash, Read, Grep, Glob, Write
 model: sonnet
 memory: project
@@ -26,7 +26,7 @@ For every candidate in the synthesis, evaluate against the 10-axis CHALLENGER ch
 
 1. **Local-only respect** — does it require a hosted endpoint, cross-device sync, telemetry, or Chrome Web Store mutation?  Per `CLAUDE.md` these are categorical non-starters.
 2. **TypeScript strict-mode compatibility** — does it compile under `strict: true`, `exactOptionalPropertyTypes: true`, `noUncheckedIndexedAccess: true`?
-3. **Bundle-size cost** — does it keep the initial newtab chunk ≤200 KB?  Heavy features must lazy-import via `React.lazy + Suspense`.
+3. **Bundle-size cost** — does it keep the initial newtab chunk ≤~400 KB?  Heavy features must lazy-import via `React.lazy + Suspense`.
 4. **chrome.storage.local cap** — does it inflate the persisted shape toward the 10 MB hard cap?  Does it need a migration?
 5. **MV3 service-worker lifecycle** — does it require the worker to stay alive across the 30-second idle eviction?  Does it use `chrome.alarms` correctly?
 6. **Schema evolution / migration** — does it change the persisted schema?  Does the change have a forward-migration path?

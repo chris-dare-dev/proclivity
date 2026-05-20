@@ -163,7 +163,7 @@ Search and verify currency (last release within ~12 months):
 For every library you intend to recommend, verify:
 - License is permissive (MIT / Apache 2.0 / ISC). Reject GPL/AGPL.
 - Bundle weight (use bundlephobia.com via WebFetch). The newtab
-  initial chunk budget is **~200 kB** per [CLAUDE.md](CLAUDE.md);
+  initial chunk budget is **~400 kB** per [CLAUDE.md](CLAUDE.md);
   heavier libs must be lazy-loaded.
 - Last release date.
 - Whether it duplicates capability already present (React 18,
@@ -244,7 +244,7 @@ One H3 per surface or system (e.g. `### Sprint section`,
 
 ## Recommended library additions
 Table: library | purpose | weight | license | lazy-load? | risk.
-Any row exceeding the 200 kB initial-chunk budget MUST be marked
+Any row exceeding the ~400 kB initial-chunk budget MUST be marked
 `lazy-load: required` with the suggested split point.
 
 ## Token & primitive proposals
@@ -276,7 +276,7 @@ with a one-line "why this matters" gloss.
 
 - **Don't add dependencies.** Recommend, don't install. The user runs
   `npm install` themselves after reading.
-- **Respect the 200 kB initial-chunk budget** per [CLAUDE.md](CLAUDE.md).
+- **Respect the ~400 kB initial-chunk budget** per [CLAUDE.md](CLAUDE.md).
   Mark heavy libs as `lazy-load: required`.
 - **No GPL/AGPL recommendations.**
 - **Verify before you cite.** Every "released in 2026" or "industry

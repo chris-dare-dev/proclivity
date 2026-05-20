@@ -38,7 +38,7 @@ Every candidate gets evaluated against:
 1. **Status-token discipline** — `--danger` / `--warn` / `--ok` are reserved for explicit state communication; flag any candidate that uses them for decorative purposes
 2. **Reduced-motion discipline** — `@media (prefers-reduced-motion: reduce)` baseline in `index.css` must continue to suppress new motion; every new animation must honor it
 3. **Accessibility regression risk** — WCAG AA contrast (in BOTH light + dark themes), keyboard nav, screen-reader semantics, ARIA roles
-4. **Bundle-size cost** — Proclivity targets ≤200 KB initial newtab chunk per `CLAUDE.md`; heavy deps must `React.lazy + Suspense`
+4. **Bundle-size cost** — Proclivity targets ≤~400 KB initial newtab chunk per `CLAUDE.md`; heavy deps must `React.lazy + Suspense`
 5. **React 18 compatibility** — React 19-only features / libraries are out of scope
 6. **Strict-TS compatibility** — `strict: true`, `exactOptionalPropertyTypes: true`, `noUncheckedIndexedAccess: true`
 7. **Theming impact** — both light + dark themes must preserve contrast; the user-overridable `--accent` token must not be hardcoded

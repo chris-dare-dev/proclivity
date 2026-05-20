@@ -15,7 +15,7 @@ Usage:
 
 `<id>` is a free-form slug.  Convention: date-tagged scope, e.g. `2026q2-visual-refresh` or `sprint-modernize-v1`.  If no id is given, STOP and ask: "What uplift id should I use?"
 
-The pipeline answers: **"Where can Proclivity's new-tab UI become more attractive, sleek, and modern — measured against 2026 SOTA platforms, modern libraries, and motion vocabulary — without violating the local-only / strict-TS / ≤200 KB initial-chunk constraints or `prefers-reduced-motion` accessibility?"**  It does NOT produce code; it produces a ranked candidate report ready to feed `/milestone-pipeline` (single-candidate) or `/roadmap` (multi-candidate program).
+The pipeline answers: **"Where can Proclivity's new-tab UI become more attractive, sleek, and modern — measured against 2026 SOTA platforms, modern libraries, and motion vocabulary — without violating the local-only / strict-TS / ≤~400 KB initial-chunk constraints or `prefers-reduced-motion` accessibility?"**  It does NOT produce code; it produces a ranked candidate report ready to feed `/milestone-pipeline` (single-candidate) or `/roadmap` (multi-candidate program).
 
 ---
 
@@ -210,7 +210,7 @@ init → discover-running → discover-complete
 | "Auto-invoke /milestone-pipeline on the top candidate." | NEVER.  Offer-and-wait. |
 | "Inflate severity to surface more findings." | The challenger's NONE is a credible result.  Aim 30–60% NONE; padding objections erodes signal. |
 | "Propose parallax on the Today section." | motion-vocabulary §8 anti-pattern — operators want stillness on planning surfaces. |
-| "Propose a heavy animation lib without lazy-loading it." | Proclivity's initial newtab chunk must stay ≤200 KB; heavy libs need `React.lazy` per CLAUDE.md. |
+| "Propose a heavy animation lib without lazy-loading it." | Proclivity's initial newtab chunk must stay ≤~400 KB; heavy libs need `React.lazy` per CLAUDE.md. |
 
 ---
 

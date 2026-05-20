@@ -26,7 +26,7 @@ The challenger uses a 4-tier rubric distinct from the standard CRITICAL/HIGH/MED
 
 | Challenger tier | Maps to standard critique severity | Meaning |
 |---|---|---|
-| **BLOCKER** | CRITICAL | Candidate must be dropped or fundamentally redesigned (violates local-only constraint, requires hosted endpoint / cross-device sync / telemetry, license-incompatible OSS, blows the 200 KB initial-chunk budget without a credible lazy-load story).  Rare — calibrate carefully. |
+| **BLOCKER** | CRITICAL | Candidate must be dropped or fundamentally redesigned (violates local-only constraint, requires hosted endpoint / cross-device sync / telemetry, license-incompatible OSS, blows the ~400 KB initial-chunk budget without a credible lazy-load story).  Rare — calibrate carefully. |
 | **MAJOR** | HIGH | Candidate is shippable but with a significant cost the synthesis didn't surface (TypeScript strict-mode regression, chrome.storage.local cap risk, MV3 service-worker eviction risk, effort under-estimated by ≥2x). |
 | **MINOR** | MEDIUM | Candidate is shippable with light scope adjustment (a11y gap, missing reduced-motion fallback on a new animation, edge-case in recurrence logic). |
 | **NONE** | n/a | Candidate survives the gauntlet cleanly. |
@@ -39,7 +39,7 @@ Every candidate gets evaluated against:
 
 1. **Local-only respect** — does it require a hosted endpoint, cross-device sync, telemetry, or Chrome Web Store mutation?  Per `CLAUDE.md` these are categorical non-starters.
 2. **TypeScript strict-mode compatibility** — does it compile under `strict: true`, `exactOptionalPropertyTypes: true`, `noUncheckedIndexedAccess: true`?
-3. **Bundle-size cost** — does it keep the initial newtab chunk ≤200 KB?  Heavy features must lazy-import via `React.lazy + Suspense`.
+3. **Bundle-size cost** — does it keep the initial newtab chunk ≤~400 KB?  Heavy features must lazy-import via `React.lazy + Suspense`.
 4. **chrome.storage.local cap** — does it inflate the persisted shape toward the 10 MB hard cap?  Does it need a migration?
 5. **MV3 service-worker lifecycle** — does it require the worker to stay alive across the 30-second idle eviction?  Does it use `chrome.alarms` correctly?
 6. **Schema evolution / migration** — does it change the persisted schema?  Does the change have a forward-migration path?

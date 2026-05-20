@@ -151,7 +151,7 @@ For every project you surface, capture:
 - **One-paragraph what-it-does**
 - **Specific capability worth borrowing** (the SPECIFIC feature Proclivity could learn from — NOT "this library is good")
 - **Proclivity positioning** (would this be an import? a vendor-copy of a function? a design-pattern lift?)
-- **Bundle-size implication** (Proclivity targets ≤200 KB initial newtab chunk; flag any candidate that would blow that without lazy-load)
+- **Bundle-size implication** (Proclivity targets ≤~400 KB initial newtab chunk; flag any candidate that would blow that without lazy-load)
 - **Risk flags** (vendor-lock-in, abandonware risk, license restriction, MV3 incompatibility)
 
 Hard rules:
@@ -215,7 +215,7 @@ For every concept / API / framework you surface, capture:
 Hard rules:
 - Cite Chrome AI feature names / API names verbatim (e.g. `window.ai.languageModel`).
 - **Proclivity is local-only** — every candidate must demonstrate it works without a hosted endpoint, OR get parked.
-- **Bundle-size discipline** — Proclivity's initial newtab chunk is ≤200 KB; flag anything that blows that without lazy-load.
+- **Bundle-size discipline** — Proclivity's initial newtab chunk is ≤~400 KB; flag anything that blows that without lazy-load.
 - **Cold-start discipline** — the new-tab page paints quickly; AI features must NOT block first paint.
 - No vendor-blog hype.  Cite docs / specs / GitHub releases, not marketing pages.
 - No code.  Write a brief.
@@ -321,7 +321,7 @@ For every candidate in the synthesis, evaluate against the 10-axis CHALLENGER ch
 
 1. **Local-only respect** — does it require a hosted endpoint, cross-device sync, telemetry, or Chrome Web Store mutation?  Per `CLAUDE.md` these are categorical non-starters.
 2. **TypeScript strict-mode compatibility** — does it compile under `strict: true`, `exactOptionalPropertyTypes: true`, `noUncheckedIndexedAccess: true`?
-3. **Bundle-size cost** — does it keep the initial newtab chunk ≤200 KB?  Heavy features must lazy-import via `React.lazy + Suspense`.
+3. **Bundle-size cost** — does it keep the initial newtab chunk ≤~400 KB?  Heavy features must lazy-import via `React.lazy + Suspense`.
 4. **chrome.storage.local cap** — does it inflate the persisted shape toward the 10 MB hard cap?  Does it need a migration?
 5. **MV3 service-worker lifecycle** — does it require the worker to stay alive across the 30-second idle eviction?  Does it use `chrome.alarms` correctly?
 6. **Schema evolution / migration** — does it change the persisted schema?  Does the change have a forward-migration path?

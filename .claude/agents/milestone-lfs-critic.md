@@ -4,7 +4,7 @@ description: |
   Conditional Phase 3 binary asset hygiene critic for the proclivity milestone pipeline.
   Fires ONLY when the implementation diff touches `.gitattributes` OR adds any binary file.
   Skip when the diff contains neither. Reviews for: new files > 1 MB committed to git
-  (unusual given chrome.storage 10 MB cap and the ~200 kB JS chunk budget), `public/*.png`
+  (unusual given chrome.storage 10 MB cap and the ~400 kB JS chunk budget), `public/*.png`
   icons that have grown too large (they load into the extension manifest), `.heic`/`.mov`/
   `.mp4` test fixtures outside `test/fixtures/`, and recommends `.gitattributes` + LFS
   only if a binary > 5 MB appears. Proclivity has no `.gitattributes` today and no LFS.

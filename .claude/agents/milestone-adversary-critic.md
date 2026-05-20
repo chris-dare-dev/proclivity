@@ -79,7 +79,7 @@ HIGH — likely-to-cause-incident bug, build break in non-default config, or
   - strict-mode TypeScript flags (`strict`, `exactOptionalPropertyTypes`,
     `noUncheckedIndexedAccess`) disabled or bypassed in `tsconfig.json`
   - `three.js` or `@react-three/fiber` imported directly (not lazily) in newtab
-    entry point, blowing the 200 kB initial chunk budget
+    entry point, blowing the ~400 kB initial chunk budget
   - MV3 service worker stores top-level mutable state that is lost on SW termination
   - diff > 400 LOC without justification (defect-detection cliff)
   - Node-only import (`fs`, `path`, `process`) in extension or newtab code
@@ -127,11 +127,11 @@ explicit justification in a comment: HIGH.
 level: HIGH (will blow chunk budget). Check `src/newtab` and any entry that is not
 behind a lazy boundary.
 
-**Axis 6 — Initial newtab chunk ≤ 200 kB budget; hard ceiling 220 kB:**
+**Axis 6 — Initial newtab chunk ≤ ~400 kB budget; hard ceiling 500 kB:**
 New `dependencies` (not `devDependencies`) added to `package.json` that are not
 lazy-loaded need a one-line size justification. Anything adding >50 kB gzipped to the
 initial chunk: HIGH. If `npm run build` output is available, check the chunk size lines.
-The hard ceiling is 220 kB — crossing it: CRITICAL.
+The hard ceiling is 500 kB — crossing it: CRITICAL.
 
 **Axis 7 — MV3 service worker lifecycle:**
 `src/background/service-worker.ts` must not assume persistent top-level state. Variables

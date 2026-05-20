@@ -59,7 +59,7 @@ Challenger penalty:
    - Scouts had a 15-minute budget; some surfaces may be under-explored.
    - Triangulation across 4 briefs is strong but not infallible.
    - Bundle-size + RICE estimates are rough; ±50% accuracy is the realistic ceiling.
-   - The challenger evaluated against the current React-18 + ≤200 KB + strict-TS constraints; if conventions evolve, BLOCKERs may flip.
+   - The challenger evaluated against the current React-18 + ≤~400 KB + strict-TS constraints; if conventions evolve, BLOCKERs may flip.
 
 8. **Cross-reference index** — table of `UPL-id` → which discover briefs cited it + which screenshots support it.
 

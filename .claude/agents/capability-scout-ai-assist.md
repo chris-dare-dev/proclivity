@@ -46,7 +46,7 @@ For every concept / API / framework you surface, capture:
 Hard rules:
 - Cite Chrome AI feature names / API names verbatim (e.g. `window.ai.languageModel`).
 - **Proclivity is local-only** — every candidate must demonstrate it works without a hosted endpoint, OR get parked.
-- **Bundle-size discipline** — Proclivity's initial newtab chunk is ≤200 KB; flag anything that blows that without lazy-load.
+- **Bundle-size discipline** — Proclivity's initial newtab chunk is ≤~400 KB; flag anything that blows that without lazy-load.
 - **Cold-start discipline** — the new-tab page paints quickly; AI features must NOT block first paint.
 - No vendor-blog hype.  Cite docs / specs / GitHub releases, not marketing pages.
 - No code.  Write a brief.

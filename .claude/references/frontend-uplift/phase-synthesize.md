@@ -59,7 +59,7 @@
 
 **Screenshot evidence:** `screenshots/<view-id>-desktop.png` (visual-scout-captured)
 
-**Sketch:** 1-paragraph design hint.  Cite specific file:line attach points where credible.  Cite `--accent` / `--panel` / `--text` / `--space-N` tokens to be applied.  Cite [MOT-N] primitives composing the upgrade.  Note `prefers-reduced-motion` requirements and the React-18 / strict-TS / ≤200 KB chunk constraints.
+**Sketch:** 1-paragraph design hint.  Cite specific file:line attach points where credible.  Cite `--accent` / `--panel` / `--text` / `--space-N` tokens to be applied.  Cite [MOT-N] primitives composing the upgrade.  Note `prefers-reduced-motion` requirements and the React-18 / strict-TS / ≤~400 KB chunk constraints.
 
 **Open questions:** bullet list, or "none" when well-specified.
 ```

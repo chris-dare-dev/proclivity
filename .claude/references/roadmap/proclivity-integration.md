@@ -119,7 +119,7 @@ doing any git work.
 - **No background-script bloat.** The MV3 service worker can be killed
   at any time. Designs must not rely on long-running SW state. Use
   `chrome.alarms` + `chrome.storage` for persistence.
-- **Bundle hygiene.** Initial newtab chunk stays under ~200 kB. Heavier
+- **Bundle hygiene.** Initial newtab chunk stays under ~400 kB. Heavier
   features (e.g. three.js for the mesh background) must be lazy-imported
   via `React.lazy` + `Suspense`.
 - **Personal-scale storage.** All persistence is `chrome.storage.local`

@@ -223,7 +223,7 @@ file-system edits are YOUR responsibility; pushing or publishing is NEVER yours.
 - Do not create feature branches. Commit to `main`.
 - Do not use `git add -A` or `git add .` — stage changes file-by-file or with `git add -p`.
 - Do not add new npm dependencies without a clear justification. The initial newtab chunk
-  must stay under ~200 kB; heavier features must be lazy-imported via `React.lazy` + `Suspense`.
+  must stay under ~400 kB; heavier features must be lazy-imported via `React.lazy` + `Suspense`.
 
 ## Reference paths
 

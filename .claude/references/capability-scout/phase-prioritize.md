@@ -49,7 +49,7 @@ Drop the candidate's RICE BY HALF when the challenger emitted BLOCKER without a 
    - Scouts had a 15-minute budget each; some categories may be under-explored.
    - Triangulation across 5 briefs is strong evidence but not infallible.
    - Effort estimates are t-shirts → person-days; ±50% accuracy is the realistic ceiling at this stage.
-   - The challenger evaluated against the current local-only + 200 KB + strict-TS constraints; if those evolve, BLOCKERs may flip.
+   - The challenger evaluated against the current local-only + ~400 KB + strict-TS constraints; if those evolve, BLOCKERs may flip.
 
 6. **Cross-reference index** — table of `CAND-id` → which survey briefs cited it.  Useful for the user when re-reading sources.
 

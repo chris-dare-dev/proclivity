@@ -1,6 +1,6 @@
 ---
 name: frontend-uplift-library-scout
-description: Use to survey modern frontend libraries (Framer Motion, Motion, GSAP, Lottie, auto-animate, vaul, embla-carousel, @floating-ui/react, cmdk, @tanstack/virtual, drei, lucide-react, etc.) that Proclivity could plausibly adopt to make the newtab more attractive, sleek, and modern. Cites license + bundle size (gz) + React 18 compatibility per library. Aware of Proclivity's React 18 + Vite + plain-CSS stack and ≤200 KB initial-chunk budget. Fires in Phase 1 of /frontend-uplift. Writes a brief — does NOT write code. Invoked from the frontend-uplift orchestrator, not directly by the user.
+description: Use to survey modern frontend libraries (Framer Motion, Motion, GSAP, Lottie, auto-animate, vaul, embla-carousel, @floating-ui/react, cmdk, @tanstack/virtual, drei, lucide-react, etc.) that Proclivity could plausibly adopt to make the newtab more attractive, sleek, and modern. Cites license + bundle size (gz) + React 18 compatibility per library. Aware of Proclivity's React 18 + Vite + plain-CSS stack and ≤~400 KB initial-chunk budget. Fires in Phase 1 of /frontend-uplift. Writes a brief — does NOT write code. Invoked from the frontend-uplift orchestrator, not directly by the user.
 tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Write
 model: sonnet
 memory: project
@@ -24,7 +24,7 @@ Read these first (5-minute orientation):
 
 Then cover (15 wall-clock minutes total):
 
-1. **Animation libraries** — Framer Motion / Motion, Motion One, GSAP, Lottie, Anime.js v4, auto-animate.  WebFetch docs + recent changelogs.  Which is the right choice for Proclivity's stack (React 18 + Vite + plain CSS + ≤200 KB initial chunk)?  Note: anything React 19-only is OUT.
+1. **Animation libraries** — Framer Motion / Motion, Motion One, GSAP, Lottie, Anime.js v4, auto-animate.  WebFetch docs + recent changelogs.  Which is the right choice for Proclivity's stack (React 18 + Vite + plain CSS + ≤~400 KB initial chunk)?  Note: anything React 19-only is OUT.
 2. **Scroll-driven** — native CSS `animation-timeline: scroll()`, Lenis, Framer's `useScroll`.  Where do they slot in given Proclivity is a single-page newtab?
 3. **Layout / interaction** — vaul (drawer), embla-carousel, @floating-ui/react, react-aria-components, cmdk (command palette).  Where would each slot into Proclivity's current surface?
 4. **Virtualization + data** — @tanstack/virtual, react-window — useful if todo lists grow beyond viewport; date-fns / Temporal polyfill for Gantt + reminder recurrence.

@@ -50,7 +50,7 @@ Answer all five questions from in-context evidence (the conversation, codebase, 
 
 1. **Who is this for, specifically?** The extension user, the developer, a specific workflow (Today / Sprint / Long-term / Gantt / Reminders).
 2. **What does success look like?** The single observable thing that changes when this lands.
-3. **What are the real constraints?** Bundle size cap (~200 kB newtab chunk), `chrome.storage.local` cap (~10 MB), service worker lifecycle (can be killed at any time), TypeScript strict flags. Cite specific `CLAUDE.md` lines when relevant.
+3. **What are the real constraints?** Bundle size cap (~400 kB newtab chunk), `chrome.storage.local` cap (~10 MB), service worker lifecycle (can be killed at any time), TypeScript strict flags. Cite specific `CLAUDE.md` lines when relevant.
 4. **What's been tried before?** Grep `plans/` for prior roadmaps and `.claude/notes/milestones/` for prior milestone artifacts.
 5. **Why now?** What changed that makes this the right moment?
 

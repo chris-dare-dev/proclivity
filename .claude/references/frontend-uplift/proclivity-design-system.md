@@ -13,7 +13,7 @@ This file is curated by hand from `CLAUDE.md`, `src/styles/theme.css`, and the s
 | Layer | What | Why it constrains proposals |
 |---|---|---|
 | Framework | React 18.3 + Vite 7 + TypeScript 5.6 | NOT React 19; some newer libs (e.g. React 19-only Motion features) are out of scope until upgrade |
-| Build | `@crxjs/vite-plugin` for MV3 + `tsc -b && vite build` build gate | Initial newtab chunk targets ≤200 KB; heavier features must `React.lazy + Suspense` |
+| Build | `@crxjs/vite-plugin` for MV3 + `tsc -b && vite build` build gate | Initial newtab chunk targets ≤~400 KB; heavier features must `React.lazy + Suspense` |
 | Style | Plain CSS / CSS modules + a few `*.css` files per surface | NO Tailwind; NO CSS-in-JS; design tokens are CSS custom properties in `src/styles/theme.css` |
 | UI lib | None (custom components in `src/components/`) | NO shadcn; NO Radix; NO Material UI — adding any is a major bundle commitment |
 | Charts / canvas | `@react-three/fiber` + `three.js` for the MeshBackground; lazy-loaded | Three.js is intentionally large and already lazy-loaded |

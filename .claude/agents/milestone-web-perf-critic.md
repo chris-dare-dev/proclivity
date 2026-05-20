@@ -5,7 +5,7 @@ description: |
   Fires ONLY when the implementation diff touches `src/**` (anything React/Vite/extension-
   related). Skip when the diff is limited to `.github/**`, `.gitattributes`, or other
   non-extension-source paths. Reviews for: initial newtab chunk size regressions (hard
-  ceiling 220 kB, warn at 200 kB), chrome.storage.local cap and useStore() invariants,
+  ceiling 500 kB, warn at ~400 kB), chrome.storage.local cap and useStore() invariants,
   lazy-import discipline for three.js/@react-three/fiber, manifest permission
   least-authority, MV3 service worker lifecycle footguns, CSP compliance, no Node-only
   imports in extension contexts, and accessibility regressions (WCAG AA color contrast,
@@ -74,7 +74,7 @@ CRITICAL — production breaks. Examples in this codebase:
   - `git push origin main` or Chrome Web Store publish invoked in non-Phase-4 path
   - telemetry, hosted endpoint, or server-side component added (proclivity is local-only)
   - strict-mode TypeScript flags removed from `tsconfig.json`
-  - initial newtab chunk size exceeds 220 kB hard ceiling
+  - initial newtab chunk size exceeds 500 kB hard ceiling
   - production-code change with zero test deltas
 
 HIGH — likely-to-cause-incident bug, build break in non-default config, or
@@ -87,7 +87,7 @@ HIGH — likely-to-cause-incident bug, build break in non-default config, or
   - manifest `host_permissions` broadened beyond what the feature requires
 
 MEDIUM — subtle bug, perf regression, or doc drift. Fix if ≤ 30 LOC. Examples:
-  - new `dependencies` entry that pushes initial chunk toward the 200 kB warn threshold
+  - new `dependencies` entry that pushes initial chunk toward the ~400 kB warn threshold
   - CLAUDE.md fact contradicted by diff but doc not updated
   - `chrome.*` API called directly in a React component instead of via `useStore()`
   - tsbuildinfo or other generated artifact committed
@@ -102,7 +102,7 @@ demote one level. Never invent a CRITICAL.
 - New entries in `dependencies` (not `devDependencies`) in `package.json` each need a
   one-line size justification and an estimated gzipped size.
 - Any new dependency that adds >50 kB gzipped to the initial chunk without justification: HIGH.
-- Hard ceiling: initial newtab chunk MUST NOT exceed 220 kB (warn at 200 kB). If `npm run
+- Hard ceiling: initial newtab chunk MUST NOT exceed 500 kB (warn at ~400 kB). If `npm run
   build` output is available, check the chunk size table. If unavailable, note in synthesis.
 - `three.js`, `@react-three/fiber`, `@react-three/drei` are pre-approved for lazy-loading
   only. If they appear outside a `React.lazy` + `Suspense` boundary: HIGH.

@@ -35,7 +35,7 @@ Studied by the **inspiration-scout** (and skimmed by the **visual-scout** when l
 
 ## 2. Modern frontend libraries (animation, motion, interaction)
 
-Studied by the **library-scout**.  License + bundle-size + maintenance signal cited per project.  **Critical context: Proclivity is on React 18 (not 19), Vite, plain CSS (no Tailwind), no shadcn, and targets ≤200 KB initial newtab chunk per `CLAUDE.md`.**  Heavy libs MUST lazy-load.
+Studied by the **library-scout**.  License + bundle-size + maintenance signal cited per project.  **Critical context: Proclivity is on React 18 (not 19), Vite, plain CSS (no Tailwind), no shadcn, and targets ≤~400 KB initial newtab chunk per `CLAUDE.md`.**  Heavy libs MUST lazy-load.
 
 ### Animation / motion
 
@@ -143,7 +143,7 @@ User override via `--views "today,sprint"` replaces this list verbatim.
 
 - **License citation is mandatory** for every library / OSS reference.
 - **Bundle-size cited** when proposing a new runtime dep (cite the `bundlephobia.com` or published library docs reading).
-- **Initial-chunk discipline:** Proclivity's initial newtab chunk targets ≤200 KB per `CLAUDE.md`.  Any new dep >50 KB MUST cite a lazy-load story (`React.lazy + Suspense`).
+- **Initial-chunk discipline:** Proclivity's initial newtab chunk targets ≤~400 KB per `CLAUDE.md`.  Any new dep >50 KB MUST cite a lazy-load story (`React.lazy + Suspense`).
 - **React 18 compatibility check** is non-negotiable.  React 19-only libs are OUT until Proclivity upgrades.
 - **Strict-TS compatibility** required (`strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`).
 - **Reduced-motion respect:** every animation proposal MUST honor `@media (prefers-reduced-motion: reduce)`.  The `index.css` baseline currently disables most motion under the reduced query — new motion proposals must extend that pattern.

@@ -59,7 +59,7 @@ For every epic, name 1–2 specialist areas the milestone-pipeline implementer s
 | `src/storage/`, `chrome.storage`, persistence layer | Reference `src/storage/storage.ts` wrapper + `useStore()` hook. Check 10 MB cap. |
 | `src/background/service-worker.ts`, `chrome.alarms`, `chrome.notifications` | MV3 SW can be killed at any time. Use `chrome.alarms` + `chrome.storage` for persistence. |
 | `src/sections/`, new-tab UI, React components, `*.tsx` | Reference `src/sections/` patterns. Check `motion-safe`, `:focus-visible`, `aria-` a11y. |
-| bundle size, lazy imports, `vite.config.ts`, `@crxjs/vite-plugin` | Initial newtab chunk must stay under ~200 kB. Heavy features must be lazy-imported via `React.lazy` + `Suspense`. |
+| bundle size, lazy imports, `vite.config.ts`, `@crxjs/vite-plugin` | Initial newtab chunk must stay under ~400 kB. Heavy features must be lazy-imported via `React.lazy` + `Suspense`. |
 | `@react-three/fiber`, `three.js`, background canvas | Must be lazy-loaded. Reference `src/background/` mesh patterns. |
 | `manifest.config.ts`, MV3 permissions, `host_permissions` | MV3 constraint: declare minimum permissions. No broad host_permissions. |
 

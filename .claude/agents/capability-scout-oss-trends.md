@@ -39,7 +39,7 @@ For every project you surface, capture:
 - **One-paragraph what-it-does**
 - **Specific capability worth borrowing** (the SPECIFIC feature Proclivity could learn from — NOT "this library is good")
 - **Proclivity positioning** (would this be an import? a vendor-copy of a function? a design-pattern lift?)
-- **Bundle-size implication** (Proclivity targets ≤200 KB initial newtab chunk; flag any candidate that would blow that without lazy-load)
+- **Bundle-size implication** (Proclivity targets ≤~400 KB initial newtab chunk; flag any candidate that would blow that without lazy-load)
 - **Risk flags** (vendor-lock-in, abandonware risk, license restriction, MV3 incompatibility)
 
 Hard rules:

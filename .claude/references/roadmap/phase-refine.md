@@ -23,7 +23,7 @@ Answer all of these from in-context evidence (the conversation, the codebase, th
 
 1. **Who is this for, specifically?** A dashboard user, a notification target, a future engineer. Name them.
 2. **What does success look like?** The single observable thing that changes when this lands.
-3. **What are the real constraints?** MV3 service worker limits, `chrome.storage.local` 10 MB cap, bundle size (~200 kB newtab chunk), no server-side components. Cite specific lines from CLAUDE.md when relevant.
+3. **What are the real constraints?** MV3 service worker limits, `chrome.storage.local` 10 MB cap, bundle size (~400 kB newtab chunk), no server-side components. Cite specific lines from CLAUDE.md when relevant.
 4. **What's been tried before?** Grep `plans/` for prior roadmaps or milestones at the same shape of problem. List them.
 5. **Why now?** What changed that makes this the right moment? (dependency unblocking, prior milestone unlocking, user friction threshold reached.)
 

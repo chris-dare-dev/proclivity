@@ -107,8 +107,8 @@ For each candidate, verify:
 - **License:** must be permissive (MIT, Apache 2.0, ISC). Reject GPL/AGPL — proclivity
   cannot ship GPL-licensed code in a Chrome extension distributed to users.
 - **Bundle weight:** use bundlephobia.com (WebFetch `https://bundlephobia.com/package/<name>`)
-  to get gzipped size. The initial-chunk budget for the proclivity newtab is ~200 kB
-  (hard ceiling 220 kB). Packages requiring lazy-loading must be explicitly flagged —
+  to get gzipped size. The initial-chunk budget for the proclivity newtab is ~400 kB
+  (hard ceiling 500 kB). Packages requiring lazy-loading must be explicitly flagged —
   three.js and @react-three/fiber are already lazy-loaded in proclivity.
 - **Last release date:** prefer packages with a release within the last 12 months
   (as of 2026-05-17). Older but stable packages are acceptable if actively maintained.
@@ -132,7 +132,7 @@ HIGH — likely-to-cause-incident bug, build break in non-default config, or
   test gap that masks a known failure class. Examples:
   - a new production dependency that is known to have an unpatched high-severity CVE
     (check npm audit; WebSearch for recent advisories)
-  - a library added to initial chunk that pushes it past 220 kB hard ceiling
+  - a library added to initial chunk that pushes it past 500 kB hard ceiling
   - a library with conflicting peer dependencies (e.g. requires React 17, not 18)
 
 MEDIUM — subtle OSS divergence. Examples:
@@ -155,7 +155,7 @@ Do NOT flag as a finding if:
 - The implementation is intentionally custom (stated in the brief or synthesis).
 - The alternative library has GPL/AGPL license.
 - The alternative is already installed in `package.json`.
-- The alternative has >200 kB bundle impact and the brief didn't ask for lazy-loading.
+- The alternative has >~400 kB bundle impact and the brief didn't ask for lazy-loading.
 - The alternative conflicts with MV3 CSP (uses `eval`, etc.).
 
 ## Step 4 — Write the critique

@@ -98,6 +98,6 @@ In a scout brief, when proposing an upgrade that uses one of these primitives, c
 
 In the Phase 2 synthesis catalog, each candidate's "Sketch" section calls out the motion primitives it composes:
 
-> **Sketch:** Apply `[MOT-3 stagger-reveal]` to the TodoList children with 60ms inter-item delay; pair with `[MOT-50 section-fade]` between tab changes.  Use Framer Motion's `AnimatePresence` + `staggerChildren`, lazy-loaded via `React.lazy` to stay under the 200 KB initial-chunk budget.
+> **Sketch:** Apply `[MOT-3 stagger-reveal]` to the TodoList children with 60ms inter-item delay; pair with `[MOT-50 section-fade]` between tab changes.  Use Framer Motion's `AnimatePresence` + `staggerChildren`, lazy-loaded via `React.lazy` to stay under the ~400 KB initial-chunk budget.
 
 This shared vocabulary is the load-bearing thing that lets the synthesizer dedupe across scout briefs ("library-scout cites Framer Motion; visual-scout cites *fade-up on todo cards*; both are pointing at `[MOT-3 stagger-reveal]`").
