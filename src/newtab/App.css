@@ -28,7 +28,12 @@
   gap: 14px;
 }
 .clock {
-  font-size: 56px;
+  /* Fluid clock so the header stays legible at 390 px without
+     dominating the viewport (UPL-16 / m5-s10). Min 28 px / max 56 px
+     gives an exact 2:1 ratio, satisfying MDN's 200%-zoom accessibility
+     guideline. 6vw places the active scaling band between 467–933 px
+     viewport. */
+  font-size: clamp(28px, 6vw, 56px);
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -90,6 +95,10 @@
   gap: 4px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 24px;
+  /* Horizontal scroll at narrow viewports so tabs don't clip. Paired
+     with flex-shrink: 0 on .tab below (UPL-16 / m5-s10). */
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .tab {
   background: transparent;
@@ -99,6 +108,8 @@
   color: var(--text-dim);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  /* Don't squeeze tabs — let .tabs's overflow-x scroll instead (UPL-16 / m5-s10). */
+  flex-shrink: 0;
 }
 .tab:hover {
   color: var(--text);
