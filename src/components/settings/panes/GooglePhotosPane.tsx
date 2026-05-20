@@ -538,7 +538,9 @@ function ThumbnailGrid({
                 lineHeight: 1,
                 padding: "2px 5px",
                 borderRadius: 3,
-                background: "color-mix(in srgb, var(--bg) 40%, transparent)",
+                // Theme-invariant dark backdrop so the Play icon stays
+                // legible over any thumbnail in both light + dark themes (M7 rect).
+                background: "oklch(0 0 0 / 0.55)",
                 color: "var(--accent-on)",
                 pointerEvents: "none",
               }}

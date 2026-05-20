@@ -126,6 +126,7 @@ export function TaskRow({
           className="gantt-chevron"
           onClick={() => onToggleCollapse(task.id)}
           title={task.collapsed ? "Expand" : "Collapse"}
+          aria-label={task.collapsed ? "Expand" : "Collapse"}
         >
           {task.collapsed ? <ChevronRight size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
         </button>

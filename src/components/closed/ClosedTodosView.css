@@ -11,7 +11,9 @@
  * (Vite splits the import) so it does not contribute to the initial-page
  * CSS payload.
  *
- * Reduced-motion coverage: see theme.css §reduced-motion global reset
+ * Reduced-motion: file has paired [data-reduced-motion] + @media guards
+ * locally (search "Reduced-motion" below). The global reset in theme.css
+ * §reduced-motion is also load-bearing — both are belt-and-suspenders.
  */
 
 /* ─── Layout shell ─────────────────────────────────────────────────────── */
@@ -336,6 +338,16 @@
 [data-reduced-motion="true"] .closed-clear-btn,
 [data-reduced-motion="true"] .closed-item-delete {
   transition: none;
+}
+
+/* Belt-and-suspenders OS-preference pair (M3 rect — was asymmetric). */
+@media (prefers-reduced-motion: reduce) {
+  .closed-item,
+  .closed-item-reopen-btn,
+  .closed-clear-btn,
+  .closed-item-delete {
+    transition: none;
+  }
 }
 
 /* ─── Dense mode tweaks ────────────────────────────────────────────────── */

@@ -1,4 +1,6 @@
-/* Reduced-motion coverage: see theme.css §reduced-motion global reset */
+/* Reduced-motion: file has a paired [data-reduced-motion] + @media block
+   below (search "Honor reduced-motion"). Global theme.css §reduced-motion
+   reset is also load-bearing — both are belt-and-suspenders. */
 .todo-input {
   display: flex;
   gap: 8px;
@@ -210,14 +212,18 @@
   color: var(--accent);
 }
 .closed-scope-counter-check {
-  font-size: 12px;
+  /* Icon size now controlled by Lucide <Check size={13} /> prop (m3 rect L1). */
+  display: inline-flex;
+  align-items: center;
   opacity: 0.8;
 }
 .closed-scope-counter-text {
   /* Text fills the available space between the check and arrow. */
 }
 .closed-scope-counter-arrow {
-  font-size: 12px;
+  /* Icon size now controlled by Lucide <ArrowRight size={13} /> prop (m3 rect L1). */
+  display: inline-flex;
+  align-items: center;
   transition: transform 120ms ease;
 }
 .closed-scope-counter:hover .closed-scope-counter-arrow,
@@ -226,6 +232,14 @@
 }
 
 /* Honor reduced-motion — drop the arrow nudge. */
+[data-reduced-motion="true"] .closed-scope-counter,
+[data-reduced-motion="true"] .closed-scope-counter-arrow {
+  transition: none;
+}
+[data-reduced-motion="true"] .closed-scope-counter:hover .closed-scope-counter-arrow,
+[data-reduced-motion="true"] .closed-scope-counter:focus-visible .closed-scope-counter-arrow {
+  transform: none;
+}
 @media (prefers-reduced-motion: reduce) {
   .closed-scope-counter,
   .closed-scope-counter-arrow {

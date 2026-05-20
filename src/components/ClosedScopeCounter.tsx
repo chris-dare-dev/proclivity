@@ -27,13 +27,13 @@ export function ClosedScopeCounter({ count, suffix = "" }: Props) {
       aria-label={`View ${count} closed task${count === 1 ? "" : "s"}${suffix} in the Closed tab`}
     >
       <span className="closed-scope-counter-check" aria-hidden="true">
-        <Check size={13} aria-hidden="true" />
+        <Check size={13} />
       </span>
       <span className="closed-scope-counter-text">
         {count} closed{suffix}
       </span>
       <span className="closed-scope-counter-arrow" aria-hidden="true">
-        <ArrowRight size={13} aria-hidden="true" />
+        <ArrowRight size={13} />
       </span>
     </button>
   );

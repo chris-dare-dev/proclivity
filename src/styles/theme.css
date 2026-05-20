@@ -139,7 +139,10 @@
  * are NOT load-bearing for functional correctness at runtime.
  *
  * Files without per-site guards are intentionally relying on this
- * global reset (sprint.css, ChatPanel.css, sections.css, ClosedTodosView.css).
+ * global reset (sprint.css, ChatPanel.css). All other CSS files carry
+ * the paired [data-reduced-motion] + @media block locally — run
+ *   git grep -l 'prefers-reduced-motion\|data-reduced-motion' -- '*.css'
+ * to enumerate the current set.
  * See frontend-uplift-2026q2-m3 synthesis for the architecture rationale.
  *
  * User-set (or OS-derived) preference. The OS-level media query below

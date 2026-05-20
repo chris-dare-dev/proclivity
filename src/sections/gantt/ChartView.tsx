@@ -465,6 +465,8 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
           >
             <option value="">(top-level)</option>
             {tasks.map((t) => (
+              // Unicode ↳ retained: SVG cannot render inside <option>.
+              // See frontend-uplift-2026q2-m3 (icon-system migration carve-out).
               <option key={t.id} value={t.id}>
                 {"↳"} {t.title}
               </option>
