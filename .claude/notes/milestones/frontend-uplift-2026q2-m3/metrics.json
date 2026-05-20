@@ -1,0 +1,110 @@
+{
+  "milestone_id": "frontend-uplift-2026q2-m3",
+  "started": "2026-05-20T18:20:46Z",
+  "completed": "2026-05-20T18:57:51Z",
+  "wall_clock_seconds": 2225.0,
+  "phases": {
+    "init": {
+      "wall_seconds": 9.0
+    },
+    "research-running": {
+      "wall_seconds": 472.0
+    },
+    "research-complete": {
+      "wall_seconds": 0.0
+    },
+    "implement-running": {
+      "wall_seconds": 879.0
+    },
+    "implement-complete": {
+      "wall_seconds": 18.0
+    },
+    "critique-running": {
+      "wall_seconds": 494.0
+    },
+    "critique-complete": {
+      "wall_seconds": 58.0
+    },
+    "rectify-running": {
+      "wall_seconds": 295.0
+    }
+  },
+  "findings": {
+    "low": 5,
+    "medium": 8,
+    "high": 1,
+    "critical": 1
+  },
+  "fixed": [
+    [
+      "C1"
+    ],
+    [
+      "H1"
+    ],
+    [
+      "M1"
+    ],
+    [
+      "M2"
+    ],
+    [
+      "M3"
+    ],
+    [
+      "M4"
+    ],
+    [
+      "M5"
+    ],
+    [
+      "M6"
+    ],
+    [
+      "M7"
+    ],
+    [
+      "M8"
+    ],
+    [
+      "L1"
+    ]
+  ],
+  "deferred": [
+    [
+      "L2"
+    ],
+    [
+      "L3"
+    ],
+    [
+      "L4"
+    ],
+    [
+      "L5"
+    ]
+  ],
+  "invalidated": [],
+  "invalidation_rate": 0.0,
+  "external_writes_required": [
+    "npm install lucide-react",
+    "git push origin main"
+  ],
+  "external_writes_completed": [
+    [
+      "npm install lucide-react"
+    ],
+    [
+      "git push origin main"
+    ],
+    [
+      "npm install lucide-react"
+    ],
+    [
+      "git push origin main"
+    ]
+  ],
+  "total_usd": 0.0,
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}

@@ -1,0 +1,28 @@
+{"ts": "2026-05-20T18:20:46Z", "milestone": "frontend-uplift-2026q2-m3", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0, "include_oss": 1}
+{"ts": "2026-05-20T18:20:55Z", "milestone": "frontend-uplift-2026q2-m3", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-20T18:26:40Z", "milestone": "frontend-uplift-2026q2-m3", "event": "researcher-returned", "status": "complete", "role": "explore"}
+{"ts": "2026-05-20T18:26:40Z", "milestone": "frontend-uplift-2026q2-m3", "event": "researcher-returned", "status": "complete", "role": "general"}
+{"ts": "2026-05-20T18:28:47Z", "milestone": "frontend-uplift-2026q2-m3", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-20T18:28:47Z", "milestone": "frontend-uplift-2026q2-m3", "event": "phase-enter", "phase": "implement-running", "path": "delegated"}
+{"ts": "2026-05-20T18:43:26Z", "milestone": "frontend-uplift-2026q2-m3", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-20T18:43:44Z", "milestone": "frontend-uplift-2026q2-m3", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-20T18:51:42Z", "milestone": "frontend-uplift-2026q2-m3", "event": "critics-returned", "count": 3}
+{"ts": "2026-05-20T18:51:58Z", "milestone": "frontend-uplift-2026q2-m3", "event": "phase-exit", "phase": "critique-complete"}
+{"ts": "2026-05-20T18:52:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "C1"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "H1"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M1"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M2"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M3"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M4"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M5"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M6"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M7"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "M8"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-fixed", "id": "L1"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-deferred", "id": "L2", "reason": "low-priority-out-of-scope-or-hook-blocked"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-deferred", "id": "L3", "reason": "low-priority-out-of-scope-or-hook-blocked"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-deferred", "id": "L4", "reason": "low-priority-out-of-scope-or-hook-blocked"}
+{"ts": "2026-05-20T18:55:56Z", "milestone": "frontend-uplift-2026q2-m3", "event": "finding-deferred", "id": "L5", "reason": "low-priority-out-of-scope-or-hook-blocked"}
+{"ts": "2026-05-20T18:57:07Z", "milestone": "frontend-uplift-2026q2-m3", "event": "rect-committed", "sha": "d918fc9709d6d8b883be62a99bf5c236ff58f838"}
+{"ts": "2026-05-20T18:57:51Z", "milestone": "frontend-uplift-2026q2-m3", "event": "milestone-complete"}
