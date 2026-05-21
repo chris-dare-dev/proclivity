@@ -1,5 +1,22 @@
 export type TodoScope = "today" | "sprint" | "long";
 
+/**
+ * The active section/tab in the newtab UI. Hoisted to `src/types/` (m11 rect
+ * M2) because the type now has three consumers — App.tsx (state owner),
+ * CommandPalette.tsx (consumer via prop), and any future palette/keyboard
+ * shell additions. Having a child component import a TYPE from its parent
+ * (the previous arrangement) created inverse coupling; the hoist keeps the
+ * type close to other domain primitives like TodoScope above.
+ */
+export type Tab =
+  | "today"
+  | "sprint"
+  | "long"
+  | "gantt"
+  | "reminders"
+  | "calendar"
+  | "closed";
+
 /*
  * Note on optional fields: with `exactOptionalPropertyTypes` enabled, the
  * form `foo?: T` forbids `foo: undefined` literals. We use `?: T | undefined`

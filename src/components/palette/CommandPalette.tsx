@@ -15,7 +15,7 @@
  */
 
 import { Command } from "cmdk";
-import type { Tab } from "@/newtab/App";
+import type { Tab } from "@/types";
 import { PALETTE_COMMANDS, type PaletteCommandDeps } from "@/lib/palette-commands";
 import "./CommandPalette.css";
 

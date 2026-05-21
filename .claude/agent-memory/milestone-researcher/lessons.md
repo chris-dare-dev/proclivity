@@ -18,6 +18,18 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 
 <!-- Entries will be appended below this line by the milestone-researcher agent. -->
 
+## 2026-05-20T08:00:00Z · milestone:frontend-uplift-2026q2-m11 · status:complete (explore researcher)
+- **Bottleneck observed:** App.tsx is at `src/newtab/App.tsx` not `src/App.tsx` — the newtab subdir is easy to miss. `setSettingsOpen` is confirmed in `Header()` memo scope (line 183), NOT App() scope; `setHelpOpen` and `setTab` ARE in App() scope (lines 324, 321). The `Tab` type is LOCAL to App.tsx (not in `src/types/index.ts`) — needs export or re-declaration in palette-commands.ts.
+- **What worked:** Reading App.tsx top-to-bottom and classifying every useState by which function scope owns it (Header vs App) gave a definitive answer on the settings event vs prop debate without ambiguity.
+- **What didn't:** n/a — codebase was clean and the NAV_CLOSED_EVENT precedent was the obvious template.
+- **Reusable lesson:** For command-palette milestones where "open settings" is a command, always verify whether settings state lives in App() or in a memo sub-component — if in a sub-component, the custom-event pattern (like NAV_CLOSED_EVENT) is the lowest-diff bridge. Also always check whether the `Tab`/section-id type is exported from App.tsx or only local — palette-commands.ts will need to reference it.
+
+## 2026-05-20T06:30:00Z · milestone:frontend-uplift-2026q2-m11 · status:complete (general/external researcher)
+- **Bottleneck observed:** Brief said "4 Radix peer-deps" but cmdk's direct deps are 4 packages that pull in 22 transitive Radix packages (plus react-remove-scroll, tslib, aria-hidden). The "peer-dep" claim is accurate for package.json but misleading for bundle impact. Actual all-in gz: 14.9 kB (not 15-20 kB range).
+- **What worked:** Bundlephobia JSON API (`/api/size?package=cmdk`) returned the complete transitive dependency tree with individual approximateSizes — this is the most efficient way to enumerate ALL transitive deps and their weights in one call.
+- **What didn't:** Bundlephobia rate-limited individual `/api/size?package=@radix-ui/*` calls; the aggregate cmdk query was sufficient to get all per-package sizes from `dependencySizes[]` in one shot.
+- **Reusable lesson:** For "how big is this library" questions, use `https://bundlephobia.com/api/size?package=<name>` (no `@latest` suffix) — the response includes a `dependencySizes[]` array with every transitive dep's approximate minified size and the top-level `gzip` total. One API call gives the full picture. Also: when a new library's "open settings" action targets state inside a memo'd sub-component (not the root App), flag the custom-event vs state-lift architectural decision explicitly — it's always the riskiest assumption for palette milestones.
+
 ## 2026-05-20T05:00:00Z · milestone:frontend-uplift-2026q2-m10 · status:complete (explore researcher)
 - **Bottleneck observed:** Brief stated "scattered `addEventListener('keydown', ...)` calls" — grep revealed only ONE such call (ChatPanel.tsx:53); all other keyboard handling is JSX `onKeyDown=`. Validating the scope claim early prevented over-migration.
 - **What worked:** Classifying every `onKeyDown=` handler by scope (form-input vs widget-internal vs global shortcut) up front made the migration target list unambiguous; only 1 raw listener + 1 Modal.tsx handler (kept) needed analysis.

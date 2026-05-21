@@ -10,6 +10,17 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // m11 rect L3: npm hoists @radix-ui/react-primitive and @radix-ui/react-slot
+    // at multiple versions due to cmdk's nested-dep tree (one copy at the top
+    // level, additional copies nested inside other Radix peers that lock to
+    // older minors). Without dedupe, Vite bundles each unique realpath as a
+    // separate module — costing ~9 kB raw / ~3.6 kB gz in the lazy
+    // CommandPalette chunk for functionally-identical code. dedupe forces a
+    // single canonical copy at bundle time.
+    dedupe: [
+      "@radix-ui/react-primitive",
+      "@radix-ui/react-slot",
+    ],
   },
   server: {
     port: 5173,

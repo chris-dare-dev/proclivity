@@ -14,6 +14,17 @@
  *   --radius        border-radius token
  */
 
+/* Z-index stack convention (m11 rect L1 — no token system today):
+ *   < 8999  : section content (default)
+ *   = 9000  : palette overlay (this file)         — and Modal.css backdrop
+ *   = 9001  : palette dialog root (this file)
+ *   reserved: > 9001 for future system toasts (e.g. sonner in a future m8).
+ * The Modal.tsx and CommandPalette both use z-index 9000 for the backdrop,
+ * but they never co-exist visually — OPEN_SETTINGS_EVENT closes the palette
+ * BEFORE Settings opens (sequential dispatch in the same render cycle).
+ * If a future feature needs simultaneous Modal + palette layering, hoist
+ * to theme.css tokens (--z-modal, --z-palette, --z-toast). */
+
 /* Overlay backdrop — full-screen, z-index above all app content */
 [cmdk-overlay] {
   position: fixed;
@@ -85,10 +96,17 @@
   transition: background 80ms ease;
 }
 
-/* Selected/highlighted state — cmdk sets data-selected="true" on the active item */
+/* Selected/highlighted state — cmdk sets data-selected="true" on the active item.
+ * font-weight: 600 promotes the row to "bold 14px" which satisfies WCAG AA
+ * large-text 3:1 contrast — partial mitigation for the broader accent/accent-on
+ * pre-existing token gap (m11 rect M4 — same shape appears in sprint.css /
+ * gantt.css / calendar.css). Full WCAG AA normal-text 4.5:1 requires darkening
+ * --accent in dark mode or introducing a --accent-selected token; that's a
+ * cross-cutting design-token milestone, not a palette-only fix. */
 [cmdk-item][data-selected="true"] {
   background: var(--accent);
   color: var(--accent-on);
+  font-weight: 600;
 }
 
 /* Empty state */

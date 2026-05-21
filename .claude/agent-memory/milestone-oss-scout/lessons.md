@@ -18,6 +18,12 @@ Entry format (defined in `.claude/agents/milestone-oss-scout.md` § Memory proto
 
 <!-- Entries will be appended below this line by the milestone-oss-scout agent. -->
 
+## 2026-05-20 — frontend-uplift-2026q2-m11
+- **Bottleneck observed:** npm's semver resolution placed nested copies of `@radix-ui/react-primitive` (2.1.3 under 4 packages) and `@radix-ui/react-slot` (1.2.4 under react-primitive) alongside their top-level peers; Vite bundles each unique realpath separately, confirmed via the `.js.map` source list. Source map analysis (`sources` array in the `.map` file) is the authoritative way to detect Vite module duplication — faster than diffing bundle output.
+- **What worked:** `node -e "require('./package-lock.json').packages"` combined with `Object.keys().filter()` gave a complete, verified license table in one pass. `npm audit` returned clean in <2s. Diff of `dist/index.mjs` files directly confirmed whether two version-pinned copies were byte-for-byte identical.
+- **What didn't:** `npm ls --all cmdk` showed only the root package (node_modules not fully installed for sub-trees). Always use lockfile JSON directly or inspect `node_modules/<pkg>/node_modules/` to find nested version conflicts.
+- **Reusable lesson:** For any dep that introduces a Radix UI stack, run `Object.keys(lock.packages).filter(k => k.includes('/node_modules/@radix-ui'))` to detect nested version duplication early; if found, recommend `resolve.dedupe` in `vite.config.ts` and validate via source map `sources` array after rebuild.
+
 ## 2026-05-20 — frontend-uplift-2026q2-m10
 - **Bottleneck observed:** Brief-2 claimed `isMacOS()` was exported from `react-hotkeys-hook` — it is NOT in `index.d.ts` or the public API of v5.3.2. Always verify public exports from the installed `dist/index.d.ts`, not from GitHub source files (internal helpers are NOT automatically exported).
 - **What worked:** `typeof document < "u"` guards in the dist bundle confirmed MV3 service-worker safety without needing to read the full source; grep for `eval` + `Function(` in dist is a fast CSP check. GitHub Releases API (`gh api repos/<owner>/<name>/releases`) gives exact release timestamps and total counts — use this instead of trying to parse npmjs.com timestamps.

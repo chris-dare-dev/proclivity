@@ -128,21 +128,24 @@ const KeyboardHelpOverlay = lazy(
   () => import("@/components/help/KeyboardHelpOverlay"),
 );
 
-// Command palette — lazy so cmdk + all Radix Dialog peers (~46 kB minified /
-// ~14.9 kB gz) stay out of the initial chunk. Loads only on first Cmd+K press.
-// All cmdk imports are confined to CommandPalette.tsx; none leak into this file.
+// Command palette — lazy so cmdk + all Radix Dialog peers (~48 kB minified /
+// ~16 kB gz) stay OUT OF THE INITIAL CHUNK. They land in a separate
+// `CommandPalette-*.js` chunk. Note (m11 rect L2): the chunk FETCH itself
+// happens in parallel during app warm-up because Suspense renders the
+// component with `open=false` on App's first render — it's not strictly
+// "fetched on first Cmd+K press." The user-perceived rendering is gated
+// by `open`, not by the chunk fetch. All cmdk imports are confined to
+// CommandPalette.tsx; none leak into this file.
 const CommandPalette = lazy(
   () => import("@/components/palette/CommandPalette"),
 );
 
-export type Tab =
-  | "today"
-  | "sprint"
-  | "long"
-  | "gantt"
-  | "reminders"
-  | "calendar"
-  | "closed";
+// m11 rect M2: Tab type hoisted to @/types/index.ts so children (CommandPalette,
+// and any future palette/keyboard-shell consumers) don't have to inverse-import
+// from this parent file. Re-exported here for back-compat with any in-flight
+// PRs that still reference `@/newtab/App`.
+import type { Tab } from "@/types";
+export type { Tab };
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "today", label: "Today" },
@@ -349,10 +352,20 @@ export default function App() {
   // preventDefault overrides Chrome's address-bar Cmd+K behavior (consistent
   // with the mod+slash precedent from m10).
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // enableOnFormTags: true is REQUIRED (m11 rect H1) — when the palette opens,
+  // focus moves into <Command.Input>, and react-hotkeys-hook's default
+  // behavior skips firing when the target is a form element. Without this,
+  // Cmd+K can OPEN the palette but cannot TOGGLE it closed while typing
+  // (the user has to Escape or click the backdrop). Matches the precedent
+  // ChatPanel uses for its Escape hotkey.
   useHotkeys(
     "mod+k",
     () => setPaletteOpen((open) => !open),
-    { preventDefault: true, description: "Open command palette" },
+    {
+      preventDefault: true,
+      enableOnFormTags: true,
+      description: "Open command palette",
+    },
   );
   // m5-s9 (UPL-3): which tab currently owns the staggered-reveal animation.
   // Seeded from `tab` so first paint plays the cascade AND so any future
