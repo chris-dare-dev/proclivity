@@ -1,0 +1,17 @@
+{"ts": "2026-05-21T03:07:42Z", "milestone": "frontend-uplift-2026q2-m8", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0, "include_oss": 1}
+{"ts": "2026-05-21T03:07:58Z", "milestone": "frontend-uplift-2026q2-m8", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0, "include_oss": 1}
+{"ts": "2026-05-21T03:07:58Z", "milestone": "frontend-uplift-2026q2-m8", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-21T03:17:03Z", "milestone": "frontend-uplift-2026q2-m8", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-21T03:17:03Z", "milestone": "frontend-uplift-2026q2-m8", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-21T03:22:29Z", "milestone": "frontend-uplift-2026q2-m8", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-21T03:22:37Z", "milestone": "frontend-uplift-2026q2-m8", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-21T03:28:42Z", "milestone": "frontend-uplift-2026q2-m8", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-fixed", "id": "M3"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-fixed", "id": "L5"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-deferred", "id": "M1", "reason": "hook-blocked-or-doc-only-or-per-critic"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-deferred", "id": "M2", "reason": "hook-blocked-or-doc-only-or-per-critic"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-deferred", "id": "L1", "reason": "hook-blocked-or-doc-only-or-per-critic"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-deferred", "id": "L2", "reason": "hook-blocked-or-doc-only-or-per-critic"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-deferred", "id": "L3", "reason": "hook-blocked-or-doc-only-or-per-critic"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-deferred", "id": "L4", "reason": "hook-blocked-or-doc-only-or-per-critic"}
+{"ts": "2026-05-21T03:30:19Z", "milestone": "frontend-uplift-2026q2-m8", "event": "finding-deferred", "id": "L6", "reason": "hook-blocked-or-doc-only-or-per-critic"}
