@@ -18,6 +18,12 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 
 <!-- Entries will be appended below this line by the milestone-researcher agent. -->
 
+## 2026-05-20T03:00:00Z · milestone:frontend-uplift-2026q2-m7 · status:complete (explore researcher)
+- **Bottleneck observed:** Both SettingsModal and TodoEditModal delegate entirely to a shared `Modal.tsx` base component — the animation target is `Modal.tsx`, not the leaf components. The `editingTodo &&` guard in TodoList.tsx and SprintManager.tsx outer-gates the Suspense block, which destroys the exit animation window before AnimatePresence can play it.
+- **What worked:** Reading `Modal.tsx` first (not the feature modals) revealed the single-site animation target and the `createPortal` + `if (!open) return null` pattern immediately.
+- **What didn't:** n/a — structure was clear once the shared-base pattern was identified.
+- **Reusable lesson:** For motion AnimatePresence milestones, always check whether the target modal delegates to a shared base component — if so, one change to the base covers all variants. Also check whether callers use `{editingThing && <Modal open={...}/>}` vs `<Modal open={editingThing !== null}/>` — the former breaks exit animations because the outer conditional destroys the component before AnimatePresence can delay the unmount.
+
 ## 2026-05-20T00:00:00Z · milestone:frontend-uplift-2026q2-m5 · status:complete
 - **Bottleneck observed:** `data-staggered` placement requires understanding that tabpanel `hidden=` is owned by App.tsx, not the section components — sections are always mounted.
 - **What worked:** tracing from `Today`/`LongTerm`/`Sprint` through to the `<ul>` and confirming all three render the same `.todo-list` class via `TodoList.tsx` and `SprintManager.tsx`; this made the single CSS selector `[data-staggered="true"] .todo-list li` unambiguous.
@@ -53,3 +59,9 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 - **What worked:** Checking that no `@media (hover: hover) and (pointer: fine)` exists anywhere in src/ upfront — confirmed m6 is the first usage, so the implementer knows to establish the pattern rather than match an existing one.
 - **What didn't:** n/a — codebase state was clean and well-documented.
 - **Reusable lesson:** For hover-lift briefs where a stagger animation also runs on `transform`, CSS3 guarantees the running animation wins over the hover transition on the same property — no special JS guard or animation-play-state toggling is needed; the cascade handles it.
+
+## 2026-05-20T03:30:00Z · milestone:frontend-uplift-2026q2-m7 · status:complete (general/external researcher)
+- **Bottleneck observed:** Existing `Modal.css` had CSS entry animations (`modal-fade-in`, `modal-slide-in`) that would conflict with the incoming `motion` animations — this is a pre-work requirement the brief did not mention; found by reading Modal.css before fetching any external docs.
+- **What worked:** Reading the LazyMotion + motion component source directly confirmed the `strict` mode check only fires inside `createMotionComponent`, not inside `AnimatePresence` — no external doc covered this clearly.
+- **What didn't:** `motion.dev/docs/react-m-component` returned 404; `motion.dev/docs/react-lazy-motion` and `react-animate-presence` were fetchable but didn't cover the LazyMotion+AnimatePresence interaction — local source inspection was required.
+- **Reusable lesson:** For `<AnimatePresence>` milestones on top of an existing Modal: always read the modal's existing CSS first — if CSS keyframe entry animations are already present, they MUST be stripped before motion is added, or both animate simultaneously on mount. `AnimatePresence` itself is NOT subject to LazyMotion `strict` mode — only `motion.*` components are.

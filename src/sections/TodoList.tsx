@@ -13,7 +13,7 @@
  * Default list-mode users pay zero kB for card code at initial paint.
  */
 
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import { resolvedSettings } from "@/storage/constants";
@@ -97,6 +97,20 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
   }, [scopedItems, allTags]);
 
   const editingTodo = editingId ? todos.find((t) => t.id === editingId) ?? null : null;
+
+  // m7-s13: hold the last seen editingTodo alive during the modal's exit
+  // animation window. When the user closes the modal, editingId flips to
+  // null and editingTodo becomes null in the same render — but Modal's
+  // AnimatePresence (m7) needs the TodoEditModal subtree to stay mounted
+  // for ~180 ms so it can play the exit. `displayEditingTodo` falls back
+  // to the ref when editingTodo is null, keeping the render gate truthy.
+  // The stale todo is never shown — Modal renders nothing inside the
+  // portal while open=false (the AnimatePresence child evaluates to null).
+  const lastEditingTodoRef = useRef<Todo | null>(null);
+  useEffect(() => {
+    if (editingTodo) lastEditingTodoRef.current = editingTodo;
+  }, [editingTodo]);
+  const displayEditingTodo = editingTodo ?? lastEditingTodoRef.current;
 
   const add = async () => {
     const title = draft.trim();
@@ -265,11 +279,20 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
         </>
       )}
 
-      {editingTodo && (
+      {/* m7-s13 (UPL-4): keep the Suspense + TodoEditModal mounted during
+          the exit animation window. Without this, when `editingId` flips
+          null, `editingTodo` would derive undefined, the outer guard would
+          unmount the Suspense, and AnimatePresence inside Modal would never
+          get a chance to play the exit animation. The ref keeps the last-
+          seen todo alive; once any item has been edited, the Suspense
+          stays mounted for the session (lazy chunk preserves first-open
+          deferral; subsequent renders with open=false are cheap — Modal's
+          AnimatePresence sees no children and renders nothing). */}
+      {displayEditingTodo && (
         <Suspense fallback={null}>
           <TodoEditModal
             open={editingId !== null}
-            todo={editingTodo}
+            todo={displayEditingTodo}
             allTags={allTags}
             sprints={sprints}
             onClose={() => setEditingId(null)}

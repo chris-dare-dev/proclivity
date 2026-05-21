@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useCallback,
   useState,
@@ -8,7 +9,10 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { useStore } from "@/storage/useStore";
+import { resolvedSettings } from "@/storage/constants";
 import "./Modal.css";
 
 // ---------------------------------------------------------------------------
@@ -33,6 +37,17 @@ export function Modal({ open, onClose, title, children, panelClassName }: ModalP
   // Unique ID per modal instance so nested modals don't share aria-labelledby (#14)
   const titleId = useId();
   const trapFocus = useFocusTrap(panelRef);
+
+  // m7-s13 (UPL-4): reduced-motion combines BOTH signals — motion's
+  // useReducedMotion() reads the OS-level prefers-reduced-motion media
+  // query, AND the in-app rs.reducedMotion toggle (AppearancePane). If
+  // either is on, the open/close animation collapses to instant (duration
+  // 0, no interpolation). useMemo prevents re-deriving rs on every render.
+  const osReduced = useReducedMotion();
+  const { state } = useStore();
+  const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+  const shouldReduceMotion = osReduced || rs.reducedMotion;
+  const transitionDuration = shouldReduceMotion ? 0 : 0.18;
 
   // Save & restore focus
   useEffect(() => {
@@ -61,30 +76,49 @@ export function Modal({ open, onClose, title, children, panelClassName }: ModalP
     [onClose, trapFocus],
   );
 
-  if (!open) return null;
-
+  // m7-s13: render the portal unconditionally; AnimatePresence handles the
+  // conditional presence via children. When `open` flips false, the m.div
+  // tree stays alive for the 180 ms exit animation, then unmounts. The
+  // earlier `if (!open) return null` early-return was removed — it
+  // short-circuited the exit animation by destroying the DOM immediately.
+  // m.div (NOT motion.div) is mandatory per the LazyMotion `strict` mode
+  // in App.tsx (m2 foundation). React context flows through portals so
+  // m.div inside createPortal correctly receives the LazyMotion context.
   return createPortal(
-    <div
-      className="modal-backdrop"
-      onMouseDown={(e) => {
-        // Close when clicking the backdrop (not the panel itself)
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={handleKeyDown}
-    >
-      <div
-        className={`modal-panel${panelClassName ? ` ${panelClassName}` : ""}`}
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <h2 className="modal-title" id={titleId}>
-          {title}
-        </h2>
-        {children}
-      </div>
-    </div>,
+    <AnimatePresence>
+      {open && (
+        <m.div
+          key="modal"
+          className="modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: transitionDuration }}
+          onMouseDown={(e) => {
+            // Close when clicking the backdrop (not the panel itself)
+            if (e.target === e.currentTarget) onClose();
+          }}
+          onKeyDown={handleKeyDown}
+        >
+          <m.div
+            className={`modal-panel${panelClassName ? ` ${panelClassName}` : ""}`}
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: transitionDuration, ease: "easeOut" }}
+          >
+            <h2 className="modal-title" id={titleId}>
+              {title}
+            </h2>
+            {children}
+          </m.div>
+        </m.div>
+      )}
+    </AnimatePresence>,
     document.body,
   );
 }

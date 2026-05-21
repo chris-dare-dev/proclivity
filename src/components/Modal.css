@@ -1,4 +1,11 @@
-/* Modal backdrop */
+/* Modal backdrop
+ *
+ * Enter/exit animation is now driven by motion's <AnimatePresence> + m.div
+ * inside Modal.tsx (m7-s13 / UPL-4). The previous CSS @keyframes modal-
+ * fade-in was removed to prevent double-animation on mount. Reduced-motion
+ * is handled by useReducedMotion() + the in-app rs.reducedMotion signal
+ * in Modal.tsx — no CSS suppression needed.
+ */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -7,15 +14,13 @@
   align-items: center;
   justify-content: center;
   z-index: 9000;
-  animation: modal-fade-in 120ms ease;
 }
 
-@keyframes modal-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-/* Modal panel */
+/* Modal panel
+ *
+ * Enter/exit (scale 0.96 → 1 + opacity 0 → 1, 180 ms ease-out) is now
+ * driven by motion's m.div inside Modal.tsx (m7-s13 / UPL-4). The
+ * previous CSS @keyframes modal-slide-in was removed. */
 .modal-panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -25,12 +30,6 @@
   min-width: 340px;
   max-width: 480px;
   width: 100%;
-  animation: modal-slide-in 150ms ease;
-}
-
-@keyframes modal-slide-in {
-  from { transform: translateY(-8px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
 }
 
 .modal-title {
@@ -96,14 +95,9 @@
   border-color: var(--accent);
 }
 
-/* Reduced motion: suppress the modal's open/enter animations. */
-@media (prefers-reduced-motion: reduce) {
-  .modal-backdrop,
-  .modal-panel {
-    animation: none;
-  }
-}
-[data-reduced-motion="true"] .modal-backdrop,
-[data-reduced-motion="true"] .modal-panel {
-  animation: none;
-}
+/* Reduced-motion is handled inside Modal.tsx via useReducedMotion()
+   combined with the in-app rs.reducedMotion setting — either signal
+   collapses motion's transition duration to 0, producing instant
+   open/close. The previous CSS suppression blocks were tied to the
+   now-removed CSS keyframes (modal-fade-in / modal-slide-in) and are
+   no longer needed (m7-s13 / UPL-4). */

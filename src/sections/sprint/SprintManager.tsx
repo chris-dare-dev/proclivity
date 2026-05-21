@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Tag, Todo } from "@/types";
@@ -747,6 +747,18 @@ export function SprintManager() {
 
   const editingTodo = editingId ? todos.find((t) => t.id === editingId) ?? null : null;
 
+  // m7-s13 (UPL-4): same lastEditingTodoRef pattern as TodoList.tsx. The
+  // ref keeps the Suspense + TodoEditModal subtree mounted during the
+  // modal's ~180 ms exit animation window — without it, the outer
+  // `editingTodo &&` guard would tear down the React tree before
+  // Modal's AnimatePresence could play the exit. Stale todo is never
+  // displayed (Modal renders nothing inside its portal while open=false).
+  const lastEditingTodoRef = useRef<Todo | null>(null);
+  useEffect(() => {
+    if (editingTodo) lastEditingTodoRef.current = editingTodo;
+  }, [editingTodo]);
+  const displayEditingTodo = editingTodo ?? lastEditingTodoRef.current;
+
   // D9 fix: use resolvedSettings for consistent layoutMode read (resolvedSettings is
   // already in constants.ts which is in the shared chunk — no bundle cost here).
   const _rs = resolvedSettings(state.settings);
@@ -1278,11 +1290,12 @@ export function SprintManager() {
         </div>
       )}
 
-      {editingTodo && (
+      {/* m7-s13 (UPL-4): see lastEditingTodoRef comment above. */}
+      {displayEditingTodo && (
         <Suspense fallback={null}>
           <TodoEditModal
             open={editingId !== null}
-            todo={editingTodo}
+            todo={displayEditingTodo}
             allTags={allTags}
             sprints={sprints}
             onClose={() => setEditingId(null)}
