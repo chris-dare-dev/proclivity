@@ -1,0 +1,14 @@
+{"ts": "2026-05-20T22:27:26Z", "milestone": "frontend-uplift-2026q2-m6", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0}
+{"ts": "2026-05-20T22:27:26Z", "milestone": "frontend-uplift-2026q2-m6", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-20T22:33:12Z", "milestone": "frontend-uplift-2026q2-m6", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-20T22:33:12Z", "milestone": "frontend-uplift-2026q2-m6", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-20T22:34:24Z", "milestone": "frontend-uplift-2026q2-m6", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-20T22:34:31Z", "milestone": "frontend-uplift-2026q2-m6", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-20T22:39:41Z", "milestone": "frontend-uplift-2026q2-m6", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-21T00:38:27Z", "milestone": "frontend-uplift-2026q2-m6", "event": "finding-fixed", "id": "H1"}
+{"ts": "2026-05-21T00:38:27Z", "milestone": "frontend-uplift-2026q2-m6", "event": "finding-fixed", "id": "M2"}
+{"ts": "2026-05-21T00:38:27Z", "milestone": "frontend-uplift-2026q2-m6", "event": "finding-fixed", "id": "M3"}
+{"ts": "2026-05-21T00:38:27Z", "milestone": "frontend-uplift-2026q2-m6", "event": "finding-fixed", "id": "L1"}
+{"ts": "2026-05-21T00:38:27Z", "milestone": "frontend-uplift-2026q2-m6", "event": "finding-fixed", "id": "L2"}
+{"ts": "2026-05-21T00:38:27Z", "milestone": "frontend-uplift-2026q2-m6", "event": "finding-deferred", "id": "M1", "reason": "per-critic-recommendation"}
+{"ts": "2026-05-21T00:38:27Z", "milestone": "frontend-uplift-2026q2-m6", "event": "finding-deferred", "id": "L3", "reason": "per-critic-recommendation"}
