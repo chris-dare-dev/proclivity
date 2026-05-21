@@ -1,0 +1,66 @@
+/* KeyboardHelpOverlay.css — shortcut list layout inside Modal */
+
+.keyboard-help-overlay {
+  /* No extra padding needed: Modal.css .modal-body already provides spacing. */
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.keyboard-help-category {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.keyboard-help-category h3 {
+  font-size: 0.6875rem; /* 11px — smaller than modal-title, labels the group */
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, var(--text));
+  margin: 0 0 0.25rem;
+}
+
+.keyboard-help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 1.75rem;
+}
+
+.keyboard-help-label {
+  font-size: 0.875rem;
+  color: var(--text);
+  flex: 1 1 auto;
+}
+
+.keyboard-help-keys {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+/* Individual key chip */
+.keyboard-help-key {
+  display: inline-block;
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--panel-2, var(--panel));
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Separator token between key chips (the "+" in "Ctrl + /") */
+.keyboard-help-key-sep {
+  font-size: 0.75rem;
+  color: var(--text-muted, var(--text));
+  opacity: 0.6;
+  user-select: none;
+}

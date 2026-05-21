@@ -1,4 +1,5 @@
 import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { LazyMotion } from "motion/react";
 import { Settings, MessageCircle } from "lucide-react";
 import "./App.css";
@@ -120,6 +121,12 @@ const ClosedTodosView = lazy(() =>
 // widget rather than another planning surface. Hidden by default;
 // visibility is flipped on after the first successful pick.
 const Photos = lazy(() => import("@/sections/Photos"));
+
+// Keyboard help overlay — lazy so the shortcut-list component and its CSS
+// stay out of the initial chunk. Loads only on first Cmd+/ press.
+const KeyboardHelpOverlay = lazy(
+  () => import("@/components/help/KeyboardHelpOverlay"),
+);
 
 type Tab =
   | "today"
@@ -312,6 +319,14 @@ function isVisibilityGated(tabId: Tab): tabId is Exclude<Tab, "closed"> {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
+  // m10: keyboard help overlay toggle state. Cmd+/ (Mac) / Ctrl+/ (Win/Linux)
+  // opens/closes the help overlay. Lazy-loaded on first open.
+  const [helpOpen, setHelpOpen] = useState(false);
+  useHotkeys(
+    "mod+slash",
+    () => setHelpOpen((open) => !open),
+    { preventDefault: true, description: "Show keyboard shortcuts" },
+  );
   // m5-s9 (UPL-3): which tab currently owns the staggered-reveal animation.
   // Seeded from `tab` so first paint plays the cascade AND so any future
   // change to the initial-tab source (e.g. honoring chrome.storage's last-
@@ -613,6 +628,14 @@ export default function App() {
           )}
         </main>
       </div>
+      {/* Keyboard help overlay — outside .app so it renders above all sections
+          via the Modal portal. Lazy-loaded; null fallback avoids layout shift. */}
+      <Suspense fallback={null}>
+        <KeyboardHelpOverlay
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+        />
+      </Suspense>
     </LazyMotion>
   );
 }

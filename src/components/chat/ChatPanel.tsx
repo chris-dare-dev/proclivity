@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { useChatSession } from "@/hooks/useChatSession";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useStore } from "@/storage/useStore";
@@ -45,14 +46,14 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Escape closes the panel.
-  useEffect(() => {
-    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  // Escape closes the panel. enableOnFormTags ensures the hotkey fires even
+  // when focus is inside the chat textarea (ChatInput). The raw
+  // document.addEventListener("keydown", ...) equivalent is eliminated —
+  // react-hotkeys-hook auto-unbinds on unmount (m10 migration target s17).
+  useHotkeys("escape", onClose, {
+    enableOnFormTags: true,
+    description: "Close chat panel",
+  });
 
   return (
     <div
