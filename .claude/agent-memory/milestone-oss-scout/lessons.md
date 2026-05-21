@@ -18,6 +18,12 @@ Entry format (defined in `.claude/agents/milestone-oss-scout.md` § Memory proto
 
 <!-- Entries will be appended below this line by the milestone-oss-scout agent. -->
 
+## 2026-05-20 — frontend-uplift-2026q2-m10
+- **Bottleneck observed:** Brief-2 claimed `isMacOS()` was exported from `react-hotkeys-hook` — it is NOT in `index.d.ts` or the public API of v5.3.2. Always verify public exports from the installed `dist/index.d.ts`, not from GitHub source files (internal helpers are NOT automatically exported).
+- **What worked:** `typeof document < "u"` guards in the dist bundle confirmed MV3 service-worker safety without needing to read the full source; grep for `eval` + `Function(` in dist is a fast CSP check. GitHub Releases API (`gh api repos/<owner>/<name>/releases`) gives exact release timestamps and total counts — use this instead of trying to parse npmjs.com timestamps.
+- **What didn't:** Bundlephobia WebFetch still returns intro copy only, not numeric size data (confirmed again — same failure as m3). The registry.npmjs.org/<name>/<version> JSON endpoint remains the gold standard for license + integrity + deps.
+- **Reusable lesson:** When a brief claims a library exports a specific helper function, verify by reading the installed `packages/<inner>/dist/index.d.ts` — npm-published packages may have a different export surface than the GitHub source tree (monorepo inner packages sometimes have a separate `package.json` with its own `exports` map that doesn't re-export internal utilities).
+
 ## 2026-05-20 — frontend-uplift-2026q2-m3
 - **Bottleneck observed:** npmjs.com /package/<name> returns 403 to WebFetch; use the registry API at registry.npmjs.org/<name>/<version> instead for license, integrity, sideEffects, and peerDependency data.
 - **What worked:** registry.npmjs.org JSON endpoint reliably returned license, integrity sha512, sideEffects, and peerDependencies in a single fetch with no auth required.

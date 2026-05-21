@@ -18,6 +18,12 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 
 <!-- Entries will be appended below this line by the milestone-researcher agent. -->
 
+## 2026-05-20T05:00:00Z · milestone:frontend-uplift-2026q2-m10 · status:complete (explore researcher)
+- **Bottleneck observed:** Brief stated "scattered `addEventListener('keydown', ...)` calls" — grep revealed only ONE such call (ChatPanel.tsx:53); all other keyboard handling is JSX `onKeyDown=`. Validating the scope claim early prevented over-migration.
+- **What worked:** Classifying every `onKeyDown=` handler by scope (form-input vs widget-internal vs global shortcut) up front made the migration target list unambiguous; only 1 raw listener + 1 Modal.tsx handler (kept) needed analysis.
+- **What didn't:** n/a — structure was clean.
+- **Reusable lesson:** For "replace ad-hoc keydown listeners" briefs, always grep both `addEventListener.*keydown` AND `onKeyDown=` separately, then classify each JSX handler as form-scoped / widget-internal / global-shortcut — only the last category is a migration target. The raw `addEventListener` count is usually much smaller than the JSX handler count.
+
 ## 2026-05-20T03:00:00Z · milestone:frontend-uplift-2026q2-m7 · status:complete (explore researcher)
 - **Bottleneck observed:** Both SettingsModal and TodoEditModal delegate entirely to a shared `Modal.tsx` base component — the animation target is `Modal.tsx`, not the leaf components. The `editingTodo &&` guard in TodoList.tsx and SprintManager.tsx outer-gates the Suspense block, which destroys the exit animation window before AnimatePresence can play it.
 - **What worked:** Reading `Modal.tsx` first (not the feature modals) revealed the single-site animation target and the `createPortal` + `if (!open) return null` pattern immediately.
@@ -65,3 +71,9 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 - **What worked:** Reading the LazyMotion + motion component source directly confirmed the `strict` mode check only fires inside `createMotionComponent`, not inside `AnimatePresence` — no external doc covered this clearly.
 - **What didn't:** `motion.dev/docs/react-m-component` returned 404; `motion.dev/docs/react-lazy-motion` and `react-animate-presence` were fetchable but didn't cover the LazyMotion+AnimatePresence interaction — local source inspection was required.
 - **Reusable lesson:** For `<AnimatePresence>` milestones on top of an existing Modal: always read the modal's existing CSS first — if CSS keyframe entry animations are already present, they MUST be stripped before motion is added, or both animate simultaneously on mount. `AnimatePresence` itself is NOT subject to LazyMotion `strict` mode — only `motion.*` components are.
+
+## 2026-05-20T05:00:00Z · milestone:frontend-uplift-2026q2-m10 · status:complete (general/external researcher)
+- **Bottleneck observed:** Brief said "replace every ad-hoc keydown listener" but Modal.tsx uses `onKeyDown` (not `document.addEventListener`) — conflating the two would break nested-modal Escape behavior; the real migration scope is only `document.addEventListener("keydown", ...)` calls.
+- **What worked:** Fetching the raw GitHub source (`parseHotkeys.ts`, `validators.ts`) via `curl https://raw.githubusercontent.com/...` instead of WebFetch resolved the 404 on GitHub blob pages; confirmed `mod` alias is implemented natively in v5 (not via hotkeys-js) and resolves to `metaKey` on macOS and `ctrlKey` elsewhere.
+- **What didn't:** WebFetch to `react-hotkeys-hook.vercel.app/docs/documentation/*` returned 404 on most subpaths; the npm registry JSON endpoint and raw GitHub source were more reliable.
+- **Reusable lesson:** For `useHotkeys` migration briefs, always grep for `addEventListener.*keydown` AND separately grep `onKeyDown` — only the former are ad-hoc global listeners that should be replaced; React `onKeyDown` props are properly scoped and should NOT be migrated to global useHotkeys calls.

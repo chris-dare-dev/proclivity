@@ -4,11 +4,15 @@ import "./KeyboardHelpOverlay.css";
 
 /**
  * Returns true when running on macOS.
- * react-hotkeys-hook defines isMacOS() internally but does not export it.
- * We replicate the same navigator.userAgent check here.
+ * react-hotkeys-hook defines isMacOS() internally but does not export it
+ * from its v5.3.2 public API (m10 rect L5). We replicate the same
+ * navigator.userAgent check here, including the `ipod` exclusion the
+ * library uses internally (m10 rect M2) — iPod Touch is discontinued
+ * since 2022 but matching the upstream check exactly avoids the
+ * "claimed parity that isn't actually parity" doc-drift trap.
  */
 function isMacOS(): boolean {
-  return /mac/i.test(navigator.userAgent) && !/iphone|ipad/i.test(navigator.userAgent);
+  return /mac/i.test(navigator.userAgent) && !/iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
 /**
@@ -17,9 +21,10 @@ function isMacOS(): boolean {
  * Reuses the m7 Modal scaffold: AnimatePresence scale-in, focus-trap,
  * Escape-to-close, and inert-on-exit are all handled by Modal.tsx.
  *
- * isMacOS() (from react-hotkeys-hook) maps "mod" → ⌘ on Mac and Ctrl on
- * other platforms so users see OS-native labels instead of the literal
- * "mod+/" string.
+ * Local isMacOS() (above) maps "mod" → ⌘ on Mac and Ctrl on other
+ * platforms so users see OS-native labels instead of the literal
+ * "mod+/" string. The library's internal helper is not exported (m10
+ * rect L6 corrects an earlier mis-attribution).
  */
 
 interface KeyboardHelpOverlayProps {
@@ -72,7 +77,12 @@ function KeyChips({ keys }: { keys: string }) {
   return (
     <span className="keyboard-help-keys">
       {tokens.map((token, i) => (
-        <span key={token}>
+        // Use index as key — token strings can legitimately repeat within a
+        // keys string (e.g. a future "shift+shift" double-tap convention)
+        // and React strict-mode would drop one of the duplicates. Index is
+        // render-stable here because the parent `keys` prop only changes
+        // when the SHORTCUTS entry changes (m10 rect L2).
+        <span key={i}>
           {i > 0 && (
             <span className="keyboard-help-key-sep" aria-hidden="true">
               +
@@ -111,14 +121,40 @@ export default function KeyboardHelpOverlay({
         {Array.from(grouped.entries()).map(([category, shortcuts]) => (
           <section key={category} className="keyboard-help-category">
             <h3>{category}</h3>
-            {shortcuts.map((shortcut) => (
-              <div key={shortcut.keys} className="keyboard-help-row">
+            {shortcuts.map((shortcut, rowIndex) => (
+              // Composite key: a future registry might register the same
+              // `keys` string in different categories (e.g. "mod+enter" for
+              // "Submit form" in App and "Send message" in Chat). React
+              // strict-mode would drop one of the rows otherwise. Adding
+              // category + rowIndex makes the key globally unique
+              // (m10 rect L3).
+              <div
+                key={`${category}-${shortcut.keys}-${rowIndex}`}
+                className="keyboard-help-row"
+              >
                 <span className="keyboard-help-label">{shortcut.label}</span>
                 <KeyChips keys={shortcut.keys} />
               </div>
             ))}
           </section>
         ))}
+      </div>
+      {/* m10 rect M3: the overlay's content is non-interactive (just <kbd>
+          chips and labels), so the m7 Modal focus-trap has no focusable
+          descendants and degenerates to a no-op. A Close button gives Tab
+          something to land on, lets keyboard users explicitly dismiss the
+          modal, and satisfies WCAG 2.1 SC 2.4.3 (Focus Order) + the ARIA
+          dialog-modal APG. autoFocus moves focus into the dialog on open
+          so screen readers announce the dialog state correctly. */}
+      <div className="modal-footer">
+        <button
+          type="button"
+          className="modal-btn-primary"
+          onClick={onClose}
+          autoFocus
+        >
+          Close
+        </button>
       </div>
     </Modal>
   );

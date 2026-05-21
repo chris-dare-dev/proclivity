@@ -50,9 +50,14 @@ export default function ChatPanel({ onClose }: ChatPanelProps) {
   // when focus is inside the chat textarea (ChatInput). The raw
   // document.addEventListener("keydown", ...) equivalent is eliminated —
   // react-hotkeys-hook auto-unbinds on unmount (m10 migration target s17).
+  // description string matches src/lib/shortcuts.ts SHORTCUTS[escape].label
+  // verbatim — synthesis §3.10 / m10 rect L1. The "escape" entry covers
+  // BOTH chat-panel and modal close (Modal.tsx's JSX onKeyDown handler
+  // intentionally NOT migrated to useHotkeys), so the registry's generic
+  // phrasing is the union semantic.
   useHotkeys("escape", onClose, {
     enableOnFormTags: true,
-    description: "Close chat panel",
+    description: "Close panel / modal",
   });
 
   return (

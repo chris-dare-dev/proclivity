@@ -18,7 +18,10 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted, var(--text));
+  /* --text-dim is the project's muted-text token (theme.css). The earlier
+     --text-muted reference fell back to the full-brightness --text via
+     var() default — m10 rect M4. */
+  color: var(--text-dim);
   margin: 0 0 0.25rem;
 }
 
@@ -60,7 +63,9 @@
 /* Separator token between key chips (the "+" in "Ctrl + /") */
 .keyboard-help-key-sep {
   font-size: 0.75rem;
-  color: var(--text-muted, var(--text));
+  /* Same --text-muted → --text-dim correction as the category header
+     above (m10 rect M4). */
+  color: var(--text-dim);
   opacity: 0.6;
   user-select: none;
 }
