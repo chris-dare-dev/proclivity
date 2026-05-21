@@ -14,6 +14,7 @@
  */
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import { resolvedSettings } from "@/storage/constants";
@@ -54,6 +55,9 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   // Transient per-instance filter state — see module docblock
   const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
+  // m8: FLIP animation on add/remove/reorder. Reduced-motion respected natively
+  // via matchMedia check inside auto-animate at enable-time.
+  const [parent] = useAutoAnimate<HTMLUListElement>();
 
   const { todos, tags: allTags, sprints, cardLayouts } = state;
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
@@ -262,7 +266,7 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
                 : emptyHint}
             </div>
           ) : (
-            <ul className="todo-list">
+            <ul ref={parent} className="todo-list">
               {filteredItems.map((t, idx) => (
                 <TodoItem
                   key={t.id}

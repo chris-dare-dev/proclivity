@@ -14,6 +14,7 @@
  */
 
 import { lazy, Suspense, useState, useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import { resolvedSettings } from "@/storage/constants";
@@ -389,6 +390,7 @@ export function RemindersManager() {
       ...s,
       reminders: [...s.reminders, { ...reminder, id, fired: false }],
     }));
+    toast.success("Reminder created");
   };
 
   const deleteReminder = async (id: string) => {

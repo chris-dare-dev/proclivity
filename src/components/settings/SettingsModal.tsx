@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { toast } from "sonner";
 import { ConfirmDialog, Modal } from "@/components/Modal";
 import { useStore } from "@/storage/useStore";
 import { resolvedSettings } from "@/storage/constants";
@@ -308,6 +309,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
     }));
     setDirty(false);
     onClose();
+    toast.success("Settings saved");
   };
 
   const handleCancel = async () => {

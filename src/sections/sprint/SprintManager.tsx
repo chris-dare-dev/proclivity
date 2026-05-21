@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { Sprint, Tag, Todo } from "@/types";
@@ -562,6 +563,8 @@ function ArchivedSprintRow({
   onDeleteTodo,
 }: ArchivedSprintProps) {
   const [open, setOpen] = useState(false);
+  // m8: FLIP animation on task add/remove in expanded archived sprint row.
+  const [archivedListRef] = useAutoAnimate<HTMLUListElement>();
   // H3 fix: exclude closed (done) todos so they don't appear in BOTH the
   // archived sprint row AND the Closed tab simultaneously. The Closed tab is
   // the canonical home for done tasks; archived rows are read-only summaries.
@@ -606,7 +609,7 @@ function ArchivedSprintRow({
               No tasks in this sprint.
             </div>
           ) : (
-            <ul className="todo-list">
+            <ul ref={archivedListRef} className="todo-list">
               {sprintTodos.map((t, idx) => (
                 <TodoItem
                   key={t.id}
@@ -673,6 +676,8 @@ export function SprintManager() {
   // Transient filter for active sprint tasks only (not archived — see ArchivedSprintRow)
   const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // m8: FLIP animation on active sprint task add/remove/reorder.
+  const [activeSprintListRef] = useAutoAnimate<HTMLUListElement>();
 
   const { sprints, activeSprintId, todos, tags: allTags } = state;
 
@@ -1252,7 +1257,7 @@ export function SprintManager() {
                   )}
                 </div>
               ) : (
-                <ul className="todo-list">
+                <ul ref={activeSprintListRef} className="todo-list">
                   {activeSprintTodos.map((t, idx) => (
                     <TodoItem
                       key={t.id}

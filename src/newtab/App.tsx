@@ -1,6 +1,7 @@
 import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { LazyMotion } from "motion/react";
+import { Toaster } from "sonner";
 import { Settings, MessageCircle } from "lucide-react";
 import "./App.css";
 import { Today } from "@/sections/Today";
@@ -692,6 +693,18 @@ export default function App() {
           visibleTabs={visibleTabs}
         />
       </Suspense>
+      {/* m8: sonner toast host — portals to document.body; positioned outside
+          .app but inside LazyMotion for consistent provider context. Fixed
+          duration={3500}; sonner's own CSS @media (prefers-reduced-motion)
+          collapses animations natively — no JS useReducedMotion() wrapper
+          needed. */}
+      <Toaster
+        position="bottom-right"
+        theme="system"
+        richColors
+        closeButton
+        duration={3500}
+      />
     </LazyMotion>
   );
 }
