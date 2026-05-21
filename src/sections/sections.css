@@ -29,7 +29,14 @@
   /* Lift-on-hover (m6-s12 / UPL-9). Transition declared unconditionally
      here so it's also armed for hover-leave; the actual lift values live
      in the @media (hover: hover) and (pointer: fine) block below so
-     touch devices never engage the affordance. */
+     touch devices never engage the affordance.
+
+     NOTE (m6 rect M2): "unconditional" is deliberate — the transition
+     must fire on both hover-enter AND hover-leave, and CSS transitions
+     need the property declared at rest to animate at all. Any future
+     rule that adds a transform or box-shadow to .todo-item on touch
+     devices will inherit this 120 ms ease-out cost; audit interactions
+     before adding such rules. */
   transition: transform 120ms ease-out, box-shadow 120ms ease-out;
 }
 
@@ -39,9 +46,22 @@
    keeps the soft shadow from being clipped by the next .todo-item
    stacked 4px below in .todo-list's gap. Shadow is theme-invariant
    oklch(0 0 0 / 0.18) per the m3 rect convention — works on both light
-   and dark panels. */
+   and dark panels.
+
+   Scope: only .todo-list children get the lift — explicitly NOT the
+   .card-fallback-list narrow-viewport rendering (which carries the
+   .todo-list class for layout fallback but is a different visual
+   paradigm — m6 rect H1, mirrors m5-s9 / m4-rect-H1 carve-out).
+
+   STACKING CONTEXT WARNING (m6 rect M3): transform: translateY(-2px)
+   creates a new stacking context on every hovered row. Any descendant
+   of .todo-item with position:fixed will be trapped within the row's
+   bounds (won't escape to the viewport). The current .todo-edit pencil
+   button is position:static so it's safe. Do not add position:fixed
+   children to .todo-item without removing or accounting for this
+   transform. */
 @media (hover: hover) and (pointer: fine) {
-  .todo-item:hover {
+  .todo-list:not(.card-fallback-list) > .todo-item:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px oklch(0 0 0 / 0.18);
     position: relative;
@@ -50,25 +70,33 @@
 }
 
 /* Dual-guard reduced-motion (m6-s12). Mirrors the stagger pattern at
-   sections.css §stagger-reveal. Both [data-reduced-motion="true"] (in-app
-   toggle) and @media (prefers-reduced-motion: reduce) (OS-level) null
-   the lift entirely — reduced-motion users see no transform, no shadow,
-   no transition. The base .todo-item transition: none is belt-and-
-   suspenders with theme.css's global !important reset. */
+   sections.css §stagger-reveal (lines 287-298) — see the @keyframes
+   stagger-fade-up block below for the canonical template. Both
+   [data-reduced-motion="true"] (in-app toggle) and @media
+   (prefers-reduced-motion: reduce) (OS-level) null the lift entirely —
+   reduced-motion users see no transform, no shadow, no transition,
+   and no stacking-context change (position/z-index also reset so the
+   row stays in normal flow — m6 rect L1). The base .todo-item
+   transition: none is belt-and-suspenders with theme.css's global
+   !important reset. */
 [data-reduced-motion="true"] .todo-item {
   transition: none;
 }
-[data-reduced-motion="true"] .todo-item:hover {
+[data-reduced-motion="true"] .todo-list:not(.card-fallback-list) > .todo-item:hover {
   transform: none;
   box-shadow: none;
+  position: static;
+  z-index: auto;
 }
 @media (prefers-reduced-motion: reduce) {
   .todo-item {
     transition: none;
   }
-  .todo-item:hover {
+  .todo-list:not(.card-fallback-list) > .todo-item:hover {
     transform: none;
     box-shadow: none;
+    position: static;
+    z-index: auto;
   }
 }
 .todo-item.done .todo-title {
