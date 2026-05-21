@@ -1,0 +1,92 @@
+{
+  "milestone_id": "frontend-uplift-2026q2-m10",
+  "started": "2026-05-21T01:29:05Z",
+  "completed": "2026-05-21T01:54:58Z",
+  "wall_clock_seconds": 1553.0,
+  "phases": {
+    "init": {
+      "wall_seconds": 0.0
+    },
+    "research-running": {
+      "wall_seconds": 506.0
+    },
+    "research-complete": {
+      "wall_seconds": 0.0
+    },
+    "implement-running": {
+      "wall_seconds": 438.0
+    },
+    "implement-complete": {
+      "wall_seconds": 8.0
+    },
+    "critique-running": {
+      "wall_seconds": 402.0
+    },
+    "critique-complete": {
+      "wall_seconds": 21.0
+    },
+    "rectify-running": {
+      "wall_seconds": 178.0
+    }
+  },
+  "findings": {
+    "low": 6,
+    "medium": 4,
+    "high": 1,
+    "critical": 0
+  },
+  "fixed": [
+    [
+      "M2"
+    ],
+    [
+      "M3"
+    ],
+    [
+      "M4"
+    ],
+    [
+      "L1"
+    ],
+    [
+      "L2"
+    ],
+    [
+      "L3"
+    ],
+    [
+      "L6"
+    ]
+  ],
+  "deferred": [
+    [
+      "H1"
+    ],
+    [
+      "M1"
+    ],
+    [
+      "L4"
+    ],
+    [
+      "L5"
+    ]
+  ],
+  "invalidated": [],
+  "invalidation_rate": 0.0,
+  "external_writes_required": [
+    "npm install react-hotkeys-hook",
+    "git push origin main"
+  ],
+  "external_writes_completed": [
+    [
+      "npm install react-hotkeys-hook"
+    ],
+    [
+      "git push origin main"
+    ]
+  ],
+  "total_usd": 0.0,
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}
