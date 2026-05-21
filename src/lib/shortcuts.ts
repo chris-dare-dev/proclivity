@@ -27,6 +27,11 @@ export const SHORTCUTS: readonly Shortcut[] = [
     category: "App",
   },
   {
+    keys: "mod+k",
+    label: "Open command palette",
+    category: "App",
+  },
+  {
     keys: "escape",
     label: "Close panel / modal",
     category: "App",

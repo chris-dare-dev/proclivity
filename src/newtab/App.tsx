@@ -78,7 +78,7 @@ function stripSettingsParam(): void {
 const SettingsModal = lazy(() =>
   import("@/components/settings/SettingsModal").then((m) => ({ default: m.SettingsModal })),
 );
-import { resolvedSettings, NAV_CLOSED_EVENT } from "@/storage/constants";
+import { resolvedSettings, NAV_CLOSED_EVENT, OPEN_SETTINGS_EVENT } from "@/storage/constants";
 import { useThemeSync } from "@/hooks/useThemeSync";
 import type { ResolvedUserSettings } from "@/types";
 
@@ -128,7 +128,14 @@ const KeyboardHelpOverlay = lazy(
   () => import("@/components/help/KeyboardHelpOverlay"),
 );
 
-type Tab =
+// Command palette — lazy so cmdk + all Radix Dialog peers (~46 kB minified /
+// ~14.9 kB gz) stay out of the initial chunk. Loads only on first Cmd+K press.
+// All cmdk imports are confined to CommandPalette.tsx; none leak into this file.
+const CommandPalette = lazy(
+  () => import("@/components/palette/CommandPalette"),
+);
+
+export type Tab =
   | "today"
   | "sprint"
   | "long"
@@ -204,6 +211,15 @@ const Header = memo(function Header() {
       namespaces: rs.debug.namespaces,
     });
   }, [rs.debug.enabled, rs.debug.namespaces]);
+  // m11: bridge from CommandPalette's "Open Settings" action → setSettingsOpen.
+  // setSettingsOpen lives in Header memo scope; CommandPalette mounts as a
+  // sibling of Header in App() return (no prop-drilling path). Custom event
+  // matches the NAV_CLOSED_EVENT topology (synthesis §3.2).
+  useEffect(() => {
+    const handler = () => setSettingsOpen(true);
+    window.addEventListener(OPEN_SETTINGS_EVENT, handler);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, handler);
+  }, []);
   const name = rs.name.trim();
   const greeting =
     rs.greetingStyle === "none"
@@ -326,6 +342,17 @@ export default function App() {
     "mod+slash",
     () => setHelpOpen((open) => !open),
     { preventDefault: true, description: "Show keyboard shortcuts" },
+  );
+  // m11: command palette toggle state. Cmd+K (Mac) / Ctrl+K (Win/Linux)
+  // opens/closes the palette. Lazy-loaded on first open; cmdk lands only in
+  // the lazy CommandPalette-*.js chunk, not this initial chunk.
+  // preventDefault overrides Chrome's address-bar Cmd+K behavior (consistent
+  // with the mod+slash precedent from m10).
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useHotkeys(
+    "mod+k",
+    () => setPaletteOpen((open) => !open),
+    { preventDefault: true, description: "Open command palette" },
   );
   // m5-s9 (UPL-3): which tab currently owns the staggered-reveal animation.
   // Seeded from `tab` so first paint plays the cascade AND so any future
@@ -634,6 +661,22 @@ export default function App() {
         <KeyboardHelpOverlay
           open={helpOpen}
           onClose={() => setHelpOpen(false)}
+        />
+      </Suspense>
+      {/* Command palette — outside .app so it renders above all sections via
+          cmdk's Command.Dialog portal. Lazy-loaded; cmdk + Radix Dialog peers
+          land in the CommandPalette-*.js chunk. visibleTabs is passed so
+          section-switch commands respect the user's sectionVisibility settings.
+          "Open Settings" is bridged via OPEN_SETTINGS_EVENT (custom event caught
+          by Header()'s useEffect) — direct prop access is unavailable because
+          setSettingsOpen lives in Header memo scope, not App() scope. */}
+      <Suspense fallback={null}>
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          onSwitchTab={setTab}
+          onOpenHelp={() => setHelpOpen(true)}
+          visibleTabs={visibleTabs}
         />
       </Suspense>
     </LazyMotion>

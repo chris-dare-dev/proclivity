@@ -85,6 +85,20 @@ export const CLOSED_PURGE_INTERVAL_MINUTES = 60 * 24; // 24h
 export const NAV_CLOSED_EVENT = "proclivity:nav-closed";
 
 /**
+ * Custom-event name for the command-palette "Open Settings" action.
+ * Dispatched by CommandPalette (lazy chunk); caught by Header()'s useEffect
+ * to call setSettingsOpen(true). Mirrors the NAV_CLOSED_EVENT topology —
+ * cross-component event bridge where direct prop-drilling is not available.
+ *
+ * m11: CommandPalette mounts as a sibling of Header in App() return; since
+ * setSettingsOpen lives inside the Header memo scope, a custom event is the
+ * lowest-diff bridge. Do not add more cross-component events without
+ * evaluating whether lifting state or a React Context is preferable (m11
+ * synthesis §7 risk note).
+ */
+export const OPEN_SETTINGS_EVENT = "proclivity:open-settings";
+
+/**
  * Canonical default values for every user-configurable preference. The
  * UI reads from `resolvedSettings(state.settings)` so that absent fields
  * fall back to these values without scattering `?? fallback` across the
