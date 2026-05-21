@@ -18,6 +18,12 @@ Entry format (defined in `.claude/agents/milestone-web-perf-critic.md` § Memory
 
 <!-- Entries will be appended below this line by the milestone-web-perf-critic agent. -->
 
+## 2026-05-20T05:00:00Z · milestone:frontend-uplift-2026q2-m9 · status:complete
+- **Bottleneck observed:** The `--accent`/`--accent-on` WCAG AA contrast failure (first flagged in m11) recurs exactly in `.btn-primary`: dark mode 2.61:1 (white on #7c9cff), light mode 3.24:1 (dark navy on #4859d0). Both fall below the 4.5:1 threshold for `font-weight: 500` at 15px (normal text). The systemic gap is that `--accent` is optimised for decorative/brand use, not for text readability on an accent-coloured surface.
+- **What worked:** The prior m11 lessons entry flagged this exact `--accent`/`--accent-on` pair as a systemic design-token gap — checking it immediately as the first a11y axis saved significant time. The Python OKLab-to-relative-luminance conversion was reused directly.
+- **What didn't:** No implementation surprises. Bundle size verified from dist artifacts without needing to run a new build.
+- **Reusable lesson:** [CONFIRMED from m11 entry] Any new button or interactive element that uses `background: var(--accent); color: var(--accent-on)` will fail WCAG AA at `font-weight: 500` (normal text, 15px) in BOTH themes. The fix options in order of increasing correctness: (1) `font-weight: 700` + `font-size ≥ 18.67px` to qualify as large text (3:1 threshold), (2) introduce a dedicated `--btn-accent` token darker than `--accent` for button surfaces, (3) per-theme CSS overrides. Always compute contrast ratios when a new component uses the `--accent`/`--accent-on` pair.
+
 ## 2026-05-21T03:15:00Z · milestone:frontend-uplift-2026q2-m8 · status:complete
 - **Bottleneck observed:** `richColors` on sonner's `<Toaster>` ships vendor CSS token values that fail WCAG AA in light mode across all four semantic variants (success 4.29:1, info 4.35:1, warning 3.07:1, error 4.36:1 vs 4.5:1 threshold at 13px normal weight). Dark mode passes comfortably (lowest 6.59:1). The failure is invisible in code review — it requires computing contrast ratios from the library's own CSS token values.
 - **What worked:** Using Python to compute WCAG contrast ratios from HSL values extracted from `node_modules/sonner/dist/styles.css` — this found the vendor-side contrast failures before they reached production. Normal (non-rich) toast mode passes easily in both modes (light 10.53:1, dark 20.55:1).

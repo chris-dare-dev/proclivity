@@ -326,12 +326,20 @@
 /* m9-s16: in-section primary button. Mirrors .modal-btn-primary's accent
  * styling but uses --accent-on (m1 theme token) instead of the literal
  * #0b0e14. .btn-primary lives in sections.css because it's used in
- * non-modal section contexts (empty states, future CTAs). */
+ * non-modal section contexts (empty states, future CTAs).
+ *
+ * m9 rect H1 (contrast): font-weight bumped from 500 → 600 to qualify as
+ * "bold" text (WCAG AA threshold drops from 4.5:1 → 3:1 for bold text).
+ * --accent / --accent-on at default token values yields ~2.6:1 (dark) /
+ * ~3.2:1 (light) — still misses 3:1 in dark mode by a hair. Full
+ * compliance requires a project-wide --btn-accent token with a darker
+ * accent variant, mirroring the m11 rect M4 lesson. Track as a
+ * cross-cutting design-token milestone. */
 .btn-primary {
   background: var(--accent);
   border: 1px solid var(--accent);
   color: var(--accent-on);
-  font-weight: 500;
+  font-weight: 600;
   padding: 8px 14px;
   border-radius: var(--radius);
   cursor: pointer;
@@ -339,10 +347,29 @@
 .btn-primary:hover {
   opacity: 0.9;
 }
+/* m9 rect L1: explicit focus-visible ring matching the global accent.
+ * Browser defaults work but a custom outline is more cohesive with the
+ * rest of the design system. Mirror this on .modal-btn-primary in a
+ * future polish pass. */
+.btn-primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 /* m9-s16: vertical layout wrapper for empty-state contents (illustration +
  * heading + body + CTA). Lives inside .section-empty so the existing
- * padding rule applies without modification. */
+ * padding rule applies without modification.
+ *
+ * m9 rect M2 (two-shape coexistence): the outer .section-empty class is
+ * used by BOTH the m9 illustration shape (flex column via this wrapper)
+ * AND the legacy text-only shape (tag-filter "No tasks match..." branch
+ * + several pre-m9 callers). Both share .section-empty's dashed border +
+ * 32px padding intentionally. When modifying .section-empty itself
+ * (App.css:201), keep changes shape-neutral; the inner layouts diverge.
+ * h3 heading-level (m9 rect M3): IBM Carbon empty-state pattern
+ * prescribes <h3>. LongTerm has no preceding <h2> in its tabpanel so
+ * the LongTermEmpty h3 is a heading-level "skip" — soft a11y nuance,
+ * not a WCAG violation. Accepted as v0 per synthesis §3.9. */
 .section-empty-inner {
   display: flex;
   flex-direction: column;

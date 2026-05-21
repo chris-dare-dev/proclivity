@@ -116,6 +116,15 @@ export function TodoList({ scope, emptyHint, placeholder, filter, emptyIllustrat
   useEffect(() => {
     if (editingTodo) lastEditingTodoRef.current = editingTodo;
   }, [editingTodo]);
+  // m9-s16 / m9 rect M1: addInputRef attaches to the .todo-input <input>
+  // which renders in BOTH list mode AND card mode (the input lives above
+  // the layoutMode === "card" branch). The illustration consumer
+  // (LongTerm) only fires `emptyIllustration` in list mode — TodoCardSection
+  // owns the card-mode empty state with the legacy text-only `emptyHint`
+  // (synthesis §3.12 explicitly excluded card mode). So focusInput's reach
+  // matches its consumer's reach today. A future milestone that adds an
+  // illustration in card mode must re-evaluate this boundary because the
+  // input element pointed to by addInputRef is hidden in card mode.
   const addInputRef = useRef<HTMLInputElement>(null);
   const focusInput = useCallback(() => addInputRef.current?.focus(), []);
   const displayEditingTodo = editingTodo ?? lastEditingTodoRef.current;
