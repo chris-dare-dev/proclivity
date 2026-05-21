@@ -1,0 +1,79 @@
+{
+  "milestone_id": "frontend-uplift-2026q2-m7",
+  "started": "2026-05-21T00:51:32Z",
+  "completed": "2026-05-21T01:18:10Z",
+  "wall_clock_seconds": 1598.0,
+  "phases": {
+    "init": {
+      "wall_seconds": 0.0
+    },
+    "research-running": {
+      "wall_seconds": 670.0
+    },
+    "research-complete": {
+      "wall_seconds": 0.0
+    },
+    "implement-running": {
+      "wall_seconds": 271.0
+    },
+    "implement-complete": {
+      "wall_seconds": 8.0
+    },
+    "critique-running": {
+      "wall_seconds": 454.0
+    },
+    "critique-complete": {
+      "wall_seconds": 52.0
+    },
+    "rectify-running": {
+      "wall_seconds": 143.0
+    }
+  },
+  "findings": {
+    "low": 3,
+    "medium": 4,
+    "high": 1,
+    "critical": 0
+  },
+  "fixed": [
+    [
+      "H1"
+    ],
+    [
+      "M3"
+    ],
+    [
+      "M4"
+    ],
+    [
+      "L3"
+    ]
+  ],
+  "deferred": [
+    [
+      "M1"
+    ],
+    [
+      "M2"
+    ],
+    [
+      "L1"
+    ],
+    [
+      "L2"
+    ]
+  ],
+  "invalidated": [],
+  "invalidation_rate": 0.0,
+  "external_writes_required": [
+    "git push origin main"
+  ],
+  "external_writes_completed": [
+    [
+      "git push origin main"
+    ]
+  ],
+  "total_usd": 0.0,
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}

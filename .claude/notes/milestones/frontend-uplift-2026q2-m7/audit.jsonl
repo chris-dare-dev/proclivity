@@ -1,0 +1,15 @@
+{"ts": "2026-05-21T00:51:32Z", "milestone": "frontend-uplift-2026q2-m7", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0}
+{"ts": "2026-05-21T00:51:33Z", "milestone": "frontend-uplift-2026q2-m7", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-21T01:02:42Z", "milestone": "frontend-uplift-2026q2-m7", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-21T01:02:42Z", "milestone": "frontend-uplift-2026q2-m7", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-21T01:07:13Z", "milestone": "frontend-uplift-2026q2-m7", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-21T01:07:21Z", "milestone": "frontend-uplift-2026q2-m7", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-21T01:15:47Z", "milestone": "frontend-uplift-2026q2-m7", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-fixed", "id": "H1"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-fixed", "id": "M3"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-fixed", "id": "M4"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-fixed", "id": "L3"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-deferred", "id": "M1", "reason": "hook-blocked-or-no-test-infra-or-process-note"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-deferred", "id": "M2", "reason": "hook-blocked-or-no-test-infra-or-process-note"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-deferred", "id": "L1", "reason": "hook-blocked-or-no-test-infra-or-process-note"}
+{"ts": "2026-05-21T01:17:38Z", "milestone": "frontend-uplift-2026q2-m7", "event": "finding-deferred", "id": "L2", "reason": "hook-blocked-or-no-test-infra-or-process-note"}
