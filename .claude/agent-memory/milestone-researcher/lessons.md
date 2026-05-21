@@ -18,6 +18,12 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 
 <!-- Entries will be appended below this line by the milestone-researcher agent. -->
 
+## 2026-05-20T09:00:00Z · milestone:frontend-uplift-2026q2-m8 · status:complete (explore researcher)
+- **Bottleneck observed:** Brief said apply `useAutoAnimate` to `ClosedTodosView.tsx`'s list but it uses `.closed-list` not `.todo-list`; separately, ArchivedSprintRow is a sub-component inside SprintManager.tsx requiring its OWN `useAutoAnimate()` call (hooks can't be called inside `.map()` or in a parent for a child). Also: `ClosedTodosView` renders multiple `<ul>` elements (one per recency group) via `.map()` — applying the hook to all groups requires a child component extract.
+- **What worked:** Grepping for both `className="todo-list"` and `className="closed-list"` in one pass immediately surfaced the naming discrepancy. Checking each `<ul>` host component to see if it was a sub-component or the root confirmed the ArchivedSprintRow hook-call requirement.
+- **What didn't:** n/a — structure was clean once the sub-component nesting was traced.
+- **Reusable lesson:** For `useAutoAnimate` briefs that say "apply to X, Y, Z list containers", always grep for the exact class name used in each target file — list containers in the same project often have different class names (`.todo-list` vs `.closed-list`). Also verify whether the `<ul>` lives in a sub-component vs the main component — `useAutoAnimate` is a hook and sub-components need their own call.
+
 ## 2026-05-20T08:00:00Z · milestone:frontend-uplift-2026q2-m11 · status:complete (explore researcher)
 - **Bottleneck observed:** App.tsx is at `src/newtab/App.tsx` not `src/App.tsx` — the newtab subdir is easy to miss. `setSettingsOpen` is confirmed in `Header()` memo scope (line 183), NOT App() scope; `setHelpOpen` and `setTab` ARE in App() scope (lines 324, 321). The `Tab` type is LOCAL to App.tsx (not in `src/types/index.ts`) — needs export or re-declaration in palette-commands.ts.
 - **What worked:** Reading App.tsx top-to-bottom and classifying every useState by which function scope owns it (Header vs App) gave a definitive answer on the settings event vs prop debate without ambiguity.
@@ -89,3 +95,9 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 - **What worked:** Fetching the raw GitHub source (`parseHotkeys.ts`, `validators.ts`) via `curl https://raw.githubusercontent.com/...` instead of WebFetch resolved the 404 on GitHub blob pages; confirmed `mod` alias is implemented natively in v5 (not via hotkeys-js) and resolves to `metaKey` on macOS and `ctrlKey` elsewhere.
 - **What didn't:** WebFetch to `react-hotkeys-hook.vercel.app/docs/documentation/*` returned 404 on most subpaths; the npm registry JSON endpoint and raw GitHub source were more reliable.
 - **Reusable lesson:** For `useHotkeys` migration briefs, always grep for `addEventListener.*keydown` AND separately grep `onKeyDown` — only the former are ad-hoc global listeners that should be replaced; React `onKeyDown` props are properly scoped and should NOT be migrated to global useHotkeys calls.
+
+## 2026-05-20T23:00:00Z · milestone:frontend-uplift-2026q2-m8 · status:complete (general/external researcher)
+- **Bottleneck observed:** Brief conflated sonner's JS `duration` prop (auto-dismiss timer) with animation duration — instructing `duration={0}` under reduced-motion, which would make toasts instantly unreadable. Sonner's CSS `@media (prefers-reduced-motion)` block independently kills all CSS transitions/animations; the JS duration prop has no effect on animation speed.
+- **What worked:** Reading sonner's `styles.css` directly confirmed the native `@media (prefers-reduced-motion)` block at line 704; reading `index.tsx` confirmed `aria-live="polite"` at line 779. No external docs needed — GitHub raw source + bundlephobia JSON API gave complete picture.
+- **What didn't:** n/a — both libraries were well-documented in source.
+- **Reusable lesson:** For toast library milestones, always distinguish the JS `duration` prop (auto-dismiss timer in ms) from CSS animation duration — they are orthogonal. Setting `duration={0}` collapses the dismiss timer (toast disappears instantly), NOT the animation. If reduced-motion is the goal, check whether the library already ships a CSS `@media (prefers-reduced-motion)` block before wiring any JS `useReducedMotion()` hook.

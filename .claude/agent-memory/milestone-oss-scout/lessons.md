@@ -18,6 +18,12 @@ Entry format (defined in `.claude/agents/milestone-oss-scout.md` § Memory proto
 
 <!-- Entries will be appended below this line by the milestone-oss-scout agent. -->
 
+## 2026-05-20 — frontend-uplift-2026q2-m8
+- **Bottleneck observed:** auto-animate ships its dist at the package root (`index.mjs`) not in a `dist/` subdirectory — `node_modules/@formkit/auto-animate/index.mjs`, not `dist/index.mjs`. Grep paths that assume `/dist/` will silently return no results for this package.
+- **What worked:** `npm view <pkg> time --json` piped through node gives exact per-version publish timestamps in one call — faster than GitHub Releases API for release-cadence checks. `git diff BASE..HEAD -- package-lock.json | grep "^+.*\"node_modules/"` is the gold-standard lockfile new-package diff (gives exact count of net-new packages with no noise).
+- **What didn't:** Nothing significant — this was a clean, well-scoped dependency addition with zero transitive deps on both libraries.
+- **Reusable lesson:** For zero-transitive-dep UI libraries (sonner, auto-animate), the fastest full verification pass is: (1) `npm view license`, (2) `npm audit`, (3) `npm ls <pkg>`, (4) grep for `eval`/`new Function`/`innerHTML` in the package root `*.mjs`, (5) `git diff BASE..HEAD -- package-lock.json | grep "^+.*\"node_modules/"` for lockfile new-package count. Total time < 60 seconds; no bundlephobia fetch needed.
+
 ## 2026-05-20 — frontend-uplift-2026q2-m11
 - **Bottleneck observed:** npm's semver resolution placed nested copies of `@radix-ui/react-primitive` (2.1.3 under 4 packages) and `@radix-ui/react-slot` (1.2.4 under react-primitive) alongside their top-level peers; Vite bundles each unique realpath separately, confirmed via the `.js.map` source list. Source map analysis (`sources` array in the `.map` file) is the authoritative way to detect Vite module duplication — faster than diffing bundle output.
 - **What worked:** `node -e "require('./package-lock.json').packages"` combined with `Object.keys().filter()` gave a complete, verified license table in one pass. `npm audit` returned clean in <2s. Diff of `dist/index.mjs` files directly confirmed whether two version-pinned copies were byte-for-byte identical.

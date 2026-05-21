@@ -697,11 +697,24 @@ export default function App() {
           .app but inside LazyMotion for consistent provider context. Fixed
           duration={3500}; sonner's own CSS @media (prefers-reduced-motion)
           collapses animations natively — no JS useReducedMotion() wrapper
-          needed. */}
+          needed.
+
+          m8 rect M3 — `richColors` REMOVED: sonner's rich-color presets
+          (success/error/warning/info) fail WCAG AA 4.5:1 contrast in
+          light mode (lowest: warning at 3.07:1). Sonner's normal-mode
+          color palette passes 10.5:1+ in both themes. Re-enable only if
+          a future milestone adds proclivity-themed token overrides via
+          `[data-rich-colors='true'][data-sonner-toast]` CSS.
+
+          m8 rect L5 — `theme` now derived from `rs.theme` so sonner's
+          color-scheme tracks the in-app theme toggle (was `theme="system"`
+          which read only `prefers-color-scheme` and could diverge from
+          the in-app state when OS=light + app=dark or vice versa). */}
       <Toaster
         position="bottom-right"
-        theme="system"
-        richColors
+        theme={
+          rs.theme === "dark" ? "dark" : rs.theme === "light" ? "light" : "system"
+        }
         closeButton
         duration={3500}
       />
