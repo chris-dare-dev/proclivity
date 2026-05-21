@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
 import type { GanttTask } from "@/types";
+import GanttEmpty from "@/components/illustrations/GanttEmpty";
 import {
   DAY_PX,
   HEADER_H,
@@ -88,6 +89,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
     Record<string, { startsAt: number; endsAt: number }>
   >({});
   const dragRef = useRef<DragState | null>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
 
   // Central enforcement point for the parent/child date-containment invariant.
   //
@@ -441,6 +443,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
 
         <div className="gantt-add-row">
           <input
+            ref={addInputRef}
             placeholder="New task…"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
@@ -487,7 +490,7 @@ export function ChartView({ chartId, onDeleteChart, onRenameChart }: Props) {
 
         {rows.length === 0 ? (
           <div className="section-empty">
-            No tasks yet. Add one above to populate the timeline.
+            <GanttEmpty onAddTask={() => addInputRef.current?.focus()} />
           </div>
         ) : (
           <div className="gantt-grid">

@@ -13,7 +13,8 @@
  * Default list-mode users pay zero kB for card code at initial paint.
  */
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useStore } from "@/storage/useStore";
 import { uid } from "@/storage/storage";
@@ -47,9 +48,10 @@ interface Props {
   emptyHint: string;
   placeholder: string;
   filter?: (t: Todo) => boolean;
+  emptyIllustration?: (focusInput: () => void) => ReactNode;
 }
 
-export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
+export function TodoList({ scope, emptyHint, placeholder, filter, emptyIllustration }: Props) {
   const { state, update, loading } = useStore();
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -114,6 +116,8 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
   useEffect(() => {
     if (editingTodo) lastEditingTodoRef.current = editingTodo;
   }, [editingTodo]);
+  const addInputRef = useRef<HTMLInputElement>(null);
+  const focusInput = useCallback(() => addInputRef.current?.focus(), []);
   const displayEditingTodo = editingTodo ?? lastEditingTodoRef.current;
 
   const add = async () => {
@@ -192,6 +196,7 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
     <div>
       <div className="todo-input">
         <input
+          ref={addInputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
@@ -263,7 +268,9 @@ export function TodoList({ scope, emptyHint, placeholder, filter }: Props) {
                     to see everything.
                   </>
                 )
-                : emptyHint}
+                : emptyIllustration
+                  ? emptyIllustration(focusInput)
+                  : emptyHint}
             </div>
           ) : (
             <ul ref={parent} className="todo-list">

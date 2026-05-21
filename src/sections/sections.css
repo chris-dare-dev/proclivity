@@ -323,6 +323,53 @@
   }
 }
 
+/* m9-s16: in-section primary button. Mirrors .modal-btn-primary's accent
+ * styling but uses --accent-on (m1 theme token) instead of the literal
+ * #0b0e14. .btn-primary lives in sections.css because it's used in
+ * non-modal section contexts (empty states, future CTAs). */
+.btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--accent-on);
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+/* m9-s16: vertical layout wrapper for empty-state contents (illustration +
+ * heading + body + CTA). Lives inside .section-empty so the existing
+ * padding rule applies without modification. */
+.section-empty-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.section-empty-inner h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.section-empty-inner p {
+  margin: 0;
+  max-width: 320px;
+  color: var(--text-dim);
+}
+
+/* m9-s16: responsive sizing for the empty-state SVG illustrations.
+ * At narrow viewports (390px) the illustration capped at 200px wide;
+ * height: auto preserves the 240x160 viewBox aspect ratio. */
+.section-empty-illustration {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+}
+
 /* ── Stagger-reveal on todo list cold loads (UPL-3 / m5-s9) ─────────────────
    Fires when a section tabpanel gains data-staggered="true" (toggled by
    App.tsx on tab activation, cleared ~250 ms later via a useRef timeout
