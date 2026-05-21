@@ -1,0 +1,92 @@
+{
+  "milestone_id": "frontend-uplift-2026q2-m11",
+  "started": "2026-05-21T02:17:43Z",
+  "completed": "2026-05-21T03:00:03Z",
+  "wall_clock_seconds": 2540.0,
+  "phases": {
+    "init": {
+      "wall_seconds": 9.0
+    },
+    "research-running": {
+      "wall_seconds": 714.0
+    },
+    "research-complete": {
+      "wall_seconds": 0.0
+    },
+    "implement-running": {
+      "wall_seconds": 394.0
+    },
+    "implement-complete": {
+      "wall_seconds": 10.0
+    },
+    "critique-running": {
+      "wall_seconds": 637.0
+    },
+    "critique-complete": {
+      "wall_seconds": 528.0
+    },
+    "rectify-running": {
+      "wall_seconds": 248.0
+    }
+  },
+  "findings": {
+    "low": 5,
+    "medium": 5,
+    "high": 1,
+    "critical": 0
+  },
+  "fixed": [
+    [
+      "H1"
+    ],
+    [
+      "M2"
+    ],
+    [
+      "M4"
+    ],
+    [
+      "L1"
+    ],
+    [
+      "L2"
+    ],
+    [
+      "L3"
+    ]
+  ],
+  "deferred": [
+    [
+      "M1"
+    ],
+    [
+      "M3"
+    ],
+    [
+      "M5"
+    ],
+    [
+      "L4"
+    ],
+    [
+      "L5"
+    ]
+  ],
+  "invalidated": [],
+  "invalidation_rate": 0.0,
+  "external_writes_required": [
+    "npm install cmdk",
+    "git push origin main"
+  ],
+  "external_writes_completed": [
+    [
+      "npm install cmdk"
+    ],
+    [
+      "git push origin main"
+    ]
+  ],
+  "total_usd": 0.0,
+  "total_input_tokens": 0,
+  "total_output_tokens": 0
+}

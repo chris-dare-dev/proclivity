@@ -1,0 +1,18 @@
+{"ts": "2026-05-21T02:17:52Z", "milestone": "frontend-uplift-2026q2-m11", "event": "pipeline-start", "research_mode": "default", "allow_large_diff": 0, "include_oss": 1}
+{"ts": "2026-05-21T02:17:52Z", "milestone": "frontend-uplift-2026q2-m11", "event": "phase-enter", "phase": "research-running"}
+{"ts": "2026-05-21T02:29:46Z", "milestone": "frontend-uplift-2026q2-m11", "event": "phase-exit", "phase": "research-complete"}
+{"ts": "2026-05-21T02:29:46Z", "milestone": "frontend-uplift-2026q2-m11", "event": "phase-enter", "phase": "implement-running"}
+{"ts": "2026-05-21T02:36:20Z", "milestone": "frontend-uplift-2026q2-m11", "event": "phase-exit", "phase": "implement-complete"}
+{"ts": "2026-05-21T02:36:30Z", "milestone": "frontend-uplift-2026q2-m11", "event": "phase-enter", "phase": "critique-running"}
+{"ts": "2026-05-21T02:55:55Z", "milestone": "frontend-uplift-2026q2-m11", "event": "phase-enter", "phase": "rectify-running"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-fixed", "id": "H1"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-fixed", "id": "M2"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-fixed", "id": "M4"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-fixed", "id": "L1"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-fixed", "id": "L2"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-fixed", "id": "L3"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-deferred", "id": "M1", "reason": "hook-or-test-infra-or-per-critic"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-deferred", "id": "M3", "reason": "hook-or-test-infra-or-per-critic"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-deferred", "id": "M5", "reason": "hook-or-test-infra-or-per-critic"}
+{"ts": "2026-05-21T02:59:25Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-deferred", "id": "L4", "reason": "hook-or-test-infra-or-per-critic"}
+{"ts": "2026-05-21T02:59:26Z", "milestone": "frontend-uplift-2026q2-m11", "event": "finding-deferred", "id": "L5", "reason": "hook-or-test-infra-or-per-critic"}
