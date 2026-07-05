@@ -146,8 +146,12 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   dayBoundaryHour: 0 as 0 | 3 | 5,
   sectionVisibility: {
     today: true,
-    sprint: true,
-    longTerm: true,
+    // Sprint + Long-term start hidden (2026-07 phase 0): long-horizon
+    // planning moved to the Obsidian-backed roadmap workflow, so the
+    // in-extension sprint/goal surfaces are off by default. Re-enable via
+    // Settings → General; existing stored visibility overrides win as usual.
+    sprint: false,
+    longTerm: false,
     gantt: true,
     reminders: true,
     calendar: true,
