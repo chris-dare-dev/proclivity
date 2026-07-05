@@ -29,6 +29,24 @@ export const STORAGE_KEY = "proclivity:state:v1";
 export const PHOTOS_STORAGE_KEY = "proclivity:photos:v1";
 
 /**
+ * chrome.storage.local key for pending in-app reminder alerts. Separate from
+ * STORAGE_KEY so alert churn (enqueue on alarm fire, remove on dismiss) never
+ * rewrites the main state tree and never lands in the export/import envelope.
+ * Written by the service worker (enqueue) and the newtab (dismiss/snooze);
+ * `src/storage/alerts.ts` is the sole read/writer for this key.
+ */
+export const ALERTS_STORAGE_KEY = "proclivity:alerts:v1";
+
+/**
+ * Alarm-name prefix for toast-initiated snoozes. Lives outside the
+ * `proclivity:reminder:` namespace so the reminder reconciler's
+ * orphan-detection never clears a pending snooze. On fire, the SW re-enqueues
+ * an alert for the reminder WITHOUT touching its stored fireAt/recurrence —
+ * snoozing a recurring reminder must not shift its schedule.
+ */
+export const SNOOZE_ALARM_PREFIX = "proclivity:snooze:";
+
+/**
  * Observability ring-buffer key. Stores up to ~500 LogEntry records
  * appended by the logger when persisted levels (warn/error always,
  * info when debug is on) fire. Separate from STORAGE_KEY so the app's

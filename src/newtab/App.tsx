@@ -81,6 +81,7 @@ const SettingsModal = lazy(() =>
 );
 import { resolvedSettings, NAV_CLOSED_EVENT, OPEN_SETTINGS_EVENT } from "@/storage/constants";
 import { useThemeSync } from "@/hooks/useThemeSync";
+import { ReminderAlerts } from "@/components/alerts/ReminderAlerts";
 import type { ResolvedUserSettings } from "@/types";
 
 // Three.js is ~800kB minified — keep it out of the initial chunk so the
@@ -718,6 +719,12 @@ export default function App() {
         closeButton
         duration={3500}
       />
+      {/* In-app reminder alerts — mirrors the SW's pending-alert queue into
+          persistent toasts (duration: Infinity, explicit dismiss/snooze).
+          Replaces chrome.notifications, whose OS-level delivery fails
+          silently on macOS and Windows. Renders null; toasts land in the
+          <Toaster> host above. */}
+      <ReminderAlerts snoozeMinutes={rs.snoozeMinutes} />
     </LazyMotion>
   );
 }

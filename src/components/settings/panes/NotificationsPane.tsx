@@ -1,5 +1,9 @@
 /**
- * NotificationsPane — settings pane for reminders and notification behavior.
+ * NotificationsPane — settings pane for reminders and in-app alert behavior.
+ *
+ * Reminders surface as in-app alert toasts on the dashboard (plus a toolbar
+ * badge count), not OS notifications — see ReminderAlerts.tsx. All settings
+ * below govern that in-app pipeline.
  *
  * Owns (all staged — apply on Done):
  *   - Default reminder lead time (defaultReminderLeadMinutes)
@@ -105,14 +109,14 @@ export function NotificationsPane({
           ]}
           value={snooze}
           onChange={setSnooze}
-          hint="Duration when you snooze a notification."
+          hint="Duration when you snooze an alert."
         />
 
         <ToggleSwitch
           label="Quiet hours"
           checked={quietEnabled}
           onChange={setQuietEnabled}
-          hint="Silence notifications during set hours. Deferred notifications fire at the end of the quiet period."
+          hint="Silence alerts during set hours. Deferred alerts fire at the end of the quiet period."
         />
         {quietEnabled ? (
           <div className="settings-quiet-hours">
@@ -150,7 +154,7 @@ export function NotificationsPane({
             >
               {crossesMidnight
                 ? `Quiet period spans midnight — ends at ${quietTo} the following day.`
-                : `Notifications due in this window are deferred to ${quietTo}.`}
+                : `Alerts due in this window are deferred to ${quietTo}.`}
             </span>
           </div>
         ) : null}

@@ -1,12 +1,19 @@
 /// <reference types="chrome" />
 
-import type { ProclivityState, Reminder } from "@/types";
+import type { PendingAlert, ProclivityState, Reminder } from "@/types";
 import {
+  ALERTS_STORAGE_KEY,
   CLOSED_PURGE_ALARM,
   CLOSED_PURGE_INTERVAL_MINUTES,
+  SNOOZE_ALARM_PREFIX,
   STORAGE_KEY,
   resolvedSettings,
 } from "@/storage/constants";
+import {
+  dismissAlertsForReminder,
+  enqueueAlert,
+  readAlerts,
+} from "@/storage/alerts";
 import { purgeOldClosed } from "@/storage/closedTodos";
 import {
   configure as configureObservability,
@@ -69,6 +76,65 @@ function alarmName(reminderId: string): string {
 function reminderIdFromAlarm(name: string): string | null {
   if (!name.startsWith(ALARM_PREFIX)) return null;
   return name.slice(ALARM_PREFIX.length);
+}
+
+/* ─── In-app alerts ──────────────────────────────────────────
+ * OS-level notification delivery is unreliable and fails invisibly on both
+ * macOS (Notification Center suppression, Sequoia regressions — Chromium
+ * issue 375640809) and Windows (Focus Assist; Chrome absent from the
+ * senders list until its first successful toast). chrome.notifications was
+ * removed in favor of alerts the extension fully controls: the SW enqueues
+ * a PendingAlert, the newtab renders it as a persistent toast, and the
+ * toolbar badge carries the count while no dashboard tab is open.
+ */
+
+function occurrenceId(reminderId: string): string {
+  return `${reminderId}:${Date.now().toString(36)}`;
+}
+
+async function enqueueReminderAlert(
+  reminder: Reminder,
+  opts: { missed?: boolean } = {},
+): Promise<void> {
+  try {
+    await enqueueAlert({
+      id: occurrenceId(reminder.id),
+      reminderId: reminder.id,
+      title: reminder.title,
+      firedAt: Date.now(),
+      ...(opts.missed ? { missed: true } : {}),
+    });
+    swLog.info("alert.enqueued", {
+      reminderId: reminder.id,
+      title: reminder.title,
+      missed: opts.missed ?? false,
+    });
+  } catch (err: unknown) {
+    swLog.error("alert.enqueue.failed", {
+      reminderId: reminder.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Mirror the pending-alert count onto the toolbar badge. The badge is drawn
+ * by the browser chrome itself, so unlike OS notifications it cannot be
+ * suppressed by Focus modes / notification settings — it is the ambient
+ * "you have due reminders" signal while no new-tab is open.
+ */
+async function syncBadge(count: number): Promise<void> {
+  if (!chrome.action?.setBadgeText) return;
+  try {
+    await chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" });
+    if (count > 0) {
+      await chrome.action.setBadgeBackgroundColor({ color: "#7c9cff" });
+    }
+  } catch (err: unknown) {
+    swLog.warn("badge.sync.failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 /* ─── Reconcile alarms with stored reminders ──────────────── */
@@ -154,6 +220,12 @@ async function reconcileAlarms(): Promise<void> {
   // update truncated the alarm store, or onInstalled fired for a fresh
   // install with no prior alarms). The handler is idempotent.
   await ensureClosedPurgeAlarm();
+
+  // Re-sync the toolbar badge from the pending-alert queue — the badge is
+  // in-memory browser UI and does not survive a browser restart, while the
+  // queue does.
+  const alerts = await readAlerts();
+  await syncBadge(alerts.length);
 }
 
 /**
@@ -210,27 +282,12 @@ async function runClosedPurge(): Promise<void> {
   });
 }
 
-/** Fire a notification for a reminder that was missed while the SW was dead. */
+/** Enqueue an alert for a reminder that was missed while the SW was dead. */
 async function fireMissedReminder(reminder: Reminder): Promise<void> {
-  // Without await + catch any failure here (denied OS-level notification
-  // permission, missing iconUrl, runtime error) is silently dropped — the
-  // SW just continues on as if the notification had fired, leaving the
-  // user to wonder why nothing showed up. Surface it instead.
-  try {
-    await chrome.notifications.create(alarmName(reminder.id), {
-      type: "basic",
-      iconUrl: "icon-128.png",
-      title: "Proclivity (missed)",
-      message: reminder.title,
-      priority: 2,
-    });
-  } catch (err: unknown) {
-    swLog.error("notifications.create.failed", {
-      kind: "missed",
-      reminderId: reminder.id,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  // The alert queue is the delivery mechanism, so "missed" occurrences are
+  // never lost — they surface as toasts the next time a new-tab opens, with
+  // the badge carrying the count until then.
+  await enqueueReminderAlert(reminder, { missed: true });
 
   const next = nextFireAt(reminder);
   await swUpdate((s) => ({
@@ -324,6 +381,26 @@ async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
     return;
   }
 
+  // ── Snoozed alert re-fire ──────────────────────────────────
+  // Snooze alarms live in their own namespace and re-surface an alert
+  // WITHOUT touching the reminder's stored fireAt/recurrence — snoozing a
+  // recurring reminder must not shift its schedule.
+  if (alarm.name.startsWith(SNOOZE_ALARM_PREFIX)) {
+    const snoozedId = alarm.name.slice(SNOOZE_ALARM_PREFIX.length);
+    const state = await readState();
+    const reminder = state?.reminders.find((r) => r.id === snoozedId);
+    if (!state || !reminder) return;
+    const qh = state.settings.quietHours;
+    if (qh && isInQuietHours(qh, new Date())) {
+      chrome.alarms.create(alarm.name, {
+        when: quietHoursEndAt(qh, new Date()),
+      });
+      return;
+    }
+    await enqueueReminderAlert(reminder);
+    return;
+  }
+
   const id = reminderIdFromAlarm(alarm.name);
   if (!id) return;
 
@@ -341,30 +418,8 @@ async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
     return;
   }
 
-  // ── Fire the notification ─────────────────────────────────
-  // Awaited + try/catch so OS-level permission denials and other API
-  // failures (e.g. missing iconUrl) actually show up in the SW log
-  // instead of vanishing silently.
-  const snoozeMinutes = state.settings.snoozeMinutes ?? 10;
-  try {
-    await chrome.notifications.create(alarm.name, {
-      type: "basic",
-      iconUrl: "icon-128.png",
-      title: "Proclivity",
-      message: reminder.title,
-      priority: 2,
-      buttons: [{ title: `Snooze ${snoozeMinutes} min` }],
-    });
-    swLog.info("notifications.create.ok", {
-      reminderId: reminder.id,
-      title: reminder.title,
-    });
-  } catch (err: unknown) {
-    swLog.error("notifications.create.failed", {
-      reminderId: reminder.id,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  // ── Enqueue the in-app alert ───────────────────────────────
+  await enqueueReminderAlert(reminder);
 
   const next = nextFireAt(reminder);
 
@@ -398,10 +453,13 @@ function diffAndSyncAlarms(
   const oldMap = new Map(oldReminders.map((r) => [r.id, r]));
   const newMap = new Map(newReminders.map((r) => [r.id, r]));
 
-  // Removed reminders → clear alarms
+  // Removed reminders → clear alarms (including any pending snooze) and
+  // retract any alert still sitting in the queue / on screen.
   for (const [id] of oldMap) {
     if (!newMap.has(id)) {
       chrome.alarms.clear(alarmName(id));
+      chrome.alarms.clear(`${SNOOZE_ALARM_PREFIX}${id}`);
+      void dismissAlertsForReminder(id);
     }
   }
 
@@ -560,26 +618,28 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
   return true;
 });
 
-/* ─── Notification action: snooze ───────────────────────────── */
+/* ─── Toolbar action: badge + click-through ─────────────────── */
 
-chrome.notifications.onButtonClicked.addListener(
-  (notificationId: string, buttonIndex: number) => {
-    if (buttonIndex !== 0) return;
-    if (!notificationId.startsWith(ALARM_PREFIX)) return;
-    readState().then((state) => {
-      if (!state) return;
-      const minutes = state.settings.snoozeMinutes ?? 10;
-      chrome.alarms.create(notificationId, {
-        when: Date.now() + minutes * 60_000,
-      });
-      chrome.notifications.clear(notificationId);
-    });
-  },
-);
+// Clicking the toolbar icon opens a fresh tab — which this extension
+// overrides with the dashboard, where any pending alerts render as toasts.
+chrome.action?.onClicked.addListener(() => {
+  void chrome.tabs.create({});
+});
 
 chrome.storage.onChanged.addListener(
   (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-    if (area !== "local" || !changes[STORAGE_KEY]) return;
+    if (area !== "local") return;
+
+    // Alert-queue changes (enqueued here, dismissed/snoozed by the newtab)
+    // drive the toolbar badge from either writer.
+    const alertsChange = changes[ALERTS_STORAGE_KEY];
+    if (alertsChange) {
+      const alerts =
+        (alertsChange.newValue as PendingAlert[] | undefined) ?? [];
+      void syncBadge(alerts.length);
+    }
+
+    if (!changes[STORAGE_KEY]) return;
     const oldState = changes[STORAGE_KEY].oldValue as ProclivityState | undefined;
     const newState = changes[STORAGE_KEY].newValue as ProclivityState | undefined;
     if (!newState) return;

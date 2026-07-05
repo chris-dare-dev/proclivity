@@ -27,7 +27,16 @@ export default defineManifest({
     service_worker: "src/background/service-worker.ts",
     type: "module",
   },
-  permissions: ["storage", "alarms", "notifications", "identity"],
+  // Toolbar action: no popup — the icon exists to carry the pending-alert
+  // badge count (set by the SW; immune to OS notification suppression) and
+  // clicking it opens a new tab, i.e. the dashboard. The "notifications"
+  // permission was removed with the move to in-app alerts: OS-level
+  // notification delivery fails silently on macOS (Sequoia regressions,
+  // Notification Center suppression) and Windows (Focus Assist).
+  action: {
+    default_title: "Proclivity",
+  },
+  permissions: ["storage", "alarms", "identity"],
   // host_permissions:
   //   - photospicker.googleapis.com — Picker session lifecycle (create, poll,
   //     list mediaItems, delete).

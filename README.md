@@ -8,7 +8,8 @@ task list), **Sprint** (time-boxed sprint with per-sprint task scopes and an
 archived-sprint history), **Long-term** (open-ended goals and initiatives),
 **Gantt** (one or more named Gantt charts with nested tasks, collapse/expand,
 drag-to-move, and drag-to-resize), and **Reminders** (one-shot or
-daily/weekly recurring notifications backed by `chrome.alarms`). Behind
+daily/weekly recurring alerts backed by `chrome.alarms`, delivered as
+in-app toasts on the dashboard plus a toolbar-badge count). Behind
 everything sits an animated wireframe-mesh background whose color cycles
 smoothly through the day — indigo at 1 am, bright blue by morning,
 turquoise at noon, yellow in the afternoon, orange at sunset, red in the
@@ -35,8 +36,9 @@ anyone else's roadmap.
 - **`@crxjs/vite-plugin` ^2.0.0-beta.28** — wraps the MV3 manifest, handles
   content-script injection and hot-reload during dev
 - **`chrome.storage.local`** — single-key persistence (~10 MB cap)
-- **`chrome.alarms` + `chrome.notifications`** — service-worker-driven
-  reminder delivery
+- **`chrome.alarms` + in-app alert toasts** — service-worker-driven
+  reminder delivery; `chrome.notifications` was dropped because OS-level
+  delivery fails silently on macOS and Windows
 - **`@react-three/fiber` ^8** + **`three` ^0.169** — animated background,
   lazy-loaded so three.js stays out of the initial chunk
 
@@ -76,8 +78,11 @@ final position is committed to storage only on pointer-up.
 lets you create a reminder with a title, an exact fire time, a recurrence
 (`daily`/`weekly`/`none`), and an optional link to an existing todo. When
 a reminder is saved, the service worker's `chrome.storage.onChanged` listener
-picks up the diff and creates a `chrome.alarms` entry. On alarm fire, a
-`chrome.notifications` notification is shown. Recurring reminders have their
+picks up the diff and creates a `chrome.alarms` entry. On alarm fire, the
+service worker enqueues a pending alert (`src/storage/alerts.ts`) that the
+dashboard renders as a persistent toast with dismiss/snooze actions; while
+no dashboard tab is open, the toolbar badge carries the pending count and
+the alert surfaces on the next new-tab open. Recurring reminders have their
 `fireAt` advanced by one day or one week (anchored from the original `fireAt`,
 not the actual firing time, so they don't drift). Non-recurring reminders are
 marked `fired: true`.
@@ -178,7 +183,7 @@ proclivity/
     │   ├── App.css           # Global layout, tab bar, header
     │   └── index.css         # CSS reset and root vars
     ├── background/
-    │   └── service-worker.ts # chrome.alarms + chrome.notifications + reconcileAlarms
+    │   └── service-worker.ts # chrome.alarms + in-app alert queue + reconcileAlarms
     ├── types/
     │   └── index.ts          # Canonical data model: Todo, Sprint, GanttTask, GanttChart, Reminder, ProclivityState
     ├── storage/
@@ -416,7 +421,8 @@ interface ProclivityState {
 - [x] Today / Long-term todo lists
 - [x] Sprint as a real entity (start/end dates, active sprint, per-sprint task
       scope, archived sprint history)
-- [x] Reminders UI wired to `chrome.alarms` + `chrome.notifications`
+- [x] Reminders UI wired to `chrome.alarms` + in-app alert toasts (replaced
+      `chrome.notifications` — OS delivery fails silently on macOS/Windows)
 - [x] Gantt: multiple charts, tasks with start/end, nesting via `parentId`,
       collapse/expand, drag-to-move and drag-to-resize bars
 - [x] Animated wireframe-mesh background with time-of-day color cycle

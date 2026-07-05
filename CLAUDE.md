@@ -94,7 +94,10 @@ Before reporting a code change as "done":
   in [src/storage/storage.ts](src/storage/storage.ts) and the
   `useStore()` hook in [src/storage/useStore.ts](src/storage/useStore.ts).
 - Service worker: [src/background/service-worker.ts](src/background/service-worker.ts)
-  drives `chrome.alarms` + `chrome.notifications` for reminders.
+  drives `chrome.alarms` for reminders; delivery is in-app (pending-alert
+  queue in `src/storage/alerts.ts` → persistent sonner toasts on the
+  dashboard + toolbar badge). `chrome.notifications` was removed — OS-level
+  delivery is silently suppressed on macOS and Windows.
 - Background canvas: `@react-three/fiber` + `three.js`, lazy-loaded.
 
 ## What agents must not do

@@ -166,6 +166,27 @@ export interface Reminder {
   tags: string[];
 }
 
+/**
+ * A reminder occurrence awaiting acknowledgement on the dashboard.
+ *
+ * Alerts are the in-app replacement for `chrome.notifications`: the service
+ * worker enqueues one when a reminder alarm fires, the newtab renders it as a
+ * persistent toast, and dismiss/snooze removes it. Stored under
+ * ALERTS_STORAGE_KEY (not ProclivityState) so alert churn never touches the
+ * main state tree or the export/import envelope.
+ */
+export interface PendingAlert {
+  /** Unique per occurrence — a re-fire of the same reminder replaces the entry. */
+  id: string;
+  reminderId: string;
+  /** Reminder title snapshot at fire time. */
+  title: string;
+  /** Epoch ms when the occurrence actually fired (or was caught up on reconcile). */
+  firedAt: number;
+  /** True when the occurrence fired while the SW was dead and was caught up late. */
+  missed?: boolean | undefined;
+}
+
 /* ── Card view types ─────────────────────────────────────────────────── */
 
 /**

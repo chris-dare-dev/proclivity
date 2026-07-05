@@ -26,7 +26,8 @@ Declared in [`manifest.config.ts`](manifest.config.ts):
 |---|---|
 | `storage` | Persist todos, sprints, Gantt tasks, and reminders in `chrome.storage.local`. |
 | `alarms` | Schedule reminder firings without keeping the extension page open. |
-| `notifications` | Surface system-level reminder popups when an alarm fires. |
+
+The `notifications` permission was removed (2026-07): reminders now surface as in-app alert toasts on the dashboard plus a toolbar-badge count, because OS-level notification delivery fails silently on both macOS and Windows. The manifest declares a toolbar `action` (no popup) solely to carry that badge.
 
 No `host_permissions` are declared. The extension cannot make credentialed cross-origin requests or inject content scripts into arbitrary pages.
 
@@ -65,7 +66,7 @@ The service worker ([`src/background/service-worker.ts`](src/background/service-
 
 - `chrome.runtime.onInstalled` — calls `reconcileAlarms()` to align `chrome.alarms` with stored reminders.
 - `chrome.runtime.onStartup` — same as above.
-- `chrome.alarms.onAlarm` — reads the matching reminder from storage, fires a `chrome.notifications` popup with the reminder title as the message body, then advances or marks the reminder fired.
+- `chrome.alarms.onAlarm` — reads the matching reminder from storage, enqueues an in-app pending alert (rendered as a toast by the dashboard; count mirrored to the toolbar badge), then advances or marks the reminder fired.
 - `chrome.storage.onChanged` — diffs the old and new reminders arrays and creates/clears `chrome.alarms` entries accordingly.
 
 **What the SW does NOT do:**
@@ -76,7 +77,7 @@ The service worker ([`src/background/service-worker.ts`](src/background/service-
 
 **Attacker-controlled input:** the only channel through which an external actor could influence SW behavior is `chrome.storage.local`. Websites cannot write to an extension's `chrome.storage.local` directly — that API is scoped to the extension origin. A compromised dependency bundled into the newtab page could write to storage, which the SW would then act on.
 
-**Notification injection:** `reminder.title` is passed directly as the `message` field to `chrome.notifications.create()`. The Notifications API renders this as plain text; it does not interpret HTML or markdown. A crafted title containing markup characters would appear verbatim in the system notification — no injection vector exists here under the current feature set. If the SW is ever extended to construct URLs (e.g., notification action buttons pointing to `http://…`) from user-typed content, those values must be validated before use.
+**Alert injection:** `reminder.title` is stored in the pending-alert queue and rendered by the dashboard through React/sonner, which escape rendered strings as plain text — no HTML or markdown is interpreted. A crafted title containing markup characters appears verbatim in the toast; no injection vector exists here under the current feature set. If alerts are ever extended to construct URLs from user-typed content, those values must be validated before use.
 
 ---
 
