@@ -27,7 +27,7 @@
 set -uo pipefail
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-SCRIPTS="$REPO_ROOT/.claude/skills/milestone-pipeline/scripts"
+SCRIPTS="$REPO_ROOT/.claude/scripts"
 LOCK="$REPO_ROOT/.claude/notes/milestones/.lock"
 
 # No lock = no active milestone; exit silently.
@@ -50,9 +50,9 @@ echo "=== milestone-pipeline: session ended mid-pipeline ==="
 echo "Milestone: $MILESTONE_ID"
 echo ""
 
-# status.sh exits 0 even if the milestone is not found; it just prints nothing.
-if [[ -x "$SCRIPTS/status.sh" ]]; then
-  "$SCRIPTS/status.sh" "$MILESTONE_ID" --repo-root "$REPO_ROOT" || true
+# milestone-pipeline-status.sh exits 1 if no state exists; tolerate either way.
+if [[ -f "$SCRIPTS/milestone-pipeline-status.sh" ]]; then
+  bash "$SCRIPTS/milestone-pipeline-status.sh" "$MILESTONE_ID" || true
 fi
 
 echo ""

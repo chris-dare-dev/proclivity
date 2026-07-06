@@ -11,9 +11,11 @@ Skills load their body into the main session as context — they cannot dispatch
 `Agent(...)` tool calls. Only slash command bodies (`.claude/commands/*.md`)
 execute as the orchestrator with access to the Agent tool. The milestone pipeline
 requires parallel sub-agent fan-out in Phases 1 and 3, so it lives in
-`.claude/commands/milestone-pipeline.md`. The old `SKILL.md` has been removed;
-design-rationale and migration history are preserved in
-`.claude/skills/milestone-pipeline/MIGRATION.md`.
+`.claude/commands/milestone-pipeline.md`, copy-synced from the claude-registry
+repo (hashes in `.claude/.registry-manifest.json`). The old `SKILL.md` and the
+v1 skill directory (`.claude/skills/milestone-pipeline/`, including
+`MIGRATION.md`) have been removed; design-rationale and migration history are
+preserved in git history.
 
 ---
 
@@ -65,14 +67,13 @@ Active milestone state lives at:
 `implement/`, `critique/`, `rectify/` are committed — they are durable
 evidence that outlasts the ephemeral state.
 
-**Reading state:** use `checkpoint.py <id> --get <field>` or `status.sh <id>`.
-Never read `state.json` directly — the schema is versioned and the script
-handles migrations.
+**Reading state:** use `milestone-pipeline-checkpoint.py <id> --get <field>`
+or `milestone-pipeline-status.sh <id>`. Never read `state.json` directly —
+the schema is versioned and the script handles migrations.
 
-**Writing state:** use `checkpoint.py` only. Direct edits to `state.json`
-break the atomicity assumption and will be overwritten by the next script run.
-To roll back a phase: `checkpoint.py <id> --rollback-to <phase>` — this logs
-an explicit `unwind` event to `audit.jsonl` and clears downstream artifacts.
+**Writing state:** use `milestone-pipeline-checkpoint.py` only. Direct edits
+to `state.json` break the atomicity assumption and will be overwritten by the
+next script run.
 
 ---
 
@@ -119,23 +120,26 @@ one entry appended per run, never edited or truncated.
 
 `.claude/notes/milestones/.lock` holds `<pid>:<milestone-id>:<created-at>`.
 Only one milestone runs at a time. If the lock exists with a dead PID, clear
-it via `init-state.sh <id> --release-lock`. Do not `rm` it directly.
+it via `milestone-pipeline-init-state.sh <id> --release-lock`. Do not `rm`
+it directly.
 
 ---
 
 ## Scripts location
 
-All pipeline scripts are at:
+All pipeline scripts are registry-synced flat files at:
 ```
-.claude/skills/milestone-pipeline/scripts/
+.claude/scripts/milestone-pipeline-checkpoint.py
+.claude/scripts/milestone-pipeline-dedupe-findings.py
+.claude/scripts/milestone-pipeline-init-state.sh
+.claude/scripts/milestone-pipeline-record-progress.py
+.claude/scripts/milestone-pipeline-resolve-brief.py
+.claude/scripts/milestone-pipeline-status.sh
 ```
 
-Always reference by absolute path. CWD is not guaranteed inside sub-agents.
-
-**Note:** These scripts will eventually move under `.claude/scripts/milestone-pipeline/`
-or into a plugin (see `MIGRATION.md` §Extracting to a Claude Code plugin).
-Until then, the absolute path above is canonical. Do not update agent files to
-use the new path until the move actually happens.
+Resolve them from the repo root — CWD is not guaranteed inside sub-agents
+(`REPO_ROOT="$(git rev-parse --show-toplevel)"; SCRIPTS="$REPO_ROOT/.claude/scripts"`).
+Never edit these in-repo; they are synced copies (edit the registry and re-sync).
 
 ---
 
@@ -169,27 +173,27 @@ Do NOT trigger for single-milestone work — that's `/milestone-pipeline`.
 ### /roadmap artifacts
 
 ```
-.claude/commands/roadmap.md          # slash command (orchestrator)
-.claude/agents/roadmap-refiner.md    # Phase 1 — objectives + assumptions
-.claude/agents/roadmap-decomposer.md # Phase 2 — epic decomposition
-.claude/agents/roadmap-sequencer.md  # Phase 3 — RICE + MoSCoW + milestone AC
-.claude/agents/roadmap-materializer.md # Phase 4 — final doc + handoff block
-.claude/scripts/roadmap/             # init, validate, score-moscow, score-rice
-.claude/references/roadmap/          # templates + specialist-contracts
-.claude/notes/roadmaps/<slug>/       # state.json (ephemeral), audit log
-plans/<slug>-roadmap.md              # the output doc
+.claude/commands/roadmap.md            # slash command (orchestrator)
+.claude/agents/roadmap-refiner.md      # Phase 1 — goal block (objectives + assumptions)
+.claude/agents/roadmap-decomposer.md   # Phase 2 — epic decomposition
+.claude/agents/roadmap-sequencer.md    # Phase 3 — RICE + MoSCoW + milestone AC
+.claude/agents/roadmap-materializer.md # Phase 4 — final validation + handoff
+.claude/scripts/roadmap-*.py           # init, validate, score-moscow, score-rice (+ schema.json)
+.claude/references/roadmap-*.md        # phase refs, frameworks, anti-patterns (+ example.yaml)
+plans/<slug>/roadmap.yaml              # the canonical roadmap/1 output
+plans/<slug>/progress/agent.jsonl      # execution journal (milestone pipeline appends)
 ```
 
 ### /roadmap state
 
-Active roadmap state lives at `.claude/notes/roadmaps/<slug>/state.json`
-(gitignored). Manage it via:
+There is no separate state file — the `phase:` field in
+`plans/<slug>/roadmap.yaml` IS the state. Manage it via:
 
 ```bash
-bash .claude/scripts/roadmap/init-roadmap.sh <slug> [--brief "..."]  # init or detect resume
-bash .claude/scripts/roadmap/init-roadmap.sh <slug> --advance <phase> # advance phase
-bash .claude/scripts/roadmap/init-roadmap.sh <slug> --status          # print current phase
-python3 .claude/scripts/roadmap/validate-roadmap.py <slug> --report-first-unpopulated
+python3 .claude/scripts/roadmap-init.py <slug> [--brief "..."]   # init or detect resume
+python3 .claude/scripts/roadmap-init.py <slug> --advance <phase> # advance phase (agents only)
+python3 .claude/scripts/roadmap-init.py <slug> --status          # print current phase
+python3 .claude/scripts/roadmap-validate.py plans/<slug>/roadmap.yaml --json
 ```
 
-Valid phases: `init` → `refine` → `decompose` → `sequence` → `materialize` → `complete`.
+Valid phases: `init` → `refined` → `decomposed` → `sequenced` → `complete`.

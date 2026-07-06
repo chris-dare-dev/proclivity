@@ -406,12 +406,12 @@ interface ProclivityState {
   This is deliberate — switching tabs preserves local component state (drafts,
   expanded archived sprints, etc.). Do not break this with lazy-loaded sections
   unless you handle the state preservation explicitly.
-- **Agent skills.** Two Claude Code skills are available for planning and
-  execution:
-  - [`.claude/skills/roadmap`](.claude/skills/roadmap/SKILL.md) — turns a brief
-    into a sequenced `plans/<slug>-roadmap.md` with milestone identifiers.
-  - [`.claude/skills/milestone-pipeline`](.claude/skills/milestone-pipeline/SKILL.md)
-    — executes one milestone end-to-end through Research → Implement → Critique →
+- **Agent slash commands.** Two Claude Code slash commands are available for
+  planning and execution:
+  - [`/roadmap`](.claude/commands/roadmap.md) — turns a brief into the
+    canonical `plans/<slug>/roadmap.yaml` with milestone identifiers.
+  - [`/milestone-pipeline`](.claude/commands/milestone-pipeline.md) — executes
+    one milestone end-to-end through Research → Implement → Critique →
     Rectify with sub-agent orchestration.
 
 ---

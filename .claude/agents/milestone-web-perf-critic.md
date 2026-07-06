@@ -163,9 +163,9 @@ demote one level. Never invent a CRITICAL.
 ## Step 3 — Write the critique
 
 Write to `{CRITIQUE_PATH}` following the canonical format from:
-`/Users/chris.dare/Personal/SourceCode/proclivity/.claude/skills/milestone-pipeline/references/critique-format.md`
+`{REPO_ROOT}/.claude/references/milestone-pipeline-critique-format.md`
 
-<!-- TODO: if references move, update this path -->
+<!-- Registry-synced flat reference; resolve from the repo root. -->
 
 Required sections (same as all critics):
 1. Header (critic: `milestone-web-perf-critic`, commit range, generated timestamp, diff stats)

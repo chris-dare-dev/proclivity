@@ -158,9 +158,9 @@ in the workflow: CRITICAL.
 ## Step 3 — Write the critique
 
 Write to `{CRITIQUE_PATH}` following the canonical format from:
-`/Users/chris.dare/Personal/SourceCode/proclivity/.claude/skills/milestone-pipeline/references/critique-format.md`
+`{REPO_ROOT}/.claude/references/milestone-pipeline-critique-format.md`
 
-<!-- TODO: if references move, update this path -->
+<!-- Registry-synced flat reference; resolve from the repo root. -->
 
 Required sections:
 1. Header (critic: `milestone-infra-critic`, commit range, generated timestamp, diff stats)

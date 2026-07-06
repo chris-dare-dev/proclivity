@@ -113,14 +113,20 @@ Before reporting a code change as "done":
 - Don't ship code that disables React's strict mode, the TypeScript
   strict flags, or pre-commit hooks to "make it pass."
 
-## Available skills
+## Available slash commands
 
-- [roadmap](.claude/skills/roadmap/SKILL.md) — turn a brief into a
-  sequenced `plans/<slug>-roadmap.md` with `<slug>-mN` milestones.
-- [milestone-pipeline](.claude/skills/milestone-pipeline/SKILL.md) —
+- [/roadmap](.claude/commands/roadmap.md) — turn a brief into the
+  canonical `plans/<slug>/roadmap.yaml` (roadmap/1) with `<slug>-mN`
+  milestones. Scripts: `.claude/scripts/roadmap-*.py`
+  (init, validate, score-moscow, score-rice, schema).
+- [/milestone-pipeline](.claude/commands/milestone-pipeline.md) —
   execute one milestone end-to-end through Research → Implement →
-  Critique → Rectify with sub-agent orchestration.
+  Critique → Rectify with sub-agent orchestration. Scripts:
+  `.claude/scripts/milestone-pipeline-*` (checkpoint, dedupe-findings,
+  init-state, record-progress, resolve-brief, status).
 
-Both skills respect the "work on `main` only" rule above. The roadmap
-skill's project conventions live in
-[.claude/skills/roadmap/references/proclivity-integration.md](.claude/skills/roadmap/references/proclivity-integration.md).
+Both commands respect the "work on `main` only" rule above. They are
+copy-synced from the claude-registry repo (hashes in
+`.claude/.registry-manifest.json`) — never edit synced copies in-repo;
+edit the registry and re-sync. Project-specific conventions live in
+[.claude/references/roadmap-proclivity-integration.md](.claude/references/roadmap-proclivity-integration.md).

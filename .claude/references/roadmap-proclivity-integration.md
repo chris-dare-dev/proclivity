@@ -1,8 +1,8 @@
 # Proclivity integration — project-specific conventions
 
-The `roadmap` skill writes outputs that other parts of Proclivity consume.
-This file documents the contract on each side so the skill produces
-artifacts that pair cleanly with the rest of the project.
+The `/roadmap` slash command writes outputs that other parts of Proclivity
+consume. This file documents the contract on each side so the command
+produces artifacts that pair cleanly with the rest of the project.
 
 ## Project at a glance
 
@@ -27,34 +27,25 @@ background.
 It runs ONE milestone end-to-end through Research → Implement → Critique
 → Rectify.
 
-**Milestone-ID format consumed by milestone-pipeline:** the init-state
-script greps for `### <ID> — ` headings. Proclivity convention:
+**Milestone-ID format consumed by milestone-pipeline:** Proclivity
+convention:
 
-- `<slug>-mN` — milestones produced by THIS skill, written to
-  `plans/<slug>-roadmap.md`.
+- `<slug>-mN` — milestones produced by `/roadmap`, written to
+  `plans/<slug>/roadmap.yaml` (roadmap/1 format).
 
 **The /roadmap command must:**
 
 - Use `<slug>-mN` IDs (e.g. `gantt-drag-m1`, `gantt-drag-m2`,
-  `reminders-recurrence-m1`).
-- Write the milestone block in the format milestone-pipeline parses:
-
-  ```
-  ### <slug>-mN — Title
-
-  **Description.** ...
-
-  **Acceptance criteria.**
-  - [ ] ...
-  ```
-
+  `reminders-recurrence-m1`) — the ID grammar is enforced by
+  `.claude/scripts/roadmap-validate.py`.
 - Slug shape is `^[a-z][a-z0-9-]*$`; reject any slug matching `^m\d+$`
   to avoid collision with milestone IDs.
 
 **Bridge in milestone-pipeline:**
-`.claude/skills/milestone-pipeline/scripts/init-state.sh`
-searches `plans/*.md` for milestone briefs. Optional override:
-`--brief-from <path>`.
+`.claude/scripts/milestone-pipeline-init-state.sh` resolves briefs via
+`milestone-pipeline-resolve-brief.py` — canonical source is
+`plans/*/roadmap.yaml`; legacy prose roadmaps in `plans/*.md` are searched
+as a fallback (`### <ID> — ` headings).
 
 **Phase 4 handoff offer (do NOT auto-invoke):**
 
@@ -72,15 +63,13 @@ tracking artifact.
 
 **Default:** no tickets created.
 
-**Opt-in:** `--gh-issues` flag drafts Issues for the Now-lane epic and
-its child stories (materializer writes to local files; orchestrator runs
-`gh issue create` after explicit `[y]`). Templates live at
-`.claude/references/roadmap/templates/{epic-issue,story-issue}.md`.
+**Opt-in:** the `--github` flag makes the materializer emit per-issue body
+files (bodies only — never issue creation).
 
-**The /roadmap command never invokes `gh` itself.** When `--gh-issues` is
-passed:
+**Sub-agents never invoke `gh` (write verbs).** When `--github` is passed:
 
-- Draft issue body files written by the materializer to `.claude/notes/roadmaps/<slug>/issue-drafts/`.
+- Issue body files are written by the materializer to
+  `plans/<slug>/github/<item-id>.md`.
 - The orchestrator resolves the GitHub repo via `gh repo view` and prompts `[y/N]` before creating.
 - On `[y]`, the orchestrator runs `gh issue create` one at a time.
 
@@ -133,17 +122,16 @@ rule violations, surface it explicitly in the Won't section.
 
 | produces | path |
 |---|---|
-| Roadmap doc | `plans/<slug>-roadmap.md` |
-| GitHub epic body drafts | `.claude/notes/roadmaps/<slug>/issue-drafts/<EPIC-ID>.md` |
-| GitHub story body drafts | `.claude/notes/roadmaps/<slug>/issue-drafts/<STORY-ID>.md` |
-| Roadmap state | `.claude/notes/roadmaps/<slug>/state.json` (gitignored) |
+| Canonical roadmap | `plans/<slug>/roadmap.yaml` (roadmap/1) |
+| Execution journal | `plans/<slug>/progress/agent.jsonl` (milestone pipeline appends) |
+| GitHub issue body files | `plans/<slug>/github/<item-id>.md` (`--github` only) |
 
-Draft issue files live under `.claude/notes/roadmaps/<slug>/issue-drafts/` —
-written by the materializer, consumed by the orchestrator's `gh issue create`
-loop (one at a time, after explicit `[y]`). There is no `create-tickets.sh`
-script. The orchestrator IS the script.
+Roadmap state is the `phase:` field inside `roadmap.yaml` — there is no
+separate state file. Issue body files are consumed by the orchestrator's
+`gh issue create` loop (one at a time, after explicit `[y]`). There is no
+`create-tickets.sh` script. The orchestrator IS the script.
 
-`plans/` is committed by default — the roadmap doc is the tracking artifact.
+`plans/` is committed by default — the roadmap YAML is the tracking artifact.
 
 ## What the /roadmap command must NOT touch
 
