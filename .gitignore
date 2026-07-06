@@ -13,9 +13,6 @@ vite.config.d.ts
 manifest.config.js
 manifest.config.d.ts
 
-plans/
-plans/*.md
-
 # milestone-pipeline transient state — the lock + per-milestone state.json
 # are rewritten on every invocation; only committed artifacts (research/*.md,
 # critique/*.md, rectify/*.md, audit.jsonl, metrics.json) belong in git.

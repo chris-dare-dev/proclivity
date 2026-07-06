@@ -1,0 +1,171 @@
+# roadmap/1 — migrated from gemini-nano-roadmap.md (created 2026-05-12) by
+# roadmap-migrate.py + LLM completion pass 2026-07-06. Replaces the deprecated
+# Cloud-API roadmap (plans/gemini-roadmap.md, reverted in 9547cd6). Prose IDs
+# gemini-nano-e1..e3 / m1..m3 / spike-1..2 preserved write-once.
+# m1 shipped 2026-05-11 (rect b99a92b), m2 2026-05-12 (rect 65c6651), m3
+# implementation 2026-05-12 (rect 035e00e) — but m3's closing AC (the manual
+# 20-prompt eval at plans/gemini-nano-eval-snapshot.md, parse rate ≥ 90%) is
+# still an unfilled template, so m3 stays in_progress and the roadmap active.
+schema: roadmap/1
+slug: gemini-nano
+project: proclivity
+title: "Gemini Nano (Chrome Prompt API)"
+status: active
+phase: sequenced
+brief: |
+  Let a single user chat with an LLM embedded in the new-tab page that can
+  read and modify their planner state — no API keys, no Google Cloud project,
+  typed prompts never leave the device. On-device Gemini Nano via Chrome's
+  Prompt API; vertical slices: plumbing/availability surface, embedded chat
+  side panel, then schema-constrained tool actions with Undo.
+goal:
+  hmw: How might we let a single user chat with an LLM embedded in the new-tab page that can read and modify their planner state, without API keys, without a Google Cloud project, and without their typed prompts ever leaving the device?
+  objective: Ship an embedded, on-device LLM chat that can both have an open conversation and structurally modify Proclivity records — without ever touching the network for inference.
+  key_results:
+  - Connect flow takes zero clicks. Either Nano is available (chat is ready) or it's not (Settings shows availability state). No OAuth, no token, no console. Verified in gn-m1.
+  - First todo generated in ≤ 4 seconds from chat-message submitted to record-in-state. Latency target accounts for Nano being slower than Flash. Verified in gn-m3.
+  - ≥ 90% structured-output parse rate on a 20-prompt eval recorded in plans/gemini-nano-eval-snapshot.md at end of gn-m3.
+  - 'Zero network calls. Verified by inspecting the chat code: grep -rn "fetch\|XMLHttpRequest" src/llm/ returns no remote URLs.'
+  - Chat actions are reversible. Every record created via an LLM tool-call has a one-click Undo affordance visible for ≥ 10 seconds.
+  assumptions:
+  - tier: must
+    text: Chrome's Prompt API + Gemini Nano is available on the user's Chrome installation (138+ with flags, or current Dev/Canary)
+    validation: gemini-nano-spike-1 validates by detecting LanguageModel.availability() on a fresh install
+  - tier: must
+    text: responseConstraint (JSON Schema) produces parseable JSON ≥ 90% of the time for our concrete schemas (todos, Gantt tasks) — lower than the 95% bar from the Cloud roadmap because Nano is a smaller model
+    validation: gemini-nano-spike-2 20-prompt eval, folded into m3's eval doc (plans/gemini-nano-eval-snapshot.md); failure paths explicit (retry once, then surface the raw response with an apology)
+  - tier: should
+    text: The 4 GB model download is acceptable one-time cost
+    validation: Settings UI surfaces "Downloading Gemini Nano… (~4 GB)" when availability() === "downloading" so the user knows what's happening
+  - tier: might
+    text: Streaming responses meaningfully improve the chat UX over batched. Defer streaming to a later polish pass
+  wont:
+  - Cloud Gemini API. Anything that requires a Google Cloud project, an OAuth Client ID, or a billing account. Done; reverted.
+  - Claude integration of any flavor. Separate effort; needs the MCP-server approach discussed earlier.
+  - Multi-turn memory beyond the active session. When the user closes the side panel / clears chat, history is gone.
+  - Voice or audio modalities. Text only.
+  - Streaming responses in v1. Use prompt() (batched), not promptStreaming().
+  - Internet-connected fallback when Nano is unavailable. The whole point is "no cloud" — show an empty state, don't fall back to Flash.
+  - Persisting raw LLM prompts/responses to chrome.storage.local. Only the parsed records get saved.
+generated_by:
+  agent: roadmap-migrate.py
+  brief: 'source: gemini-nano-roadmap.md (created 2026-05-12)'
+retired: []
+items:
+- id: gemini-nano-e1
+  kind: epic
+  title: Connected and capable
+  summary: 'From Settings, the user can see "Gemini Nano: ready" (or "downloading…" or "unavailable on this Chrome version"). A src/llm/nano.ts module wraps the Prompt API with availability, session lifecycle, prompt, structured-output. Tests-shape: a single demo affordance ("Test Nano with a hello prompt") in Settings proves the chain end-to-end.'
+  lane: now
+  priority: must
+  size: S
+  tags:
+  - value
+  origin:
+    src: gemini-nano-roadmap.md.migrated:67
+- id: gemini-nano-e2
+  kind: epic
+  title: Embedded chat sidekick
+  summary: 'A persistent side panel (or modal) reachable from the gear icon or a dedicated icon. Free-text chat with Nano: user types a message, Nano responds, conversation history rendered as a list. Context-window overflow auto-trims the oldest exchange. No tool-calling yet — pure conversation. This is the "embedded chat" piece of the user''s request.'
+  lane: next
+  priority: should
+  size: M
+  tags:
+  - value
+  depends_on:
+  - gemini-nano-e1
+  origin:
+    src: gemini-nano-roadmap.md.migrated:75
+- id: gemini-nano-e3
+  kind: epic
+  title: Chat that does
+  summary: 'The chat from e2 gains structured tool actions. Nano''s responses can include "tool calls" — JSON-schema-constrained directives like { "type": "add_todo", "title": "…", "scope": "today" }. The chat applies them via useStore.update() and surfaces an Undo affordance for ≥ 10 seconds. Supported actions in v1: add_todo, add_gantt_task, set_reminder. This is the "controls my extension" piece — the headline of the whole pivot.'
+  lane: next
+  priority: should
+  size: M
+  tags:
+  - value
+  depends_on:
+  - gemini-nano-e1
+  - gemini-nano-e2
+  origin:
+    src: gemini-nano-roadmap.md.migrated:83
+- id: gemini-nano-spike-1
+  kind: spike
+  title: Walk the Prompt API end-to-end on the user's actual Chrome installation
+  summary: 'Walk the Prompt API end-to-end on the user''s actual Chrome installation. Detect availability state. If "downloadable", trigger the model download and time it. If "unavailable", capture the user-agent + version so the m1 design knows what to gracefully degrade to. (≤ 0.5 day, validates [MUST] #1.) Subsumed by the m1 execution — the availability surface shipped and Nano was confirmed working on the maintainer''s Chrome.'
+  parent: gemini-nano-e1
+  lane: now
+  estimate_days: 0.5
+  origin:
+    src: gemini-nano-roadmap.md.migrated:110
+- id: gemini-nano-spike-2
+  kind: spike
+  title: 20-prompt structured-output eval against the planned Todo and GanttTask schemas
+  summary: '20-prompt structured-output eval against the planned Todo and GanttTask schemas. Record parse rate. (≤ 1 day, validates [MUST] #2. Folds into gemini-nano-m3''s eval doc.) STILL OPEN: plans/gemini-nano-eval-snapshot.md is an unfilled maintainer-run template — this is the remaining work gating m3 closure and KR3.'
+  parent: gemini-nano-e3
+  lane: now
+  estimate_days: 1
+  origin:
+    src: gemini-nano-roadmap.md.migrated:111
+- id: gemini-nano-m1
+  kind: milestone
+  title: Plumbing + availability surface
+  parent: gemini-nano-e1
+  summary: 'Create src/llm/nano.ts exporting a thin TypeScript wrapper around the Prompt API: availability(), params(), createSession(opts?), plus typed prompt(text, opts?) and a promptStructured<T>(text, schema, opts?) helper that returns the parsed JSON. Surface availability state in the existing gear-icon SettingsModal (new "Gemini Nano" section showing one of ready / downloading… / downloadable (≈4 GB) / unavailable). Add a "Test prompt" affordance that runs await session.prompt("Say hi in 5 words") and displays the response inline. No chat UI yet, no tool calling. The point is to prove the pipe and give the user a visible status indicator.'
+  lane: now
+  size: M
+  acceptance:
+  - '`src/llm/nano.ts` exists, exports the helpers, compiles under strict TS.'
+  - '`SettingsModal` shows a "Gemini Nano" sub-section with the live availability state (refreshes when the modal opens).'
+  - Clicking the "Test prompt" button calls Nano and renders the response in the modal.
+  - If `availability()` returns `"unavailable"`, the section displays a one-sentence explanation pointing at `chrome://flags/#prompt-api-for-gemini-nano` (or the equivalent for the user's Chrome version) and a link to docs.
+  - If `availability()` returns `"downloadable"`, clicking Test prompt triggers `LanguageModel.create()` which begins the download; the UI shows progress (poll `availability()` until `"downloading"` flips to `"available"`).
+  - '`npm run build` passes; initial newtab chunk grows by < 5 kB (the wrapper is tiny; no new npm deps).'
+  - Given Nano is `available`, When the user opens Settings and clicks Test prompt, Then a friendly response appears within ≤ 5 seconds.
+  depends_on:
+  - gemini-nano-spike-1
+  origin:
+    src: gemini-nano-roadmap.md.migrated:115
+- id: gemini-nano-m2
+  kind: milestone
+  title: Embedded chat side panel
+  parent: gemini-nano-e2
+  summary: Add a chat affordance — a persistent right-side panel (or modal — design decision in m2's research phase). Single-conversation thread with Nano. Free-text prompt input, message history rendered as a list with role badges (user / assistant). Auto-trim oldest exchanges when contextoverflow fires. A "Clear chat" button destroys the session. No structured tool calls yet — just conversation. Reuses src/llm/nano.ts from m1.
+  lane: now
+  size: M
+  acceptance:
+  - A new chat affordance is reachable from the gear icon area (or its own icon — m2 decides). When opened, it slides in as a side panel or appears as a modal.
+  - The chat starts a `LanguageModelSession` on first open and reuses it across messages.
+  - User-typed messages submit on Enter and append to the history; Nano's response appends below.
+  - On `contextoverflow`, the oldest exchange is removed from the visible history and a small "(older messages trimmed)" line shows in its place.
+  - '"Clear chat" destroys the session and empties the history.'
+  - Session is recreated lazily on the next user message after clear.
+  - '`npm run build` passes; chat assets in a code-split chunk if they exceed 15 kB; initial newtab chunk grows by < 5 kB.'
+  - Given Nano is ready and a chat panel is open, When the user types a message, Then a reply appears in < 5 seconds (p50).
+  depends_on:
+  - gemini-nano-m1
+  origin:
+    src: gemini-nano-roadmap.md.migrated:132
+- id: gemini-nano-m3
+  kind: milestone
+  title: Tool actions from chat
+  parent: gemini-nano-e3
+  summary: 'Teach the chat to do things. Define a JSON schema for "tool calls" — a tagged-union of three action shapes (add_todo, add_gantt_task, set_reminder). The chat prepends a system prompt that explains the schema and tells Nano: when the user''s intent is to create records, respond with a tool-call JSON; otherwise respond conversationally. On each response, attempt to parse as the tool-call schema first; on success, apply via useStore.update() and surface the created records inline in the chat with an "Undo" affordance visible ≥ 10 seconds; on failure, treat the response as plain text. Includes a 20-prompt eval at plans/gemini-nano-eval-snapshot.md documenting parse-rate on the union schema.'
+  lane: now
+  size: M
+  acceptance:
+  - System prompt + schema constant live in `src/llm/nano.ts` (or a sibling file in `src/llm/`).
+  - 'Three tool-call shapes implemented: `add_todo` (writes `state.todos`), `add_gantt_task` (writes `state.ganttTasks`, requires a `chartId` field), `set_reminder` (writes `state.reminders` with future `fireAt`).'
+  - 'When a tool call is parsed, the chat shows a record card ("Added todo: ''plan trip''") with Undo button.'
+  - Undo button reverses the state mutation within 10 seconds of the action; after 10 s the affordance fades.
+  - 'Disambiguation: when Nano''s response parses as a tool call AND has accompanying prose, both render.'
+  - When the user prompt isn't an action ("how should I plan my week?"), Nano responds conversationally; no record is created.
+  - '`plans/gemini-nano-eval-snapshot.md` exists with: 20 prompts (10 action, 10 conversational), the tool-call parse rate, the false-positive rate (tool-call inferred when none was intended), Nano model version, Chrome version.'
+  - Parse rate ≥ 90% to close the milestone. False-positive rate ≤ 5%.
+  - '`npm run build` passes; main chunk grows < 10 kB.'
+  - Given a connected chat, When the user types "add a todo to call the dentist tomorrow", Then a new `state.todos` entry appears with title matching and a card with Undo shows in the chat within 5 s.
+  depends_on:
+  - gemini-nano-m2
+  origin:
+    src: gemini-nano-roadmap.md.migrated:150
