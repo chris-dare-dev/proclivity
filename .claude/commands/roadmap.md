@@ -1,185 +1,190 @@
 ---
-description: Run the 4-phase roadmap pipeline (REFINE → DECOMPOSE → SEQUENCE → MATERIALIZE) to turn a fuzzy brief into an executable roadmap that hands off cleanly to /milestone-pipeline. Use when the user invokes /roadmap, says "draft a roadmap for …", "plan the … initiative", or asks to take a vague brief through the four phases. Skip for single-feature work that's already well-scoped — feed those directly to /milestone-pipeline.
-argument-hint: "[<slug>] [--brief \"...\"] [--gh-issues] [--resume]"
+description: Run the 4-phase roadmap pipeline (REFINE → DECOMPOSE → SEQUENCE → MATERIALIZE) to turn a fuzzy brief into the canonical plans/<slug>/roadmap.yaml (roadmap/1) that /milestone-pipeline consumes. Use when the user invokes /roadmap, says "draft a roadmap for …", or wants a multi-week / multi-epic initiative planned. Skip for well-scoped single features — feed those directly to /milestone-pipeline.
+argument-hint: "[<slug>] [--brief \"...\"] [--github] [--resume]"
 ---
 
 # /roadmap — 4-phase roadmap pipeline
 
-Turn a fuzzy brief into an executable `plans/<slug>-roadmap.md` the `/milestone-pipeline` can consume. Dispatches four sub-agents sequentially: refiner → decomposer → sequencer → materializer. Each phase reads prior phase output; no phase runs before the prior phase returns `complete`.
+Turn a fuzzy brief into `plans/<slug>/roadmap.yaml` — a single canonical YAML
+file conforming to **roadmap/1** (`.claude/scripts/roadmap-schema.json`;
+golden shape example: `.claude/references/roadmap-example.yaml`). The output
+is NOT a prose markdown document — the Obsidian vault compiler renders prose
+views from the YAML downstream. Four sub-agents run sequentially — refiner →
+decomposer → sequencer → materializer — gated on the file's `phase:` field
+advancing one step at a time: `init → refined → decomposed → sequenced → complete`.
 
-**Arguments:** $ARGUMENTS — parse as `[<slug>] [--brief "..."] [--gh-issues] [--resume]`
+**Arguments:** $ARGUMENTS — parse as `[<slug>] [--brief "..."] [--github] [--resume]`
 
-- `<slug>` — required; kebab-case, lowercase, max 30 chars (e.g. `gantt-drag`, `reminders-recurrence`). Must NOT match `^m\d+$` (collision with milestone IDs). If omitted, STOP and ask: "What slug should I use for this roadmap? (e.g. `gantt-drag`)"
-- `--brief "..."` — use this string verbatim as the brief. No conversation summarization.
-- `--gh-issues` — after Phase 4 validation, draft issue bodies and GATE on actual GitHub creation.
-- `--resume` — re-enter the pipeline at the phase determined by the file-presence state model below.
+- `<slug>` — required; kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`), ≤30 chars. Every item ID derives from it. If omitted, STOP and ask: "What slug should I use for this roadmap? (e.g. `gantt-drag`)"
+- `--brief "..."` — use verbatim as the brief. No conversation summarization.
+- `--github` — Phase 4 additionally emits per-issue body files under `plans/<slug>/github/` (bodies only — see Step 4 gate).
+- `--resume` — re-enter at the phase recorded in the file (see State model).
 
----
+Reject malformed invocations: slug failing the regex → error; `--brief`
+without a value → error; multiple positional args → error.
 
-## When to invoke / When NOT to invoke
+## When to invoke / when NOT to
 
-**Invoke `/roadmap` when:**
-- User runs `/roadmap`, `/roadmap <slug>`, or `/roadmap --brief "..."`.
-- User says "draft a roadmap for …", "plan the … initiative", "I need a roadmap for the next quarter on …".
-- The work is multi-week, multi-epic, or has unclear scope.
+**Invoke** for multi-week, multi-epic, or unclear-scope work; "draft a
+roadmap for …"; "plan the … initiative".
 
-**Do NOT invoke when:**
-- **Single-feature work already scoped** — feed directly to `/milestone-pipeline <id>`.
-- **Doc-only changes** — write the doc directly.
-- **"Plan" meaning "tell me your thinking"** — one-paragraph answer, not a roadmap.
-- **Single-file fixes** — direct edit.
-
----
+**Do NOT invoke** for: single-feature work already scoped (→
+`/milestone-pipeline`), doc-only changes, single-file fixes, or "plan"
+meaning "tell me your thinking" (one-paragraph answer instead).
 
 ## Conversation-context ingestion
 
 | Mode | Trigger | Behavior |
 |---|---|---|
-| **Summarize** (default) | `/roadmap [<slug>]` invoked mid-conversation | Summarize the conversation in 2–4 sentences as the brief, write it into `plans/<slug>-roadmap.md` "Brief" section, surface the summary to the user with "Is this an accurate brief? [y/N]" before Phase 1. |
-| **Explicit** | `/roadmap <slug> --brief "..."` | Use the given string verbatim. No summarization. |
-
-If `<slug>` is missing, ask for it before any work — the slug is load-bearing for filenames and milestone IDs.
+| **Summarize** (default) | `/roadmap <slug>` mid-conversation | Summarize the conversation in 2–4 sentences as the brief; surface it with "Is this an accurate brief? [y/N]" BEFORE Phase 1. |
+| **Explicit** | `--brief "..."` | Use the string verbatim. No summarization. |
 
 ---
-
-## Step 0a — Parse arguments
-
-Parse `$ARGUMENTS` once at session start. Supported invocations:
-
-- `/roadmap` — missing slug; STOP and ask: "What slug should I use for this roadmap?"
-- `/roadmap <slug>` — slug only; conversation summary becomes the brief; ask user to confirm before Phase 1.
-- `/roadmap <slug> --brief "..."` — slug + verbatim brief.
-- `/roadmap <slug> --gh-issues` — flag may appear in any position after the slug.
-- `/roadmap <slug> --resume` — re-enter via file-presence state model.
-
-Derived variables to set (used by Steps 0 through 4):
-
-| var | source |
-|---|---|
-| `SLUG` | positional argument (first non-flag token) |
-| `BRIEF` | `--brief "..."` value, OR conversation summary if mid-conversation, OR empty if cold-start |
-| `GH_ISSUES_FLAG` | `true` if `--gh-issues` present, else `false` |
-| `RESUME` | `true` if `--resume` present, else `false` |
-
-Reject malformed invocations immediately:
-- Slug fails `^[a-z][a-z0-9-]{0,29}$` → "ERROR: slug must be 1–30 lowercase kebab-case chars, starting with a letter."
-- `--brief` without a value → "ERROR: --brief requires a value."
-- Multiple positional args → "ERROR: too many positional arguments; only `<slug>` is positional."
 
 ## Step 0 — Initialize
 
 ```bash
-bash .claude/scripts/roadmap/init-roadmap.sh <slug> [--brief "..."]
+python3 .claude/scripts/roadmap-init.py <slug> [--brief "..."]
 ```
 
 Parse stdout:
-- `INITIALIZED: <path>` → fresh run; set `ROADMAP_PATH=<path>`.
-- `RESUMING phase=<X>: <path>` → resume mode; set `ROADMAP_PATH=<path>` and skip to the appropriate step per the File-presence state model below.
+- `INITIALIZED path=<path>` → fresh run; proceed to Step 1.
+- `RESUMING phase=<X> path=<path>` → enter at the step the State model gives for `<X>`.
 
-The script creates `plans/<slug>-roadmap.md` from the template, scaffolds all sections with `<!-- ROADMAP:section:<id> -->` markers, and writes a JSON state pointer at `.claude/notes/roadmaps/<slug>/state.json`. **Idempotent** — re-running on an existing slug detects and resumes.
+Set `SLUG`, `ROADMAP_PATH=plans/<slug>/roadmap.yaml`, `BRIEF`,
+`GITHUB_FLAG`. The script is idempotent and never overwrites an existing
+roadmap.yaml.
 
-Set derived variables:
-- `SLUG=<slug>`
-- `ROADMAP_PATH=plans/<slug>-roadmap.md`
-- `BRIEF=<verbatim brief or conversation summary>`
-- `GH_ISSUES_FLAG=true|false` (from `--gh-issues` argument)
+### State model
+
+The `phase:` field in roadmap.yaml IS the state — no separate state file.
+Read it with `python3 .claude/scripts/roadmap-init.py <slug> --status`.
+Agents advance it one step only, via `--advance <phase>`, and only after the
+validator passes.
+
+| `phase` | Meaning | Next dispatch |
+|---|---|---|
+| `init` | scaffold only | roadmap-refiner (Step 1) |
+| `refined` | goal block complete | roadmap-decomposer (Step 2) |
+| `decomposed` | epics present | roadmap-sequencer (Step 3) |
+| `sequenced` | milestones/tasks/spikes, lanes, scores present | roadmap-materializer (Step 4) |
+| `complete` | authoring finished (roadmap `status:` stays `active`) | nothing — use the Regeneration protocol for changes |
+
+---
+
+## Iron rules (bind the orchestrator AND every phase agent)
+
+1. **Validation loop.** After EVERY write to `plans/<slug>/roadmap.yaml` run:
+   ```bash
+   python3 .claude/scripts/roadmap-validate.py plans/<slug>/roadmap.yaml --json
+   ```
+   Read the error list, self-correct, re-run — until exit 0. Never advance
+   phase, dispatch the next agent, or report success with a failing validator.
+2. **IDs are write-once (Regeneration protocol).** When revising an existing
+   roadmap.yaml: read the current file first; carry EVERY existing id
+   forward; never renumber; new items get new (next-free) ids; a dropped
+   item keeps its entry with `status: dropped` AND its id is appended to
+   top-level `retired:`. Never delete an id that has existed.
+3. **One writer — no execution progress in roadmap.yaml.** The file holds
+   plan structure only. Execution progress (started / done / blocked during
+   implementation) is journal appends to `plans/<slug>/progress/agent.jsonl`,
+   written by the milestone pipeline — `/roadmap` NEVER writes progress
+   there or into roadmap.yaml item statuses.
+
+### ID grammar
+
+| kind | grammar | example | note |
+|---|---|---|---|
+| epic | `<slug>-eN` | `gantt-drag-e1` | top-level, no parent |
+| milestone | `<slug>-mN` | `gantt-drag-m1` | preserved verbatim for `/milestone-pipeline` handoff |
+| spike | `<slug>-spike-N` | `gantt-drag-spike-1` | ≤3-day time-boxed; parent epic |
+| task | `<slug>-t-<semantic-slug>` | `gantt-drag-t-drop-persist` | semantic slug, not numbered |
 
 ---
 
 ## Step 1 — Dispatch roadmap-refiner (Phase 1: REFINE)
 
-Dispatch `roadmap-refiner` with inputs: `{SLUG}`, `{ROADMAP_PATH}`, `{BRIEF}`.
-
-**Status routing:**
-
-| status | Action |
-|---|---|
-| `complete` | Proceed to Step 2 |
-| `gate-required` | Surface gate question from summary line 2 to user; wait for resolution; re-dispatch `roadmap-refiner` with `--user-resolution "<answer>"` appended to inputs |
-| `aborted-scope` | Print abort reason from JSON summary; stop |
-
----
+Inputs: `{SLUG}`, `{ROADMAP_PATH}`, `{BRIEF}`. Fills `title`, `brief`
+(verbatim), and the `goal:` block; advances `init → refined`.
 
 ## Step 2 — Dispatch roadmap-decomposer (Phase 2: DECOMPOSE)
 
-Dispatch `roadmap-decomposer` with inputs: `{SLUG}`, `{ROADMAP_PATH}`.
-
-(The decomposer reads sections 1–4 from `{ROADMAP_PATH}` directly — no separate brief input.)
-
-**Status routing:**
-
-| status | Action |
-|---|---|
-| `complete` | Proceed to Step 3 |
-| `gate-required` | Surface gate question from summary line 2 to user; wait for resolution; re-dispatch `roadmap-decomposer` with `--user-resolution "<answer>"` appended to inputs |
-| `aborted-scope` | Print abort reason; stop |
-
----
+Inputs: `{SLUG}`, `{ROADMAP_PATH}`. Adds 2–6 vertically-sliced epic items;
+advances `refined → decomposed`.
 
 ## Step 3 — Dispatch roadmap-sequencer (Phase 3: SEQUENCE)
 
-Dispatch `roadmap-sequencer` with inputs: `{SLUG}`, `{ROADMAP_PATH}`.
+Inputs: `{SLUG}`, `{ROADMAP_PATH}`. Adds milestones/tasks/spikes with lanes
+and Given/When/Then acceptance; runs the scorers; advances
+`decomposed → sequenced`.
 
-(The sequencer reads sections 1–5 from `{ROADMAP_PATH}` directly.)
-
-**Status routing:**
-
-| status | Action |
-|---|---|
-| `complete` | Proceed to Step 4 |
-| `gate-required` | Surface gate question from summary line 2 to user; wait for resolution; re-dispatch `roadmap-sequencer` with `--user-resolution "<answer>"` appended to inputs |
-| `aborted-scope` | Print abort reason; stop |
-
-If summary line 2 contains "Confidence=50% default applied to N Musts" — surface that count explicitly to the user before proceeding, even when status is `complete`.
-
----
+If summary line 2 reports RICE confidence defaults ("N epics at c=0.5, no
+evidence"), surface that count to the user even when status is `complete`.
 
 ## Step 4 — Dispatch roadmap-materializer (Phase 4: MATERIALIZE)
 
-Dispatch `roadmap-materializer` with inputs: `{SLUG}`, `{ROADMAP_PATH}`, `{GH_ISSUES_FLAG}`.
+Inputs: `{SLUG}`, `{ROADMAP_PATH}`, `{GITHUB_FLAG}`. Final validation, links
+population, sets `status: active`, optional GitHub body emission; advances
+`sequenced → complete`.
 
-**Status routing:**
+**`--github` gate (orchestrator-owned):** the materializer only EMITS body
+files at `plans/<slug>/github/<item-id>.md` — it never creates issues.
+When it returns, resolve the repo (`gh repo view --json nameWithOwner -q
+.nameWithOwner`, falling back to parsing `git remote get-url origin`) and
+ask: "Emitted N issue bodies under `plans/<slug>/github/` — create them in
+`<owner/repo>`? [y/N]". Only on explicit `y`: run `gh issue create` yourself,
+one at a time, from the body files. Then optionally re-dispatch the
+materializer with `--issues "<item-id>=<url> ..."` to backfill `links.issue`
+(a links-only edit; phase stays `complete`). On anything else, exit cleanly —
+the body files remain for manual use.
 
-| status | Action |
-|---|---|
-| `complete` | Surface milestone-pipeline offer from summary line 3; wait for `[y]` before invoking |
-| `gate-required` (validator failure) | Surface violations from summary line 2; fix the roadmap doc; re-dispatch materializer |
-| `gate-required` (issue draft ready) | Resolve the active GitHub repo BEFORE prompting: run `gh repo view --json nameWithOwner -q .nameWithOwner` (silently fall back to `git remote get-url origin` parsed for `owner/repo` if `gh` is unavailable) and substitute the result into the gate question. Present the count + list from summary line 2 to user: "Drafted N issues at `.claude/notes/roadmaps/<slug>/issue-drafts/` — create in `<resolved-owner/repo>`? [y/N]". On `[y]`, run the `gh issue create` calls yourself (ONE at a time, from the draft files, against the resolved repo). On anything else, exit cleanly. |
-| `aborted-scope` | Print abort reason; stop |
+**Handoff (always):** surface the materializer's now-lane milestone list and
+offer:
 
-**CRITICAL: The materializer drafts; the orchestrator (this session) runs `gh issue create`.** Never dispatch the materializer to do the actual `gh` call.
-
-On milestone-pipeline offer: read summary line 3 for the exact command, then:
 ```
-Roadmap complete: plans/<slug>-roadmap.md
+Roadmap complete: plans/<slug>/roadmap.yaml
 
 Now-lane milestones:
-1. <slug>-m1 — {milestone title} (in epic <slug>-e1) ({N} stories)
+1. <slug>-m1 — {title} (epic <slug>-e1)
 
-Run /milestone-pipeline <slug>-m1 to start the first milestone? [y/N]
+Run /milestone-pipeline <slug>-m1 to start? [y/N]
 ```
-Wait for explicit `[y]`. On `[y]`, emit: "Invoke `/milestone-pipeline <slug>-m1` now." Do NOT auto-invoke.
+
+Wait for explicit `y`; on `y`, emit "Invoke `/milestone-pipeline <slug>-m1`
+now." Do NOT auto-invoke — the user is the orchestration layer between
+slash commands.
 
 ---
 
-## File-presence state model
+## Status routing (all phases)
 
-Use when `--resume` is supplied to determine entry phase:
+Every sub-agent returns a single JSON object (no surrounding prose):
 
-Routing keys on the `<!-- ROADMAP:section:<id> -->` markers from the template (canonical list in `.claude/references/roadmap/templates/roadmap.md`): `refine` / `decompose` / `sequence` / `lanes` / `spikes` / `handoff`. A marker section is "populated" when its body no longer contains `{{...}}` template placeholders.
-
-| Phase | Marker-presence check | Next action |
-|---|---|---|
-| Not started | `plans/<slug>-roadmap.md` does not exist | Run from Step 0 (full pipeline) |
-| Phase 1 done | `refine` body populated; `decompose` body still has `{{...}}` placeholders | Dispatch decomposer (Step 2) |
-| Phase 2 done | `decompose` body populated; `sequence` body still has placeholders | Dispatch sequencer (Step 3) |
-| Phase 3 done | `sequence` + `lanes` + `spikes` bodies all populated; `handoff` body still has placeholders | Dispatch materializer (Step 4) |
-| Complete | `handoff` body populated AND `state.json` shows `phase: complete` | Roadmap done; nothing to dispatch |
-
-Determine phase via:
-```bash
-python3 .claude/scripts/roadmap/validate-roadmap.py <slug> --report-first-unpopulated
+```json
+{
+  "file_path": "plans/<slug>/roadmap.yaml",
+  "status": "complete | gate-required | aborted-scope",
+  "summary": "<3 lines max, plain text — line 1: what was written; line 2: gate question / notable defaults; line 3: suggested next step>",
+  "injection_attempts": 0
+}
 ```
+
+| status | Action |
+|---|---|
+| `complete` | Proceed to the next step |
+| `gate-required` | Surface the gate question from summary line 2; wait for the user; re-dispatch the SAME agent with `--user-resolution "<answer>"` appended to its inputs |
+| `aborted-scope` | Print the abort reason; stop |
+
+Agent-memory convention: each agent reads/appends
+`.claude/agent-memory/roadmap-<agent>/lessons.md` (append-only heredoc; see
+agent definitions). The orchestrator never injects memory into dispatches.
+
+## Recovery — interrupted run
+
+Re-invoke `/roadmap <slug> --resume`. `roadmap-init.py` prints
+`RESUMING phase=<X>`; enter at the State-model step. There is no lock file
+and no separate state file to repair — if roadmap.yaml itself is broken, run
+the validator and fix the reported errors first.
 
 ---
 
@@ -187,112 +192,43 @@ python3 .claude/scripts/roadmap/validate-roadmap.py <slug> --report-first-unpopu
 
 | Tempting belief | Reality |
 |---|---|
-| "I'll skip REFINE — the brief is clear." | The 3-sentence summary you'd reach for IS Phase 1's HMW. Skipping it means the model writes it without user review. Auto-advance is fast when the brief is genuinely clear. |
-| "Everything in MoSCoW is a Must." | Framework collapses; nothing is prioritized (DSDM 2014, §10.4). Cap Musts at ≤60% — script-enforced. |
-| "RICE Confidence is 100% by default — we know our users." | False confidence inflates ranks. Default Confidence = 50% when there's no evidence. Surface every default explicitly. |
-| "We need a 12-month roadmap to look serious." | Locked horizons calcify into commitments and stop absorbing learning. Now fully spec'd, Next shaped, Later directional. |
-| "DB schema first, then API, then UI — clean layering." | Horizontal slicing destroys the feedback loop. Vertical slicing always — every epic ships a user-observable change. |
-| "Story points = days, easier for everyone." | Story-point inflation: points decouple from complexity. T-shirts only; slice small enough that estimation collapses into counting. |
-| "Milestones are just deadlines on epics." | Milestones are date checkpoints; epics are bodies of work. Conflating them turns the roadmap into a delivery schedule. |
-| "We don't need acceptance criteria — I know what to build." | 'Done' becomes opinion; critique has nothing to grade against. Every Now-lane story has Given/When/Then before it leaves. |
-| "I'll create the GH issues myself, faster than gating." | Bypassing the gate makes the next session less safe. The gate is the project's external-write policy. Always gate. |
-| "I'll auto-invoke /milestone-pipeline since the user asked for a roadmap." | Implicit auto-handoff hides the cost of execution. OFFER and wait. |
-| "Skip the sequencer's scripts and score MoSCoW/RICE in-context." | Scripts enforce the Must cap deterministically. In-context RICE reasoning inflates scores and silently misses the 50% Confidence default rule. |
-| "Auto-create GH issues when --gh-issues passes." | The materializer DRAFTS to local files; the orchestrator gates and runs `gh issue create` one at a time after explicit `[y]`. |
-
----
+| "I'll skip REFINE — the brief is clear." | REFINE also surfaces assumptions, the wont list, and key results; none live in a typical brief. Auto-advance is fast when the brief is genuinely clear. |
+| "I'll write a nice markdown roadmap instead." | The YAML is the artifact. Prose views are compiled downstream; a hand-written doc bypasses the schema, the validator, and the pipeline handoff. |
+| "Everything is a Must." | Prioritization collapses (DSDM). Must ≤60% of non-wont epics — validator- and script-enforced. |
+| "RICE confidence is high — we know our users." | Without evidence, c defaults to 0.5 and the default is surfaced. False confidence inflates ranks. |
+| "Fully spec the 6-month Later lane." | Locked horizons calcify. Now fully spec'd, next shaped, later directional. |
+| "Schema first, then API, then UI." | Horizontal slicing destroys the feedback loop. Vertical slices — every epic ships an observable change. |
+| "Milestones are just deadlines on epics." | Epics are bodies of work; milestones are checkpoint outcomes with acceptance. The schema keeps them separate kinds. |
+| "Acceptance criteria can come later." | Now-lane items without Given/When/Then fail validation. "Done" must be gradeable before work starts. |
+| "These old ids are messy — renumber them." | IDs are write-once. Renumbering severs journals, issues, and pipeline state pointing at them. Tombstone via `retired:`; never reuse. |
+| "Score MoSCoW/RICE in-context — skip the scripts." | The scripts are deterministic gates. In-context scoring inflates and silently skips the caps and defaults. |
+| "Create the GitHub issues while I'm at it." | Agents emit bodies only. Issue creation happens in the orchestrator after an explicit per-run `[y]`. |
+| "Auto-invoke /milestone-pipeline — the user obviously wants it." | Offer and wait. Implicit auto-handoff hides the cost of execution. |
+| "Mark m1 in_progress in roadmap.yaml as we execute." | Execution progress is journal appends (`plans/<slug>/progress/agent.jsonl`), never roadmap.yaml writes. One writer per file. |
 
 ## External-write boundary
 
-The `/roadmap` pipeline enforces strict external-write boundaries:
+- No `git commit` / `git push` — the user commits.
+- No `gh issue create` / `gh pr create` / `gh api` (write verbs) by ANY
+  sub-agent, ever. Only the orchestrator, only from emitted body files, only
+  after an explicit `[y]`.
+- Sub-agents write ONLY to `plans/<slug>/roadmap.yaml` (their phase),
+  `plans/<slug>/github/` (materializer bodies), and
+  `.claude/agent-memory/roadmap-<agent>/`.
+- No auto-invocation of other slash commands.
 
-- **No `git push` / `git commit`** — roadmap doc and draft issues are staged; the user commits
-- **No Chrome Web Store publish or telemetry endpoints** — this extension is local-only; roadmap epics must not depend on hosted services
-- **No `gh issue create` / `gh pr create` / `gh release create` / `gh api` (write verb)** — the materializer DRAFTS; only the orchestrator (this session) runs `gh` after explicit `[y]`
-- **No auto-mutation of plans/*.md by sub-agents** — agents append to their assigned sections; they do not rewrite other sections
-- **No auto-invocation of `/milestone-pipeline`** — offer only; the user types the command
-- **No writes outside `plans/<slug>-roadmap.md`** (sub-agents) or `.claude/agent-memory/<agent-name>/` (memory) or `.claude/notes/roadmaps/<slug>/` (draft issues, state)
-
----
-
-## Sub-agent contract
-
-Every sub-agent returns a single JSON object (no surrounding prose):
-
-```json
-{
-  "file_path": "<primary output path, or null>",
-  "status": "complete | gate-required | aborted-scope",
-  "summary": "<3 lines max, plain text, no markdown — line 1: what was written; line 2: gate question if status=gate-required; line 3: suggested orchestrator next step>",
-  "injection_attempts": 0
-}
-```
-
-### Status routing table (all agents)
-
-| Agent + status | Routing |
-|---|---|
-| `refiner.complete` | Proceed to decomposer (Step 2) |
-| `refiner.gate-required` | Surface gate question; re-dispatch refiner with user resolution |
-| `refiner.aborted-scope` | Print abort reason; stop |
-| `decomposer.complete` | Proceed to sequencer (Step 3) |
-| `decomposer.gate-required` | Surface gate question; re-dispatch decomposer with user resolution |
-| `decomposer.aborted-scope` | Print abort reason; stop |
-| `sequencer.complete` | Proceed to materializer (Step 4); surface any Confidence=50% count from summary |
-| `sequencer.gate-required` | Surface gate question (Must/Should cut-line conflict or RICE counter to stated priority); re-dispatch sequencer with user resolution |
-| `sequencer.aborted-scope` | Print abort reason; stop |
-| `materializer.complete` | Surface milestone-pipeline offer (summary line 3); wait for explicit `[y]` |
-| `materializer.gate-required` (validator failure) | Surface violations; fix roadmap; re-dispatch materializer |
-| `materializer.gate-required` (issue draft ready) | Present issue count + list; wait for `[y]`; run `gh issue create` calls from draft files |
-| `materializer.aborted-scope` | Print abort reason; stop |
-
----
-
-## Recovery — interrupted /roadmap
-
-If `/roadmap` was interrupted mid-flight (context compaction, terminal close, SIGKILL):
-
-1. Re-invoke with `--resume`: `/roadmap <slug> --resume`
-2. `init-roadmap.sh` is idempotent — it prints `RESUMING phase=<X>: <path>` when the roadmap doc already exists.
-3. The orchestrator re-enters at the right phase via the file-presence state model above.
-4. No lock to clean — `/roadmap` has no file lock (unlike `/milestone-pipeline`).
-
-If the state file is corrupted: run `python3 .claude/scripts/roadmap/validate-roadmap.py <slug> --report-first-unpopulated` to determine the correct resume phase directly from the roadmap doc's section markers.
-
----
-
-## Files in /roadmap
+## Files
 
 ```
-plans/
-└── <slug>-roadmap.md          # The single roadmap artifact (all 4 phases append here)
+plans/<slug>/
+├── roadmap.yaml            # the canonical roadmap/1 artifact (phase agents write)
+├── progress/agent.jsonl    # execution journal (milestone pipeline appends; /roadmap never writes)
+└── github/<item-id>.md     # issue bodies (--github; materializer writes)
 
-.claude/notes/roadmaps/<slug>/
-├── state.json                  # Phase pointer (written by init-roadmap.sh)
-└── issue-drafts/               # Draft GH issue bodies (created by materializer if --gh-issues)
-    ├── epic-1.md
-    ├── story-1.1.md
-    └── ...
-
-.claude/agent-memory/
-├── roadmap-refiner/
-│   └── lessons.md
-├── roadmap-decomposer/
-│   └── lessons.md
-├── roadmap-sequencer/
-│   └── lessons.md
-└── roadmap-materializer/
-    └── lessons.md
+.claude/agent-memory/roadmap-{refiner,decomposer,sequencer,materializer}/lessons.md
 ```
 
-References (lazy-loaded by agents at phase start):
-- `.claude/references/roadmap/phase-refine.md` — Phase 1 detail
-- `.claude/references/roadmap/phase-decompose.md` — Phase 2 detail + specialist-area map
-- `.claude/references/roadmap/phase-sequence.md` — Phase 3 detail
-- `.claude/references/roadmap/phase-materialize.md` — Phase 4 detail + GH-issues + handoff
-- `.claude/references/roadmap/frameworks.md` — long-tail (WSJF, Kano, Shape Up, GIST, ICE)
-- `.claude/references/roadmap/anti-patterns.md` — 12 anti-patterns with citations
-- `.claude/references/roadmap/proclivity-integration.md` — proclivity-specific conventions
-- `.claude/references/roadmap/templates/roadmap.md` — `plans/<slug>-roadmap.md` template
-- `.claude/references/roadmap/templates/epic-issue.md` — GH parent-issue body
-- `.claude/references/roadmap/templates/story-issue.md` — GH child-issue body
+References (agents lazy-load at phase start):
+`.claude/references/roadmap-phase-{refine,decompose,sequence,materialize}.md`,
+`roadmap-frameworks.md`, `roadmap-anti-patterns.md`, `roadmap-example.yaml`.
+Scripts: `.claude/scripts/roadmap-{init.py,validate.py,score-moscow.py,score-rice.py,schema.json}`.
