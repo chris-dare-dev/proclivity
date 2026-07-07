@@ -237,6 +237,7 @@ export type SettingsPaneId =
   | "todos"
   | "geminiNano"
   | "googlePhotos"
+  | "roadmaps"
   | "tags"
   | "data"
   | "advanced";
@@ -359,6 +360,28 @@ export interface UserSettings {
       }
     | undefined;
 
+  /**
+   * Roadmap ingest / write-back preferences (Phase G). NON-SECRET only — the
+   * Obsidian host, API key, source list, and write-back cursor live in a
+   * dedicated `chrome.storage.local` key (ROADMAP_STORAGE_KEY) via
+   * `src/lib/roadmap/store.ts`, intentionally OUT of UserSettings and the
+   * export/import blob so the secret never lands in a backup.
+   *
+   *   defaultScope    — scope for ingested task/spike todos. Default "today"
+   *                     because Long-term ships hidden; "today" surfaces them
+   *                     immediately.
+   *   surfaceInGantt  — when false, skip gantt upsert and prune rm: charts/tasks.
+   *   autoSyncOnOpen  — default false (respects a manual cadence + avoids a
+   *                     fetch on every new-tab open).
+   */
+  roadmap?:
+    | {
+        defaultScope?: TodoScope | undefined;
+        surfaceInGantt?: boolean | undefined;
+        autoSyncOnOpen?: boolean | undefined;
+      }
+    | undefined;
+
   /** Card view layout mode. Default "list" (existing behavior). */
   layoutMode?: LayoutMode | undefined;
   /**
@@ -459,6 +482,12 @@ export interface ResolvedUserSettings {
   geminiNano: {
     chatEnabled: boolean;
     chatPosition: "right" | "bottom";
+  };
+  /** Roadmap ingest prefs — always present with defaults in resolved form. */
+  roadmap: {
+    defaultScope: TodoScope;
+    surfaceInGantt: boolean;
+    autoSyncOnOpen: boolean;
   };
   /** Card view layout mode — always present with default "list". */
   layoutMode: LayoutMode;

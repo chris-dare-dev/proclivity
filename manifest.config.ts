@@ -43,9 +43,16 @@ export default defineManifest({
   //   - *.googleusercontent.com — the CDN that serves the actual picked-photo
   //     bytes (mediaFile.baseUrl resolves here). Without this, fetch() for the
   //     image bytes is blocked by Chrome with a bare "Failed to fetch".
+  //   - http://127.0.0.1/* — Obsidian Local REST API (Phase G roadmap ingest /
+  //     write-back). Match patterns carry NO port, so this single entry covers
+  //     :27123 (the non-encrypted HTTP server). It grants the service worker a
+  //     real CORS bypass for the authenticated GET/POST the plugin doesn't
+  //     otherwise permit from a chrome-extension:// origin. (If HTTPS :27124 is
+  //     ever adopted, add "https://127.0.0.1/*".)
   host_permissions: [
     "https://photospicker.googleapis.com/*",
     "https://*.googleusercontent.com/*",
+    "http://127.0.0.1/*",
   ],
   oauth2: {
     client_id: GOOGLE_OAUTH_CLIENT_ID,

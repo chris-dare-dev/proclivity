@@ -16,6 +16,10 @@ import {
 } from "@/storage/alerts";
 import { purgeOldClosed } from "@/storage/closedTodos";
 import {
+  handleObsidianMessage,
+  isObsidianRequest,
+} from "@/background/obsidianProxy";
+import {
   configure as configureObservability,
   getLogger,
 } from "@/observability/logger";
@@ -615,6 +619,21 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
   const req = msg as PhotosFetchRequest;
   void handlePhotosFetch(req).then(sendResponse);
   // Returning true keeps the message channel open for the async response.
+  return true;
+});
+
+/* ─── Obsidian Local REST API proxy (Phase G roadmap ingest / write-back) ──
+ * A SECOND, additive onMessage listener. The photos listener above returns
+ * `false` for any non-`photos:fetchBytes` message, so guarded listeners
+ * compose cleanly: this one returns `false` for anything that isn't an
+ * `obsidian:read` / `obsidian:append` request, and `true` (async channel
+ * open) when it handles one. The SW reads the host + API key from
+ * chrome.storage.local itself, so the secret never crosses the message
+ * boundary — see src/background/obsidianProxy.ts.
+ */
+chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
+  if (!isObsidianRequest(msg)) return false;
+  void handleObsidianMessage(msg).then(sendResponse);
   return true;
 });
 

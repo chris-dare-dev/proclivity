@@ -29,6 +29,16 @@ export const STORAGE_KEY = "proclivity:state:v1";
 export const PHOTOS_STORAGE_KEY = "proclivity:photos:v1";
 
 /**
+ * chrome.storage.local key for roadmap ingest config + write-back bookkeeping
+ * (Phase G). Kept separate from STORAGE_KEY so the secret it holds (the
+ * Obsidian Local REST API bearer token) plus the write-back dedup cursor never
+ * get serialized into the export/import JSON blob or the in-memory React state
+ * tree. The roadmap lib in `src/lib/roadmap/store.ts` is the sole read/writer
+ * for this key.
+ */
+export const ROADMAP_STORAGE_KEY = "proclivity:roadmap:v1";
+
+/**
  * chrome.storage.local key for pending in-app reminder alerts. Separate from
  * STORAGE_KEY so alert churn (enqueue on alarm fire, remove on dismiss) never
  * rewrites the main state tree and never lands in the export/import envelope.
@@ -177,6 +187,14 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
     displayMode: "crop",
     shuffle: false,
   },
+  // Roadmap ingest defaults (Phase G). "today" surfaces ingested items
+  // immediately (Long-term ships hidden); gantt surfacing on; auto-sync off so
+  // there is no fetch on every new-tab open.
+  roadmap: {
+    defaultScope: "today",
+    surfaceInGantt: true,
+    autoSyncOnOpen: false,
+  },
   layoutMode: "list",
   cardHintSeen: false,
   defaultSprintDays: 14 as 7 | 14 | 21 | 28,
@@ -256,6 +274,14 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
         s.googlePhotos?.displayMode ?? DEFAULT_SETTINGS.googlePhotos.displayMode,
       shuffle:
         s.googlePhotos?.shuffle ?? DEFAULT_SETTINGS.googlePhotos.shuffle,
+    },
+    roadmap: {
+      defaultScope:
+        s.roadmap?.defaultScope ?? DEFAULT_SETTINGS.roadmap.defaultScope,
+      surfaceInGantt:
+        s.roadmap?.surfaceInGantt ?? DEFAULT_SETTINGS.roadmap.surfaceInGantt,
+      autoSyncOnOpen:
+        s.roadmap?.autoSyncOnOpen ?? DEFAULT_SETTINGS.roadmap.autoSyncOnOpen,
     },
     layoutMode: s.layoutMode ?? DEFAULT_SETTINGS.layoutMode,
     cardHintSeen: s.cardHintSeen ?? DEFAULT_SETTINGS.cardHintSeen,
