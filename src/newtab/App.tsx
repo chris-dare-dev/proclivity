@@ -10,6 +10,7 @@ import { LongTerm } from "@/sections/LongTerm";
 import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
 import { useStore } from "@/storage/useStore";
+import { storage } from "@/storage/storage";
 import { configure as configureObservability } from "@/observability/logger";
 import type { SettingsPaneId } from "@/types";
 
@@ -45,6 +46,7 @@ const SETTINGS_PANE_IDS: ReadonlySet<SettingsPaneId> = new Set<SettingsPaneId>([
   "todos",
   "geminiNano",
   "googlePhotos",
+  "roadmaps",
   "tags",
   "data",
   "advanced",
@@ -497,6 +499,56 @@ export default function App() {
     const handler = () => setTab("closed");
     window.addEventListener(NAV_CLOSED_EVENT, handler);
     return () => window.removeEventListener(NAV_CLOSED_EVENT, handler);
+  }, []);
+
+  // Phase G: roadmap write-back detector. An INDEPENDENT storage subscription
+  // (not the useStore render path) snapshots rm:-prefixed todos' `done` flags
+  // and, on any transition, dynamic-imports the write-back handler. This is the
+  // ONLY roadmap code in the initial newtab chunk — the tiny diff loop; both
+  // ingest.ts and sync.ts stay out of the static graph via import(). Freshly-
+  // ingested mirror todos have no prior snapshot entry, so they never emit
+  // (prev === undefined). Mounted once.
+  useEffect(() => {
+    const snapshot = new Map<string, boolean>();
+    let seeded = false;
+    const seed = (todos: ReadonlyArray<{ id: string; done: boolean }>) => {
+      for (const t of todos) {
+        if (t.id.startsWith("rm:")) snapshot.set(t.id, t.done);
+      }
+      seeded = true;
+    };
+    void storage.get().then((s) => {
+      if (!seeded) seed(s.todos);
+    });
+    const unsub = storage.subscribe((next) => {
+      if (!seeded) {
+        seed(next.todos);
+        return;
+      }
+      for (const t of next.todos) {
+        if (!t.id.startsWith("rm:")) continue;
+        const prev = snapshot.get(t.id);
+        snapshot.set(t.id, t.done);
+        if (prev !== undefined && prev !== t.done) {
+          const done = t.done;
+          const id = t.id;
+          void import("@/lib/roadmap/sync").then((m) =>
+            m.onMirrorToggle(id, done),
+          );
+        }
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Phase G: optional auto-sync on new-tab open. Off by default; gated so the
+  // heavy sync path is import()-ed only when the user opts in. Reads the
+  // setting captured at mount.
+  useEffect(() => {
+    if (rs.roadmap.autoSyncOnOpen) {
+      void import("@/lib/roadmap/sync").then((m) => m.syncNow());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

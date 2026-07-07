@@ -20,6 +20,7 @@ export const PANE_ORDER: ReadonlyArray<PaneEntry> = [
   { id: "todos", label: "Todos" },
   { id: "geminiNano", label: "Gemini Nano" },
   { id: "googlePhotos", label: "Google Photos" },
+  { id: "roadmaps", label: "Roadmaps" },
   { id: "tags", label: "Tags" },
   { id: "data", label: "Data" },
   { id: "advanced", label: "Advanced" },

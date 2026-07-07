@@ -28,6 +28,7 @@ import { NotificationsPane } from "./panes/NotificationsPane";
 import { TodosPane } from "./panes/TodosPane";
 import { GeminiNanoPane } from "./panes/GeminiNanoPane";
 import { GooglePhotosPane } from "./panes/GooglePhotosPane";
+import { RoadmapsPane } from "./panes/RoadmapsPane";
 import { TagsPane } from "./panes/TagsPane";
 import { DataPane } from "./panes/DataPane";
 import { AdvancedPane } from "./panes/AdvancedPane";
@@ -501,6 +502,14 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
               makeDirty(setPendingVisibility)(next);
             }}
             live={live}
+          />
+        );
+      case "roadmaps":
+        return (
+          <RoadmapsPane
+            live={live}
+            prefs={rs.roadmap}
+            longTermHidden={!rs.sectionVisibility.longTerm}
           />
         );
       case "tags":
