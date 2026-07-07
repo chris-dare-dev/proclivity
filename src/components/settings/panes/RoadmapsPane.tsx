@@ -35,6 +35,24 @@ interface LiveUpdater {
   <K extends keyof UserSettings>(key: K, value: UserSettings[K]): void;
 }
 
+/** Inline guidance shown when the host is not a grantable 127.0.0.1 origin. */
+const HOST_HELP = "Chrome only grants 127.0.0.1; use http://127.0.0.1:27123";
+
+/**
+ * Validate + normalize the Obsidian host. `host_permissions` grants only
+ * `http://127.0.0.1/*`, and Chrome match patterns do NOT resolve `localhost`
+ * or any other hostname — a non-127.0.0.1 host would silently CORS-fail. Accept
+ * ONLY `http://127.0.0.1` with an optional port; reject everything else so we
+ * never persist a host that cannot work.
+ */
+function normalizeHost(raw: string): { host: string } | { error: string } {
+  const host = raw.trim().replace(/\/+$/, "");
+  if (!/^http:\/\/127\.0\.0\.1(:\d{1,5})?$/.test(host)) {
+    return { error: HOST_HELP };
+  }
+  return { host };
+}
+
 export interface RoadmapsPaneProps {
   live: LiveUpdater;
   prefs: {
@@ -84,21 +102,27 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
 
   const onSaveConnection = useCallback(async () => {
     setTestMsg(null);
-    await roadmapStore.patch(() => ({
-      host: hostInput.trim().replace(/\/+$/, ""),
-      apiKey: keyInput.trim(),
-    }));
+    const v = normalizeHost(hostInput);
+    if ("error" in v) {
+      setTestMsg(v.error);
+      return;
+    }
+    await roadmapStore.patch(() => ({ host: v.host, apiKey: keyInput.trim() }));
+    setHostInput(v.host);
     setTestMsg("Saved.");
   }, [hostInput, keyInput]);
 
   const onTest = useCallback(async () => {
-    setBusy("testing");
     setTestMsg(null);
-    // Persist current inputs first so the SW reads the values under test.
-    await roadmapStore.patch(() => ({
-      host: hostInput.trim().replace(/\/+$/, ""),
-      apiKey: keyInput.trim(),
-    }));
+    const v = normalizeHost(hostInput);
+    if ("error" in v) {
+      setTestMsg(v.error);
+      return;
+    }
+    setBusy("testing");
+    // Persist normalized inputs first so the SW reads the values under test.
+    await roadmapStore.patch(() => ({ host: v.host, apiKey: keyInput.trim() }));
+    setHostInput(v.host);
     const r = await testConnection();
     setBusy("idle");
     setTestMsg(

@@ -114,3 +114,85 @@ Chrome or reach the Obsidian Local REST API) — see design §7.
 7. **`roadmapStore.patch` write-chain** — added to avoid lost updates between
    concurrent RMW callers (sync `lastSync*`, write-back cursor, pane edits).
    Confirm the chain semantics are sound.
+
+---
+
+## Rectify (Phase-G adversarial review — three reviewers, ship-with-fixes)
+
+Gates re-verified after the fixes: `npm run build` (tsc -b + vite build) green,
+initial newtab chunk **305.51 kB** (gzip 97.65 kB) — unchanged, well under the
+400 kB soft ceiling; `npm run test` **24 passed** (16 ingest + 8 sync);
+`npx tsc -b` clean.
+
+### Fixed
+
+1. **Timestamp format — offset-aware ISO** (`sync.ts` `isoLocalSeconds`,
+   `types.ts` `ProgressEvent.at` comment). The write-back `at` now emits
+   `YYYY-MM-DDTHH:MM:SS±HH:MM` (e.g. `2026-07-06T14:23:05-04:00`) via
+   `getTimezoneOffset()`, byte-for-byte matching Python
+   `datetime.now().astimezone().isoformat(timespec="seconds")` — the exact shape
+   BOTH the vault compiler harvest (`.obsidian/roadmap_compile.py`, which folds
+   journals LWW by *string-comparing* `at`) and the agent journal writer
+   (`milestone-pipeline-record-progress.py`) emit. Previously naive (no offset),
+   which would mis-sort against agent/obsidian events. New `sync.test.ts`
+   assertions pin the `/T\d\d:\d\d:\d\d[+-]\d\d:\d\d$/` shape.
+
+2. **Per-item `proclivity.{scope,surface}`** (`types.ts` `CompiledItem`,
+   `ingest.ts`). Verified against `render_compiled` + the real
+   `arXMCP/paper-metadata/roadmap.compiled.json` — every item carries
+   `proclivity:{scope,surface}` (defaults `scope:"long"`, `surface:true`). Added
+   the field to `CompiledItem`. In ingest: `surface===false` items no longer
+   create a Todo mirror (`surfacesAsTodo` guard) but are still eligible as dated
+   Gantt bars; a valid per-item `scope` overrides the global `defaultScope` on
+   CREATE (`itemScope`, validated against the `TodoScope` set). Tests cover the
+   surface:false skip (+ still-a-gantt-bar) and the per-item scope override.
+
+3. **`patchTodo` no-clobber** (`ingest.ts`). Re-ingest now overwrites ONLY
+   `title`, and `notes` **only when `summary` is present** — it never resets a
+   user's re-`scope` (which also stranded a stale `sprintId`) and never deletes
+   user `notes` on a summary-less item. `scope` is set from per-item/default on
+   CREATE only. New test: a summary-less re-ingest preserves a user-changed
+   scope + user notes; existing no-clobber test updated (scope now preserved).
+
+4. **Dropped-mirror write-back suppression** (`sync.ts` +
+   `types.ts`/`store.ts`). `RoadmapStoreState` gains `droppedMirrors` +
+   `knownMirrors`, snapshotted per collected source in `syncNow` **before** the
+   ingest write. New pure predicate `shouldSuppressWriteBack(cfg, mirrorId)`
+   suppresses write-back when the mirror's source item is dropped, was removed
+   from the roadmap (absent from `knownMirrors` for a srcKey that has a known
+   set), or belongs to an unknown / removed / **disabled** source. Wired into
+   `onMirrorToggle`. Five new unit tests (dropped, removed, disabled, unknown,
+   allowed). This subsumes and hardens the earlier seed-only suppression.
+
+5. **Host validation** (`RoadmapsPane.tsx`). `normalizeHost` accepts ONLY
+   `http://127.0.0.1[:port]` (the only pattern `host_permissions` grants — Chrome
+   match patterns do not resolve `localhost`); Save/Test now reject anything else
+   inline with "Chrome only grants 127.0.0.1; use http://127.0.0.1:27123" instead
+   of silently persisting a CORS-doomed host.
+
+6. **`null` → `undefined` at the parse boundary** (`client.ts`). The compiler
+   emits JSON `null` for absent optionals; `normalizeItem` now omits those
+   (conditional-build, `exactOptionalPropertyTypes`-safe) right after
+   `JSON.parse`, so downstream `T | undefined`-typed code never meets a stray
+   `null`. Ingest guards remain truthy-safe.
+
+7. **Containment-clamp parent-violating child** (`ingest.ts`, <5 LOC). A child
+   window entirely after its parent previously clamped to `[start,start]` with
+   `start > parentEnd`, tripping `findBoundsViolation`. `start` is now clamped to
+   `<= parent.endsAt` so the child can never snap past the parent. Covered by the
+   existing clamp test (unchanged expectations).
+
+### Acknowledged (not coded)
+
+- **HTTPS `:27124` self-signed unsupported** — deliberate. An MV3 service worker
+  cannot `fetch` an invalid-cert origin, so plain-HTTP `:27123` is the chosen
+  transport; the user enables the plugin's HTTP server manually (design §7).
+- **Write-back seed-race** — the first storage change after mount is consumed as
+  the detector's baseline; a known minor edge, unchanged.
+
+### Still open (deferred to live machine — design §7)
+
+Unchanged from the "deferred" list above: install/enable the Obsidian Local REST
+API HTTP server, reload the unpacked extension, and drive a real Test / Sync /
+tick round-trip. The live CORS-bypass proof and real `proclivity.jsonl` landing
+cannot be exercised headless.

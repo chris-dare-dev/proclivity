@@ -18,6 +18,7 @@ import type {
   CollectedRoadmap,
   ProgressEvent,
   RoadmapIngestPrefs,
+  RoadmapStoreState,
 } from "./types";
 
 export interface SyncResult {
@@ -30,16 +31,26 @@ export interface SyncResult {
 }
 
 /**
- * Local ISO-8601 to seconds precision, NO `Z`/offset — matches Python
- * `datetime.isoformat(timespec="seconds")` on a naive local datetime so the
- * journal sorts lexicographically against agent/obsidian events under the
- * compiler's last-timestamp-wins merge. Never `toISOString()` (that is UTC+Z).
+ * OFFSET-AWARE local ISO-8601 to seconds precision, e.g. `2026-07-06T14:23:05-04:00`.
+ * This is byte-for-byte the shape Python emits via
+ * `datetime.now().astimezone().isoformat(timespec="seconds")` in BOTH the vault
+ * compiler harvest (`roadmap_compile.py`) and the agent journal writer
+ * (`milestone-pipeline-record-progress.py`). The compiler folds journals
+ * last-timestamp-wins by *string-comparing* `at`, so proclivity MUST include the
+ * same trailing offset or its events would mis-sort against agent/obsidian
+ * events. Never `toISOString()` (that is UTC + `Z`, which sorts differently).
  */
 export function isoLocalSeconds(d: Date = new Date()): string {
   const p = (n: number): string => String(n).padStart(2, "0");
+  // getTimezoneOffset() is minutes BEHIND UTC (EDT → 240), so negate it to get
+  // minutes east of UTC and render Python's `±HH:MM` (never `Z`, even at UTC).
+  const offMin = -d.getTimezoneOffset();
+  const sign = offMin >= 0 ? "+" : "-";
+  const absMin = Math.abs(offMin);
   return (
     `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
-    `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+    `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}` +
+    `${sign}${p(Math.floor(absMin / 60))}:${p(absMin % 60)}`
   );
 }
 
@@ -84,32 +95,44 @@ export async function syncNow(): Promise<SyncResult> {
     }
   }
 
-  // Seed the write-back cursor for DROPPED mirrors BEFORE the ingest write, so
-  // the App.tsx done-transition detector dedups the ingest-driven close and
-  // does NOT journal a spurious "done" back for an item the SOURCE dropped.
-  // (Write-back must reflect user ticks only, never ingest-driven closes.)
-  const droppedIds: string[] = [];
+  // Snapshot the last-ingested set for write-back suppression, and seed the
+  // write-back cursor for DROPPED mirrors — BOTH persisted BEFORE the ingest
+  // write so the App.tsx done-transition detector (which fires off the ingest
+  // write) dedups the ingest-driven close and does NOT journal a spurious
+  // "done" for an item the SOURCE dropped. `knownMirrors`/`droppedMirrors` then
+  // also suppress a *later* user reopen of a dropped/removed mirror.
+  // (Write-back must reflect live user ticks only, never ingest-driven closes.)
+  const collectedKeys = new Set(collected.map((c) => c.srcKey));
+  const knownMirrors: string[] = [];
+  const droppedMirrors: string[] = [];
   for (const c of collected) {
     for (const item of c.compiled.items) {
-      if (
-        (item.kind === "task" || item.kind === "spike") &&
-        item.status === "dropped"
-      ) {
-        droppedIds.push(mkTodoId(c.srcKey, item.id));
-      }
+      if (item.kind !== "task" && item.kind !== "spike") continue;
+      const mid = mkTodoId(c.srcKey, item.id);
+      knownMirrors.push(mid);
+      if (item.status === "dropped") droppedMirrors.push(mid);
     }
   }
 
   if (collected.length > 0) {
-    if (droppedIds.length > 0) {
-      await roadmapStore.patch((cur) => {
-        const wb: Record<string, "done" | "in_progress"> = {
-          ...cur.writtenBack,
-        };
-        for (const id of droppedIds) wb[id] = "done";
-        return { writtenBack: wb };
-      });
-    }
+    await roadmapStore.patch((cur) => {
+      // Keep entries for sources NOT collected this run (e.g. a transiently
+      // unreadable source), replace those for the srcKeys we did collect.
+      const keepOther = (arr: string[] | undefined): string[] =>
+        (arr ?? []).filter((m) => {
+          const k = parseMirrorId(m)?.srcKey;
+          return k === undefined || !collectedKeys.has(k);
+        });
+      const wb: Record<string, "done" | "in_progress"> = {
+        ...cur.writtenBack,
+      };
+      for (const id of droppedMirrors) wb[id] = "done";
+      return {
+        writtenBack: wb,
+        knownMirrors: [...keepOther(cur.knownMirrors), ...knownMirrors],
+        droppedMirrors: [...keepOther(cur.droppedMirrors), ...droppedMirrors],
+      };
+    });
     await storage.update(ingestRoadmaps(collected));
   }
 
@@ -131,10 +154,42 @@ export async function syncNow(): Promise<SyncResult> {
 }
 
 /**
+ * True when a mirror toggle must NOT write back to the vault journal. Write-back
+ * reflects live, user-owned mirrors only, so it is suppressed when the mirror's
+ * source is:
+ *   - unknown / removed / DISABLED (no live source to report to), OR
+ *   - `dropped` at the last sync (reopening it must never resurrect it), OR
+ *   - absent from the last-ingested set for its srcKey (the source item was
+ *     deleted from the roadmap → the mirror is stale).
+ *
+ * Pure + config-only so it is unit-testable without a live store/SW.
+ */
+export function shouldSuppressWriteBack(
+  cfg: RoadmapStoreState,
+  mirrorId: string,
+): boolean {
+  const parsed = parseMirrorId(mirrorId);
+  if (!parsed) return true;
+  const source = cfg.sources.find((s) => srcKeyOf(s) === parsed.srcKey);
+  if (!source || !source.enabled) return true; // unknown / removed / disabled
+  const dropped = cfg.droppedMirrors ?? [];
+  if (dropped.includes(mirrorId)) return true; // source item is dropped
+  const known = cfg.knownMirrors ?? [];
+  const srcHasKnown = known.some(
+    (m) => parseMirrorId(m)?.srcKey === parsed.srcKey,
+  );
+  // Only suppress-as-removed once we actually have a known set for this srcKey
+  // (else a pre-snapshot / transiently-unread source would false-suppress).
+  if (srcHasKnown && !known.includes(mirrorId)) return true;
+  return false;
+}
+
+/**
  * Write-back: a mirror todo's `done` flag transitioned (user tick / reopen).
  * Appends exactly one `proclivity.jsonl` line, deduped via the persisted
  * `writtenBack` cursor so reopening-a-never-completed item, re-ticking, and
- * ingest-driven closes never spam the journal.
+ * ingest-driven closes never spam the journal. Suppressed entirely for dropped
+ * / removed / disabled sources (see `shouldSuppressWriteBack`).
  */
 export async function onMirrorToggle(
   mirrorId: string,
@@ -144,8 +199,10 @@ export async function onMirrorToggle(
   if (!parsed) return;
 
   const cfg = await roadmapStore.get();
+  if (shouldSuppressWriteBack(cfg, mirrorId)) return;
+
   const source = cfg.sources.find((s) => srcKeyOf(s) === parsed.srcKey);
-  if (!source) return; // unknown / removed source → no-op
+  if (!source) return; // already ensured by shouldSuppressWriteBack; narrows TS
 
   const cursor = cfg.writtenBack[mirrorId];
   let value: "done" | "in_progress";

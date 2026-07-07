@@ -27,6 +27,8 @@ export const EMPTY_ROADMAP_STATE: RoadmapStoreState = {
   apiKey: "",
   sources: [],
   writtenBack: {},
+  droppedMirrors: [],
+  knownMirrors: [],
   lastSyncAt: null,
   lastSyncError: null,
 };

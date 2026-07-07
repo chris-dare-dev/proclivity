@@ -9,7 +9,12 @@
  * photos convention and avoid pulling the SW module into the newtab graph.
  */
 
-import type { CompiledRoadmap, ProgressEvent, RoadmapSource } from "./types";
+import type {
+  CompiledItem,
+  CompiledRoadmap,
+  ProgressEvent,
+  RoadmapSource,
+} from "./types";
 
 // ── Wire contract (duplicated from obsidianProxy.ts — keep in sync) ──────────
 type ObsidianRequest =
@@ -69,6 +74,56 @@ async function sendViaSw(req: ObsidianRequest): Promise<ObsidianResponse> {
   return resp;
 }
 
+function str(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+function num(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+/**
+ * Normalize one raw compiled item. The compiler emits JSON **`null`** (not
+ * `undefined`) for every absent optional field (`parent`, `summary`, `lane`,
+ * `priority`, `estimateDays`, `targetStart`, `targetEnd`), but the
+ * `CompiledItem` type declares them `T | undefined`. Under
+ * `exactOptionalPropertyTypes` we OMIT the field entirely when it is `null` or
+ * the wrong type (conditional-build style), so downstream code only ever sees
+ * `undefined` — never a stray `null` masquerading as a value.
+ */
+function normalizeItem(raw: Record<string, unknown>): CompiledItem {
+  const item: CompiledItem = {
+    id: String(raw.id),
+    kind: raw.kind as CompiledItem["kind"],
+    title: str(raw.title) ?? String(raw.id),
+  };
+  const status = str(raw.status);
+  if (status !== undefined) item.status = status as CompiledItem["status"];
+  const parent = str(raw.parent);
+  if (parent !== undefined) item.parent = parent;
+  const summary = str(raw.summary);
+  if (summary !== undefined) item.summary = summary;
+  const lane = str(raw.lane);
+  if (lane !== undefined) item.lane = lane as CompiledItem["lane"];
+  const priority = str(raw.priority);
+  if (priority !== undefined) item.priority = priority as CompiledItem["priority"];
+  const progress = num(raw.progress);
+  if (progress !== undefined) item.progress = progress;
+  const targetStart = num(raw.targetStart);
+  if (targetStart !== undefined) item.targetStart = targetStart;
+  const targetEnd = num(raw.targetEnd);
+  if (targetEnd !== undefined) item.targetEnd = targetEnd;
+  const pv = raw.proclivity;
+  if (pv && typeof pv === "object") {
+    const proclivity: NonNullable<CompiledItem["proclivity"]> = {};
+    const scope = str((pv as Record<string, unknown>).scope);
+    if (scope !== undefined) proclivity.scope = scope;
+    const surface = (pv as Record<string, unknown>).surface;
+    if (typeof surface === "boolean") proclivity.surface = surface;
+    item.proclivity = proclivity;
+  }
+  return item;
+}
+
 /** Minimal structural validation of an externally-authored compiled file. */
 function asCompiledRoadmap(parsed: unknown): CompiledRoadmap {
   if (
@@ -83,15 +138,18 @@ function asCompiledRoadmap(parsed: unknown): CompiledRoadmap {
   const p = parsed as { slug?: unknown; title?: unknown; items: unknown[] };
   const slug = typeof p.slug === "string" ? p.slug : "";
   const title = typeof p.title === "string" ? p.title : slug;
-  // Items are trusted structurally here and defended field-by-field in
-  // ingest.ts; we only keep entries that at least have a string id + kind.
-  const items = p.items.filter(
-    (it): it is CompiledRoadmap["items"][number] =>
-      !!it &&
-      typeof it === "object" &&
-      typeof (it as { id?: unknown }).id === "string" &&
-      typeof (it as { kind?: unknown }).kind === "string",
-  );
+  // Keep only entries with a string id + kind, then normalize each so the
+  // compiler's JSON `null`s become omitted (`undefined`) fields — ingest.ts
+  // still defends per-field on top of this.
+  const items = p.items
+    .filter(
+      (it): it is Record<string, unknown> =>
+        !!it &&
+        typeof it === "object" &&
+        typeof (it as { id?: unknown }).id === "string" &&
+        typeof (it as { kind?: unknown }).kind === "string",
+    )
+    .map(normalizeItem);
   return { slug, title, items };
 }
 

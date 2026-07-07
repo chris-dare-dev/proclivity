@@ -109,15 +109,74 @@ describe("todo upsert", () => {
     const t = s1.todos.find((x) => x.id === mkId)!;
     // Ingest-owned fields updated:
     expect(t.title).toBe("new title");
-    expect(t.scope).toBe("today");
-    expect(t.notes).toBe("sum");
-    // User-owned fields preserved:
+    expect(t.notes).toBe("sum"); // summary present → notes overwritten
+    // User-owned fields preserved (scope is NOT reset to defaultScope):
+    expect(t.scope).toBe("long");
     expect(t.done).toBe(true);
     expect(t.completedAt).toBe(222);
     expect(t.closedAt).toBe(333);
     expect(t.sprintId).toBe("sprint-x");
     expect(t.tags).toEqual(["tag-1"]);
     expect(t.createdAt).toBe(111);
+  });
+
+  it("preserves a user-changed scope + user notes on a summary-less re-ingest", () => {
+    const mkId = mkTodoId(SRC, "paper-metadata-t-a");
+    // First ingest creates the mirror at defaultScope "today".
+    const s1 = ingestRoadmaps(collected([item({ id: "paper-metadata-t-a" })]))(base());
+    // User re-scopes it to long and writes their own notes.
+    s1.todos = s1.todos.map((t) =>
+      t.id === mkId ? { ...t, scope: "long", notes: "my own notes" } : t,
+    );
+    // Re-ingest WITHOUT a summary must NOT reset scope nor delete notes.
+    const s2 = ingestRoadmaps(
+      collected([item({ id: "paper-metadata-t-a", title: "updated title" })]),
+    )(s1);
+    const t = s2.todos.find((x) => x.id === mkId)!;
+    expect(t.title).toBe("updated title"); // title still ingest-owned
+    expect(t.scope).toBe("long"); // user re-scoping preserved
+    expect(t.notes).toBe("my own notes"); // user notes preserved (no summary)
+  });
+
+  it("uses a per-item proclivity.scope over the global defaultScope on create", () => {
+    const s1 = ingestRoadmaps(
+      collected(
+        [
+          item({ id: "paper-metadata-t-a", proclivity: { scope: "sprint" } }),
+          item({ id: "paper-metadata-t-b" }), // no override → defaultScope
+        ],
+        { defaultScope: "today", surfaceInGantt: true },
+      ),
+    )(base());
+    const a = s1.todos.find((x) => x.id === mkTodoId(SRC, "paper-metadata-t-a"))!;
+    const b = s1.todos.find((x) => x.id === mkTodoId(SRC, "paper-metadata-t-b"))!;
+    expect(a.scope).toBe("sprint");
+    expect(b.scope).toBe("today");
+  });
+
+  it("does not create a Todo mirror when proclivity.surface is false", () => {
+    const s1 = ingestRoadmaps(
+      collected([
+        item({
+          id: "paper-metadata-t-hidden",
+          proclivity: { surface: false },
+          targetStart: D1,
+          targetEnd: D2,
+        }),
+        item({ id: "paper-metadata-t-shown", proclivity: { surface: true } }),
+      ]),
+    )(base());
+    // surface:false → no todo mirror…
+    expect(
+      s1.todos.some((t) => t.id === mkTodoId(SRC, "paper-metadata-t-hidden")),
+    ).toBe(false);
+    expect(
+      s1.todos.some((t) => t.id === mkTodoId(SRC, "paper-metadata-t-shown")),
+    ).toBe(true);
+    // …but it is still allowed as a dated Gantt bar.
+    expect(
+      s1.ganttTasks.some((t) => t.id === mkTodoId(SRC, "paper-metadata-t-hidden")),
+    ).toBe(true);
   });
 
   it("leaves native todos untouched", () => {

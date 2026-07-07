@@ -55,6 +55,19 @@ export interface CompiledItem {
   targetStart?: number | undefined;
   /** Epoch-ms of local-midnight (compiler `iso_to_ms` of `target_end`). */
   targetEnd?: number | undefined;
+  /**
+   * Per-item Proclivity hints — the compiler emits `proclivity:{scope,surface}`
+   * on EVERY item (`roadmap_compile.py` `render_compiled`, defaults
+   * `scope:"long"`, `surface:true`). `scope` (a `TodoScope`) overrides the
+   * global `defaultScope` for this item's mirror todo when present; `surface`
+   * `false` suppresses the Todo mirror entirely (the item may still appear as a
+   * Gantt bar when it is dated + `surfaceInGantt`). `scope` is typed `string`
+   * because the JSON is external/untrusted — it is validated at the ingest
+   * boundary against the valid `TodoScope` set.
+   */
+  proclivity?:
+    | { scope?: string | undefined; surface?: boolean | undefined }
+    | undefined;
 }
 
 /** The compiled roadmap document (`roadmap.compiled.json`). */
@@ -68,10 +81,14 @@ export interface CompiledRoadmap {
  * One line appended to the vault progress journal (`proclivity.jsonl`). Shape
  * is exactly what the roadmap compiler re-harvests: `id` is the **compiled
  * item id** (not the mirror todo id), `field` is always `"status"` for the
- * proclivity writer, `at` is a local ISO-8601 seconds string (NO `Z`/offset —
- * matches Python `datetime.isoformat(timespec="seconds")` on a naive local
- * datetime so it sorts lexicographically against agent/obsidian events under
- * last-timestamp-wins), and `actor` is always `"proclivity"`.
+ * proclivity writer, `at` is an OFFSET-AWARE local ISO-8601 seconds string
+ * (e.g. `2026-07-06T14:23:05-04:00`) — byte-for-byte the shape Python emits via
+ * `datetime.now().astimezone().isoformat(timespec="seconds")` in BOTH the vault
+ * compiler harvest (`roadmap_compile.py`) and the agent journal writer
+ * (`milestone-pipeline-record-progress.py`). The compiler folds journals
+ * last-timestamp-wins by *string-comparing* `at`, so proclivity MUST emit the
+ * same offset-aware format or its events would mis-sort against agent/obsidian
+ * events. `actor` is always `"proclivity"`.
  */
 export interface ProgressEvent {
   id: string;
@@ -109,6 +126,19 @@ export interface RoadmapStoreState {
   sources: RoadmapSource[];
   /** mirrorId → last journalled value; the write-back dedup cursor. */
   writtenBack: Record<string, "done" | "in_progress">;
+  /**
+   * Mirror ids whose SOURCE item was `dropped` at the last sync. Write-back is
+   * suppressed for these so a user reopening (or ingest un-closing) a dropped
+   * mirror never POSTs a resurrecting event to the vault journal.
+   */
+  droppedMirrors: string[];
+  /**
+   * Mirror ids of the actionable (task/spike) items present in the last-ingested
+   * set, refreshed per collected source. A toggle on a mirror whose srcKey is
+   * represented here but whose id is absent (the source item was removed from
+   * the roadmap) is suppressed — a stale mirror must not write back.
+   */
+  knownMirrors: string[];
   lastSyncAt: number | null;
   lastSyncError: string | null;
 }

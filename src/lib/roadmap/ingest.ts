@@ -80,6 +80,27 @@ function isActionable(item: CompiledItem): boolean {
   return item.kind === "task" || item.kind === "spike";
 }
 
+/** The valid `TodoScope` values, mirrored here so ingest stays dependency-free. */
+const VALID_SCOPES: ReadonlySet<string> = new Set(["today", "sprint", "long"]);
+
+/**
+ * The compiled per-item scope override, but ONLY when it is a valid `TodoScope`.
+ * The JSON is external/untrusted, so an unrecognized scope falls back to the
+ * caller's `defaultScope` rather than producing an invalid todo bucket.
+ */
+function itemScope(item: CompiledItem): Todo["scope"] | undefined {
+  const s = item.proclivity?.scope;
+  return s !== undefined && VALID_SCOPES.has(s) ? (s as Todo["scope"]) : undefined;
+}
+
+/**
+ * An item is mirrored as a Todo unless it explicitly opts out with
+ * `proclivity.surface === false`. (It may still become a Gantt bar.)
+ */
+function surfacesAsTodo(item: CompiledItem): boolean {
+  return item.proclivity?.surface !== false;
+}
+
 /** A gantt bar needs BOTH endpoints present. */
 function isDated(item: CompiledItem): item is CompiledItem & {
   targetStart: number;
@@ -121,20 +142,21 @@ function buildTodo(
 }
 
 /**
- * Overwrite ONLY ingest-owned fields on an existing mirror todo. Everything
- * else (done, tags, sprintId, completedAt, closedAt, close checkpoints,
- * dueAt, parentId, targetDate) is user-owned and preserved verbatim. We do NOT
- * sync `done` from roadmap status here — that would fight write-back and
- * clobber a user tick.
+ * Overwrite ONLY the ingest-owned fields that are safe to overwrite on
+ * re-ingest: `title` always, and `notes` **only when the compiler supplies a
+ * `summary`**. Everything else is preserved verbatim:
+ *   - `scope`/`sprintId` — user re-scoping is honored (a re-ingest must not
+ *     force `defaultScope` back and strand a stale `sprintId`); scope is set
+ *     from the per-item / default scope on CREATE only.
+ *   - user `notes` — never destroyed when `summary` is absent (a summary-less
+ *     re-ingest keeps whatever notes the user typed).
+ *   - `done`, `tags`, `completedAt`, `closedAt`, close checkpoints, `dueAt`,
+ *     `parentId`, `targetDate` — user-owned. We do NOT sync `done` from roadmap
+ *     status here (that would fight write-back and clobber a user tick).
  */
-function patchTodo(
-  prev: Todo,
-  item: CompiledItem,
-  scope: Todo["scope"],
-): Todo {
-  const next: Todo = { ...prev, title: item.title, scope };
+function patchTodo(prev: Todo, item: CompiledItem): Todo {
+  const next: Todo = { ...prev, title: item.title };
   if (item.summary) next.notes = item.summary;
-  else delete next.notes;
   return next;
 }
 
@@ -224,9 +246,15 @@ function buildGantt(
     if (!task.parentId) continue;
     const parent = tasks.get(task.parentId);
     if (!parent) continue;
-    let start = Math.max(task.startsAt, parent.startsAt);
-    let end = Math.min(task.endsAt, parent.endsAt);
-    end = Math.max(end, start);
+    // Clamp start into [parent.start, parent.end] — the extra `min(_, end)`
+    // guards the child-entirely-after-parent case: without it, `start` could
+    // snap past `parent.end` and the subsequent `end = max(end, start)` would
+    // push `end` past the parent too, tripping `findBoundsViolation`.
+    const start = Math.min(
+      Math.max(task.startsAt, parent.startsAt),
+      parent.endsAt,
+    );
+    const end = Math.max(Math.min(task.endsAt, parent.endsAt), start);
     task.startsAt = start;
     task.endsAt = end;
   }
@@ -248,13 +276,16 @@ function ingestOne(
     const byId = new Map<string, Todo>(s.todos.map((t) => [t.id, t] as const));
     for (const item of compiled.items) {
       if (!isActionable(item)) continue;
+      // surface===false → never create/refresh a Todo mirror (the item can
+      // still be a Gantt bar below); a pre-existing mirror is left untouched.
+      if (!surfacesAsTodo(item)) continue;
       const mkId = mkTodoId(srcKey, item.id);
       const prev = byId.get(mkId);
       byId.set(
         mkId,
         prev
-          ? patchTodo(prev, item, prefs.defaultScope)
-          : buildTodo(mkId, item, prefs.defaultScope, now),
+          ? patchTodo(prev, item)
+          : buildTodo(mkId, item, itemScope(item) ?? prefs.defaultScope, now),
       );
     }
     let next: ProclivityState = { ...s, todos: [...byId.values()] };

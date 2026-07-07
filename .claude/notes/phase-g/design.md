@@ -263,13 +263,15 @@ transition it dynamic-imports `sync.ts` and calls `onMirrorToggle(mirrorId, done
    (`itemId`, e.g. `paper-metadata-e1`) — *not* the mirror todo id:
    ```json
    {"id":"paper-metadata-e1","field":"status","value":"done",
-    "at":"2026-07-06T14:23:05","actor":"proclivity"}
+    "at":"2026-07-06T14:23:05-04:00","actor":"proclivity"}
    ```
-   `at` = **local** ISO-8601, seconds precision, **no `Z`/offset** (matches Python
-   `datetime.isoformat(timespec="seconds")` on a naive local datetime, so it sorts
-   lexicographically against the compiler's own agent/obsidian events under
-   last-timestamp-wins). Helper `isoLocalSeconds()` = `YYYY-MM-DDTHH:MM:SS` from local
-   fields (never `toISOString()`, which is UTC+`Z`).
+   `at` = **offset-aware** local ISO-8601, seconds precision (matches Python
+   `datetime.now().astimezone().isoformat(timespec="seconds")` — the exact shape
+   BOTH the compiler harvest and the agent journal writer emit — so it string-sorts
+   correctly against the compiler's own agent/obsidian events under
+   last-timestamp-wins). Helper `isoLocalSeconds()` = `YYYY-MM-DDTHH:MM:SS±HH:MM`
+   from local fields + `getTimezoneOffset()` (never `toISOString()`, which is UTC+`Z`
+   and would mis-sort). **[Rectified Phase-G review — see implement.md.]**
 4. `await client.appendProgress(source, event)` → SW `POST /vault/${progressPath}` with
    `body = JSON.stringify(event) + "\n"`. POST appends to end-of-file and creates the
    file (and `progress/` dir) if missing — no read-modify-write race, safe for
