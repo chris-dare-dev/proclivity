@@ -73,6 +73,7 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
   const [keyInput, setKeyInput] = useState("");
   const [repoInput, setRepoInput] = useState("");
   const [slugInput, setSlugInput] = useState("");
+  const [vaultProjectInput, setVaultProjectInput] = useState("");
   const [busy, setBusy] = useState<Busy>("idle");
   const [testMsg, setTestMsg] = useState<string | null>(null);
   const [addMsg, setAddMsg] = useState<string | null>(null);
@@ -135,6 +136,10 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
   const onAddRoadmap = useCallback(async () => {
     const repo = repoInput.trim();
     const slug = slugInput.trim();
+    // Optional: the Obsidian `Projects/<vaultProject>/` folder name when it
+    // differs from the Source Code repo dir (e.g. `Proclivity` vs `proclivity`).
+    // Empty → the read reuses `repo` for both roots.
+    const vaultProject = vaultProjectInput.trim();
     if (!repo || !slug) {
       setAddMsg("Enter both a repo and a slug.");
       return;
@@ -146,9 +151,15 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
     setBusy("adding");
     setAddMsg(null);
     try {
-      const compiled = await readCompiled({ repo, slug });
+      const probe =
+        vaultProject.length > 0 ? { repo, slug, vaultProject } : { repo, slug };
+      const compiled = await readCompiled(probe);
       if (!compiled) {
-        const { compiledPath } = derivePaths(repo, slug);
+        const { compiledPath } = derivePaths(
+          repo,
+          slug,
+          vaultProject.length > 0 ? vaultProject : undefined,
+        );
         setAddMsg(`No compiled roadmap found at "${compiledPath}".`);
         setBusy("idle");
         return;
@@ -158,18 +169,20 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
         slug,
         title: compiled.title,
         enabled: true,
+        ...(vaultProject.length > 0 ? { vaultProject } : {}),
       };
       await roadmapStore.patch((cur) => ({
         sources: [...cur.sources, source],
       }));
       setRepoInput("");
       setSlugInput("");
+      setVaultProjectInput("");
       setAddMsg(`Added "${compiled.title}" — run Sync now to ingest it.`);
     } catch (e) {
       setAddMsg(e instanceof Error ? e.message : String(e));
     }
     setBusy("idle");
-  }, [repoInput, slugInput, store.sources]);
+  }, [repoInput, slugInput, vaultProjectInput, store.sources]);
 
   const onToggleSource = useCallback(
     async (source: RoadmapSource, enabled: boolean) => {
@@ -301,7 +314,10 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
         <p className="settings-hint" style={{ marginTop: 0 }}>
           Add a roadmap by its repo folder and slug (e.g. <code>arXMCP</code> /{" "}
           <code>paper-metadata</code>). Adding validates that the compiled
-          roadmap file is readable before saving it.
+          roadmap file is readable before saving it. Leave <em>vault project</em>{" "}
+          blank unless the Obsidian folder is named differently from the repo
+          (for this extension it is <code>Proclivity</code> vs{" "}
+          <code>proclivity</code>).
         </p>
 
         <div className="settings-row">
@@ -322,6 +338,15 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
             placeholder="slug (e.g. paper-metadata)"
             value={slugInput}
             onChange={(e) => setSlugInput(e.target.value)}
+          />
+          <input
+            type="text"
+            aria-label="Vault project (optional)"
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="vault project (optional)"
+            value={vaultProjectInput}
+            onChange={(e) => setVaultProjectInput(e.target.value)}
           />
           <button
             type="button"

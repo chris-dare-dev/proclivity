@@ -32,18 +32,27 @@ type ObsidianResponse =
  *
  * NOTE: the compiled JSON and the progress journal live under DIFFERENT
  * subtrees by design — the compiled roadmap is published into the Obsidian
- * `Projects/<repo>/Roadmaps/` area for reading, while the append-only progress
- * journal is written into the git-tracked `Source Code/<repo>/plans/` tree
- * alongside `agent.jsonl`. This asymmetry is intentional per the Phase-G
- * design §4.2 and is the most likely spot to need adjustment against a real
- * vault layout.
+ * `Projects/<vaultProject>/Roadmaps/` area for reading, while the append-only
+ * progress journal is written into the git-tracked `Source Code/<repo>/plans/`
+ * tree alongside `agent.jsonl`. This asymmetry is intentional per the Phase-G
+ * design §4.2.
+ *
+ * The two roots take SEPARATE names: `vaultProject` roots the read and `repo`
+ * roots the write. They default equal (every project except Proclivity), so a
+ * caller may pass a single name; Proclivity needs both because its vault folder
+ * (`Proclivity`) and Source Code dir (`proclivity`) differ in case — a single
+ * string would be wrong for one root and only "work" via case-insensitive FS
+ * resolution, which the Obsidian REST API does not guarantee (and which breaks
+ * on a case-sensitive host).
  */
 export function derivePaths(
   repo: string,
   slug: string,
+  vaultProject?: string,
 ): { compiledPath: string; progressPath: string } {
+  const project = vaultProject && vaultProject.length > 0 ? vaultProject : repo;
   return {
-    compiledPath: `Projects/${repo}/Roadmaps/${slug}/roadmap.compiled.json`,
+    compiledPath: `Projects/${project}/Roadmaps/${slug}/roadmap.compiled.json`,
     progressPath: `Source Code/${repo}/plans/${slug}/progress/proclivity.jsonl`,
   };
 }
@@ -159,9 +168,13 @@ function asCompiledRoadmap(parsed: unknown): CompiledRoadmap {
  * (`sync.syncNow`) can record `lastSyncError`.
  */
 export async function readCompiled(
-  source: Pick<RoadmapSource, "repo" | "slug">,
+  source: Pick<RoadmapSource, "repo" | "slug" | "vaultProject">,
 ): Promise<CompiledRoadmap | null> {
-  const { compiledPath } = derivePaths(source.repo, source.slug);
+  const { compiledPath } = derivePaths(
+    source.repo,
+    source.slug,
+    source.vaultProject,
+  );
   const resp = await sendViaSw({ type: "obsidian:read", relPath: compiledPath });
   if (!resp.ok) {
     throw new Error(resp.message || `Read failed (status ${resp.status}).`);
@@ -183,10 +196,14 @@ export async function readCompiled(
  * failure so the caller can leave the write-back cursor unchanged for retry.
  */
 export async function appendProgress(
-  source: Pick<RoadmapSource, "repo" | "slug">,
+  source: Pick<RoadmapSource, "repo" | "slug" | "vaultProject">,
   event: ProgressEvent,
 ): Promise<void> {
-  const { progressPath } = derivePaths(source.repo, source.slug);
+  const { progressPath } = derivePaths(
+    source.repo,
+    source.slug,
+    source.vaultProject,
+  );
   const line = `${JSON.stringify(event)}\n`;
   const resp = await sendViaSw({
     type: "obsidian:append",

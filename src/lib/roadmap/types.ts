@@ -103,10 +103,25 @@ export interface ProgressEvent {
  * `client.derivePaths`), never stored, to avoid drift.
  */
 export interface RoadmapSource {
-  /** Source Code dir name, case-preserved, e.g. "arXMCP". */
+  /**
+   * `Source Code/<repo>/` dir name, case-preserved, e.g. "arXMCP". Also the
+   * mirror-id namespace (see `srcKeyOf` → `${repo}/${slug}`) and the root of the
+   * write-back `progressPath`.
+   */
   repo: string;
   /** plans subdir / compiled.slug, e.g. "paper-metadata". */
   slug: string;
+  /**
+   * `Projects/<vaultProject>/` dir name for the READ (`compiledPath`), when the
+   * Obsidian vault folder is cased/named differently from the Source Code repo
+   * dir. Optional — omit it and the `repo` name is reused for both roots. The
+   * only project that needs it today is Proclivity itself: the vault folder is
+   * `Proclivity` (capital P) while `Source Code/proclivity` is lowercase, so a
+   * single `repo` string cannot be correct for both `Projects/` and
+   * `Source Code/`. Decoupling here removes the reliance on case-insensitive
+   * filesystem resolution and keeps the read/write paths correct cross-platform.
+   */
+  vaultProject?: string | undefined;
   /** Cached from `compiled.title` for display only; null until first read. */
   title: string | null;
   enabled: boolean;

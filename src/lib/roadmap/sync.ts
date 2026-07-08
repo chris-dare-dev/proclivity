@@ -87,7 +87,11 @@ export async function syncNow(): Promise<SyncResult> {
         collected.push({ srcKey, compiled, prefs });
         titleUpdates.set(srcKey, compiled.title);
       } else {
-        const { compiledPath } = derivePaths(source.repo, source.slug);
+        const { compiledPath } = derivePaths(
+          source.repo,
+          source.slug,
+          source.vaultProject,
+        );
         errors.push(`${srcKey}: compiled roadmap not found (${compiledPath}).`);
       }
     } catch (e) {
