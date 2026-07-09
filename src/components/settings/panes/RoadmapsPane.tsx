@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SegmentedControl, ToggleSwitch } from "../SettingsControls";
 import {
   EMPTY_ROADMAP_STATE,
+  normalizeApiKey,
   roadmapStore,
   srcKeyOf,
 } from "@/lib/roadmap/store";
@@ -108,8 +109,10 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
       setTestMsg(v.error);
       return;
     }
-    await roadmapStore.patch(() => ({ host: v.host, apiKey: keyInput.trim() }));
+    const key = normalizeApiKey(keyInput);
+    await roadmapStore.patch(() => ({ host: v.host, apiKey: key }));
     setHostInput(v.host);
+    setKeyInput(key); // Echo the canonical value back — a pasted `Bearer ` is gone.
     setTestMsg("Saved.");
   }, [hostInput, keyInput]);
 
@@ -122,8 +125,10 @@ export function RoadmapsPane({ live, prefs, longTermHidden }: RoadmapsPaneProps)
     }
     setBusy("testing");
     // Persist normalized inputs first so the SW reads the values under test.
-    await roadmapStore.patch(() => ({ host: v.host, apiKey: keyInput.trim() }));
+    const key = normalizeApiKey(keyInput);
+    await roadmapStore.patch(() => ({ host: v.host, apiKey: key }));
     setHostInput(v.host);
+    setKeyInput(key);
     const r = await testConnection();
     setBusy("idle");
     setTestMsg(

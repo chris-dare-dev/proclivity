@@ -5,7 +5,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const h = vi.hoisted(() => ({
   state: { host: "http://127.0.0.1:27123", apiKey: "deadbeef" },
 }));
-vi.mock("@/lib/roadmap/store", () => ({
+// Partial mock: stub only the chrome.storage-backed `roadmapStore`, keep the
+// REAL `normalizeApiKey` so the Bearer-strip assertion below exercises it.
+vi.mock("@/lib/roadmap/store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/roadmap/store")>()),
   roadmapStore: { get: async () => h.state },
 }));
 
@@ -170,6 +173,28 @@ describe("handleObsidianMessage — configuration", () => {
       type: "obsidian:append",
       relPath: JOURNAL,
       line: L1,
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.status).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("self-heals a stored key that carries a pasted `Bearer ` prefix (no 401)", async () => {
+    // Persisted by an older build, before the save-time strip existed.
+    h.state = { host: "http://127.0.0.1:27123", apiKey: "Bearer deadbeef" };
+    fetchMock.mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+    await handleObsidianMessage({ type: "obsidian:read", relPath: "x.json" });
+
+    const headers = initOf(0).headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe("Bearer deadbeef"); // not `Bearer Bearer …`
+  });
+
+  it("treats a key that is nothing but the prefix as unconfigured", async () => {
+    h.state = { host: "http://127.0.0.1:27123", apiKey: "Bearer " };
+    const res = await handleObsidianMessage({
+      type: "obsidian:read",
+      relPath: "x.json",
     });
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.status).toBe(0);

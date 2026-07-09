@@ -23,7 +23,7 @@
  * keep both sides in sync.
  */
 
-import { roadmapStore } from "@/lib/roadmap/store";
+import { normalizeApiKey, roadmapStore } from "@/lib/roadmap/store";
 
 export type ObsidianRequest =
   | { type: "obsidian:read"; relPath: string }
@@ -117,7 +117,12 @@ async function appendViaReadModifyWrite(
 export async function handleObsidianMessage(
   req: ObsidianRequest,
 ): Promise<ObsidianResponse> {
-  const { host, apiKey } = await roadmapStore.get();
+  const { host, apiKey: storedKey } = await roadmapStore.get();
+  // Normalize on READ as well as on save (`RoadmapsPane`): a key persisted with
+  // a pasted `Bearer ` prefix by an older build would otherwise 401 forever
+  // until someone re-saved it. This is the only place the header is built, so
+  // it is the one choke point that can self-heal that state.
+  const apiKey = normalizeApiKey(storedKey);
   if (!host || !apiKey) {
     return {
       ok: false,

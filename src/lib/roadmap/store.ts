@@ -33,6 +33,35 @@ export const EMPTY_ROADMAP_STATE: RoadmapStoreState = {
   lastSyncError: null,
 };
 
+// `\b` rather than `\s+`: the separator must be optional so a key that is
+// nothing but `Bearer` (or `Bearer `) collapses to "". The word boundary still
+// refuses to bite into a token that merely STARTS with those letters
+// (`bearerdeadbeef` has no boundary after `bearer`, so it survives intact).
+const BEARER_PREFIX = /^\s*bearer\b\s*/i;
+
+/**
+ * Strip a leading `Bearer ` (and surrounding whitespace) from a pasted API key.
+ *
+ * The Local REST API plugin's settings screen displays the key as
+ * `Bearer <hex>` — the literal string you would put in an `Authorization`
+ * header — so copying it wholesale is the obvious thing to do. But
+ * `obsidianProxy` adds `Bearer ` itself, so a pasted prefix yields
+ * `Authorization: Bearer Bearer <hex>` and every request 401s with no hint as
+ * to why. This cost a live debugging session (see HANDOFF §5).
+ *
+ * A real key is hex, so it can never legitimately begin with `Bearer `. The
+ * loop handles the double-paste case (`Bearer Bearer <hex>`), and a key that is
+ * nothing BUT the prefix normalizes to `""` — which callers treat as
+ * "not configured", a better failure than a 401.
+ */
+export function normalizeApiKey(raw: string): string {
+  // Strip BEFORE trimming — trimming first would turn `"Bearer "` into
+  // `"Bearer"` and hide the prefix from a whitespace-anchored match.
+  let key = raw;
+  while (BEARER_PREFIX.test(key)) key = key.replace(BEARER_PREFIX, "");
+  return key.trim();
+}
+
 const isExtension =
   typeof chrome !== "undefined" && !!chrome.storage?.local;
 

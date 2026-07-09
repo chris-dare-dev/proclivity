@@ -107,7 +107,7 @@ New (`src/lib/roadmap/` unless noted):
 | `ingest.ts` | Pure mapping + idempotent reconcile. Mirror-id scheme, `ingestRoadmaps(collected): (s)=>s`. No I/O |
 | `sync.ts` | Newtab orchestration: `syncNow()`, `onMirrorToggle()`, offset-aware `isoLocalSeconds()`. Heavy → only `import()`-ed |
 | `../../components/settings/panes/RoadmapsPane.tsx` | The Settings → Roadmaps UI (connection, add-source incl. optional vault-project field, per-source toggle/remove, Sync-now, prefs) |
-| `client.test.ts`, `ingest.test.ts`, `sync.test.ts`, `../../background/obsidianProxy.test.ts` | 37 unit tests total |
+| `client.test.ts`, `ingest.test.ts`, `sync.test.ts`, `store.test.ts`, `../../background/obsidianProxy.test.ts` | 47 unit tests total |
 | `../../../vitest.config.ts` | Standalone Vitest config (`@` alias only) |
 
 Modified: `manifest.config.ts` (+`http://127.0.0.1/*` host perm), `src/types/index.ts`
@@ -164,12 +164,15 @@ Projects` (confirmed: `.obsidian/` present there). Both `Projects/` and
 6. Copy the **API key**.
 
 ### Connect Proclivity → Settings (gear) → Roadmaps
-7. Host `http://127.0.0.1:27123`. **API key: paste the hex ONLY.**
-   - ⚠️ **GOTCHA (cost us a 401):** the plugin displays the key as
+7. Host `http://127.0.0.1:27123`. API key: pasting the hex alone is still the
+   cleanest, but a pasted `Bearer ` prefix is now harmless.
+   - ⚠️ **GOTCHA (cost us a 401), now FIXED:** the plugin displays the key as
      `Bearer <hex>`. The extension adds `Bearer ` itself
-     (`obsidianProxy.ts`: `Authorization: Bearer ${apiKey}`). Pasting the
-     `Bearer ` prefix → `Bearer Bearer …` → **401 Unauthorized**. Paste only the
-     hex token. (Optional hardening not yet done — see §8 item 1.)
+     (`obsidianProxy.ts`: `Authorization: Bearer ${apiKey}`), so pasting the
+     prefix used to produce `Bearer Bearer …` → **401 Unauthorized**.
+     `normalizeApiKey` (`store.ts`) now strips it on save (`RoadmapsPane`) AND
+     on read (`obsidianProxy`, the sole header-building site) — so a key already
+     persisted with the prefix self-heals rather than 401ing until re-saved.
 8. **Test connection** → expect "Connected — the vault answered…". Only
    `http://127.0.0.1[:port]` is accepted (Chrome match patterns don't resolve
    `localhost`).
@@ -240,10 +243,13 @@ re-check §4 and `derivePaths`.
 
 ## 8. Backlog / not-yet-done
 
-**Small hardening (optional, quick):**
-1. **Strip a leading `Bearer ` (+ trim) when saving the API key** — kills the §5
-   401 footgun. ~2 lines (a `normalizeKey` beside `normalizeHost` in
-   `RoadmapsPane.tsx`) + a test.
+**Small hardening:**
+1. ~~Strip a leading `Bearer ` (+ trim) when saving the API key~~ — **DONE.**
+   `normalizeApiKey` lives in `store.ts` (with the key it guards, not beside
+   `normalizeHost` as originally sketched) and is applied at both `RoadmapsPane`
+   save sites *and* in `obsidianProxy` where the header is built, so existing
+   bad state self-heals. 8 unit tests in `store.test.ts` + 2 in
+   `obsidianProxy.test.ts`.
 
 **Open decisions from the research §7 (unresolved):**
 - Canvas vs Excalidraw render target (schema is render-agnostic; current reality is Canvas).
