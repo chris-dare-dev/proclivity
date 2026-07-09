@@ -190,10 +190,18 @@ export async function readCompiled(
 }
 
 /**
- * Append one progress event to a source's `proclivity.jsonl`. POST appends to
- * end-of-file (creating the file + `progress/` dir if missing), so there is no
- * read-modify-write race with concurrent agent/obsidian writers. Throws on
- * failure so the caller can leave the write-back cursor unchanged for retry.
+ * Append one progress event to a source's `proclivity.jsonl`, creating the file
+ * and its `progress/` dir if missing.
+ *
+ * The SW performs this as a read-modify-write (GET + PUT), NOT the Local REST
+ * API's "append" POST — see `obsidianProxy.ts:appendViaReadModifyWrite` for why
+ * POST silently truncates a `.jsonl` journal. What makes the RMW safe is that
+ * each actor owns its own journal file: `proclivity.jsonl` has exactly one
+ * writer, so it never races the agent (`agent.jsonl`) or compiler
+ * (`obsidian.jsonl`) writers. Do not repoint a second writer at this file.
+ *
+ * Throws on failure so the caller can leave the write-back cursor unchanged for
+ * retry.
  */
 export async function appendProgress(
   source: Pick<RoadmapSource, "repo" | "slug" | "vaultProject">,
