@@ -122,11 +122,18 @@ Before reporting a code change as "done":
 - [/milestone-pipeline](.claude/commands/milestone-pipeline.md) —
   execute one milestone end-to-end through Research → Implement →
   Critique → Rectify with sub-agent orchestration. Scripts:
-  `.claude/scripts/milestone-pipeline-*` (checkpoint, dedupe-findings,
-  init-state, record-progress, resolve-brief, status).
+  `.claude/scripts/milestone-pipeline-*` (check-deps, checkpoint,
+  consolidate-memory, findings, init-state, record-progress,
+  resolve-brief, status), plus `pipeline-outcome-log.py` (append-only
+  run outcomes) and `pipeline-reconcile.py` (advisory drift-catcher —
+  never edits, always exits 0). `findings.py` replaced the former
+  `dedupe-findings.py`; it now owns the Phase-4 completion gate.
 
 Both commands respect the "work on `main` only" rule above. They are
 copy-synced from the claude-registry repo (hashes in
 `.claude/.registry-manifest.json`) — never edit synced copies in-repo;
-edit the registry and re-sync. Project-specific conventions live in
+edit the registry and re-sync. Not everything under `.claude/` is synced:
+the manifest is the authority, and this file plus `.claude/CLAUDE.md` and
+the `milestone-{web-perf,infra,lfs}-critic` agents are repo-owned.
+Project-specific conventions live in
 [.claude/references/roadmap-proclivity-integration.md](.claude/references/roadmap-proclivity-integration.md).

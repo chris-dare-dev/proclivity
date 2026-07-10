@@ -42,6 +42,8 @@ Active milestone state lives at:
 ```
 .claude/notes/milestones/<id>/
 ├── state.json            # phase machine (gitignored; ephemeral)
+├── findings.json         # findings register — the Phase-4 gate reads THIS,
+│                         #   not the critique prose (committed)
 ├── audit.jsonl           # append-only event log (committed)
 ├── metrics.json          # completion metrics (committed)
 ├── research/
@@ -53,19 +55,24 @@ Active milestone state lives at:
 │   └── synthesis.md      # implementation summary
 ├── critique/
 │   ├── adversary.md      # always present
-│   ├── web.md            # if web/** touched
-│   ├── infra.md          # if infra/** touched
-│   ├── lfs.md            # if .gitattributes touched
+│   ├── frontend.md       # if the diff touches .tsx/.jsx/.vue/.svelte
 │   ├── oss.md            # if --oss-scout passed
+│   ├── <critic>.md       # one per repo-local critic that fired (see below)
 │   └── dedup.md          # merged, agreement-upgraded findings
 └── rectify/
     ├── summary.md        # fixed / deferred / invalidated
     └── escalation.md     # written on loop-cap exhaustion
 ```
 
-`state.json` is gitignored. All `*.md` artifacts under `research/`,
-`implement/`, `critique/`, `rectify/` are committed — they are durable
-evidence that outlasts the ephemeral state.
+Cross-run, outside the per-milestone dir:
+```
+.claude/notes/pipeline-outcomes/outcomes.jsonl   # one record per run (committed)
+```
+
+`state.json` is gitignored — everything else above is committed, including
+`findings.json` and `outcomes.jsonl`. The `*.md` artifacts under `research/`,
+`implement/`, `critique/`, `rectify/` are durable evidence that outlasts the
+ephemeral state.
 
 **Reading state:** use `milestone-pipeline-checkpoint.py <id> --get <field>`
 or `milestone-pipeline-status.sh <id>`. Never read `state.json` directly —
@@ -104,6 +111,12 @@ add an entry, append; do not replace. The log may be consumed by future
 tooling; do not assume any specific consumer reads it automatically today.
 Rewriting it corrupts the lineage.
 
+**The one sanctioned exception** is
+`.claude/scripts/milestone-pipeline-consolidate-memory.sh`, which keeps the
+logs bounded by de-duplicating exact-repeat lines. It is the ONLY place memory
+may be trimmed. Do not hand-trim, and do not treat its existence as license to
+truncate elsewhere — everywhere else the append-only invariant is absolute.
+
 ### Memory protocol
 
 See `.claude/agent-memory/README.md` for the canonical memory layout and
@@ -129,13 +142,24 @@ it directly.
 
 All pipeline scripts are registry-synced flat files at:
 ```
+.claude/scripts/milestone-pipeline-check-deps.py          # hard depends_on gate
 .claude/scripts/milestone-pipeline-checkpoint.py
-.claude/scripts/milestone-pipeline-dedupe-findings.py
+.claude/scripts/milestone-pipeline-consolidate-memory.sh  # the ONE sanctioned
+.claude/scripts/milestone-pipeline-consolidate-memory-test.sh  #   memory trimmer
+.claude/scripts/milestone-pipeline-findings.py            # findings register + gate
 .claude/scripts/milestone-pipeline-init-state.sh
 .claude/scripts/milestone-pipeline-record-progress.py
 .claude/scripts/milestone-pipeline-resolve-brief.py
 .claude/scripts/milestone-pipeline-status.sh
+.claude/scripts/pipeline-outcome-log.py                   # append-only run outcomes
+.claude/scripts/pipeline-reconcile.py                     # advisory drift-catcher
 ```
+
+`milestone-pipeline-findings.py` replaced `milestone-pipeline-dedupe-findings.py`
+(registry `8fd273e`): it is no longer just a deduper — it materialises one object
+per finding into `findings.json` and is the single authority answering the Phase-4
+"every CRITICAL/HIGH fixed-or-invalidated" completion gate. `pipeline-reconcile.py`
+never edits and always exits 0 — a diagnostic, not a gate.
 
 Resolve them from the repo root — CWD is not guaranteed inside sub-agents
 (`REPO_ROOT="$(git rev-parse --show-toplevel)"; SCRIPTS="$REPO_ROOT/.claude/scripts"`).
@@ -145,15 +169,35 @@ Never edit these in-repo; they are synced copies (edit the registry and re-sync)
 
 ## Sub-agent names (defined in .claude/agents/)
 
+**Registry-synced** (present in `.registry-manifest.json` — never edit in-repo):
+
 | Name | Phase | Role |
 |---|---|---|
 | `milestone-researcher` | Phase 1 | Codebase + external research; writes brief |
 | `milestone-implementer` | Phase 2 (delegated) | Writes code; commits to main |
 | `milestone-adversary-critic` | Phase 3 | 13-axis adversarial critique (always fires) |
+| `milestone-frontend-ux` | Phase 3 (conditional) | UI/UX axes the adversary misses. Fires only on a `.tsx`/`.jsx`/`.vue`/`.svelte` diff — NOT on bare `.ts`/`.js`. Writes `critique/frontend.md` |
+| `milestone-oss-scout` | Phase 3 (optional) | Dependency license + CVE scan |
+| `milestone-rectifier` | Phase 4 (**exception path only**) | Phase 4 normally runs in the MAIN session and is never delegated. This agent exists only for the triggers cmd-milestone Phase 4 defines (main-session context near-full, user explicitly requests delegation, implementer ran inline). Commits one `rect(<id>): close <ids>` then STOPS at the external-write boundary |
+
+**Repo-local** (NOT synced; this repo owns them):
+
+| Name | Phase | Role |
+|---|---|---|
 | `milestone-web-perf-critic` | Phase 3 (conditional) | web/** bundle + perf review |
 | `milestone-infra-critic` | Phase 3 (conditional) | GitHub Actions workflows review (`.github/workflows/**`) |
 | `milestone-lfs-critic` | Phase 3 (conditional) | Binary asset hygiene + `.gitattributes` introduction (proclivity has no LFS today) |
-| `milestone-oss-scout` | Phase 3 (optional) | Dependency license + CVE scan |
+
+**Phase-3 dispatch is no longer a hardcoded fan-out.** Every critic in
+`.claude/agents/` is dispatched **iff its frontmatter-declared trigger matches**
+`git diff --name-only "$BASE_SHA"..HEAD`. The trigger lives in the agent's
+`description` prose (there is no `trigger:` key).
+
+**Overlay supersedes default.** A repo-local `<name>-critic.md` replaces the
+registry default `<name>.md` — dispatch the overlay, SKIP the default, never
+both. So adding `.claude/agents/milestone-frontend-ux-critic.md` here would
+shadow the synced `milestone-frontend-ux`. Proclivity has no such overlay today,
+so it gets the registry default.
 
 
 ---
