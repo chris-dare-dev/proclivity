@@ -6,6 +6,11 @@ dist
 .env
 .env.local
 
+# RSA private key backing the manifest `key` (stable extension ID).
+# See plans/gemini-setup.md §1. The public half is committed in
+# manifest.config.ts; the private half must never be.
+*.pem
+
 # tsc -b emit (composite project)
 *.tsbuildinfo
 vite.config.js

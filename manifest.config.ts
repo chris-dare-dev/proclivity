@@ -10,11 +10,35 @@ import pkg from "./package.json" with { type: "json" };
 const GOOGLE_OAUTH_CLIENT_ID =
   "455929700165-fuont6t2if38p47u59ers1uj65trl08d.apps.googleusercontent.com";
 
+// Base64 DER public key pinning the extension ID to
+// `cpflcminmnekdfjpmdhgblbolmclcdkk`. Chrome takes the first 16 bytes of the
+// key's SHA-256 and maps hex 0-9a-f → a-p to derive that ID.
+//
+// This field is load-bearing for OAuth and must not be removed. Without it,
+// Chrome derives an unpacked extension's ID from the absolute path of the
+// loaded directory, so the ID changes whenever the checkout moves. The
+// client_id above is registered in Google Cloud Console against exactly one
+// Item ID, and `chrome.identity.getAuthToken` fails with
+// `bad client id: <client_id>` the moment the two diverge.
+//
+// It was dropped as collateral damage by 9547cd6 (a revert of the Gemini
+// Cloud-API manifest delta, which had introduced `key`, `identity` and
+// `oauth2` as one block). `identity` and `oauth2` were later restored for
+// Google Photos; `key` was not — leaving the ID bound to the dist path.
+//
+// Rotating this key changes the extension ID, which re-namespaces
+// chrome.storage.local (orphaning todos, reminders and settings) and requires
+// re-registering the Item ID in Cloud Console. See README "Google Photos
+// setup" and plans/gemini-setup.md §1.
+const EXTENSION_PUBLIC_KEY =
+  "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvm5/r2D873e2MyKJk52x+aoM4wHy2v6MiEFWr4egFM2ncwOervuJr1MlRsg67CC25y8eqnQH2m1/HbkL7gtIxZaNqmjnkM4juqzKlm6+JdMW2EQDHHtVlNoPuvWzw4a/w0u70cjUNu/UsXmJt8HEo/pG6Bt5mLUXmkm5sTvBLTPnxSPiEQlf9iF5UR9/G1sjSfs6GzNqmUJeP57t2b3LA4+5ocpixQpoTrNikHXeGXEV4gJjA/oZw6zbpXh7frP5aiceKWdxgQMLO65dAb0jdJ2UKmcfbHrMORT096MokTvxeqqknLNXTijcuN47dqGXtXkd1qH9yg0BD9L7+QDFnwIDAQAB";
+
 export default defineManifest({
   manifest_version: 3,
   name: "Proclivity",
   description: pkg.description,
   version: pkg.version,
+  key: EXTENSION_PUBLIC_KEY,
   icons: {
     "16": "public/icon-16.png",
     "48": "public/icon-48.png",

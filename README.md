@@ -269,12 +269,16 @@ Google account via the [Photos Picker API](https://developers.google.com/photos/
 The feature is inert until you do the one-time Google Cloud setup below — the
 extension ships with a placeholder OAuth client_id that won't authenticate.
 
-1. **Pin the extension ID.** OAuth client_ids are bound to a specific extension
-   ID, so you need a stable one. After loading the unpacked extension once,
-   copy its ID from `chrome://extensions`. (For a long-lived install, add a
-   `"key"` field to the manifest with the public key Chrome generated for that
-   ID — see Chrome's docs on
-   [keeping an extension ID consistent](https://developer.chrome.com/docs/extensions/reference/manifest/key).)
+1. **The extension ID is already pinned.** OAuth client_ids are bound to one
+   extension ID, so it has to be stable. [`manifest.config.ts`](manifest.config.ts)
+   commits a `key` (public half of an RSA keypair), which fixes the ID at
+   `cpflcminmnekdfjpmdhgblbolmclcdkk` no matter where the repo lives. Confirm it
+   matches the ID on the Proclivity card at `chrome://extensions` after loading.
+
+   Do not delete `key`. Without it Chrome derives the ID from the absolute path
+   of the loaded `dist/` directory, so moving the checkout silently changes the
+   ID and `getAuthToken` starts failing with `bad client id`. See Chrome's docs
+   on [keeping an extension ID consistent](https://developer.chrome.com/docs/extensions/reference/manifest/key).
 
 2. **Create a Google Cloud project.** In the
    [Google Cloud console](https://console.cloud.google.com/), create a new
@@ -301,6 +305,20 @@ extension ships with a placeholder OAuth client_id that won't authenticate.
 7. **Connect from Settings.** Open Settings → **Google Photos** → **Connect
    Google Photos**. Chrome will surface the consent dialog the first time;
    subsequent picks reuse the cached token.
+
+**Troubleshooting `bad client id`.** If Connect fails with
+`OAuth2 request failed: Service responded with error: 'bad client id: …'`, the
+Item ID registered on the OAuth client does not match the ID Chrome is handing
+to `getAuthToken`. Compare the ID on the `chrome://extensions` card against the
+Application ID in Cloud Console (step 5) — they must be identical. The pane's
+**Copy diagnostics** button dumps the runtime ID and manifest state; error-level
+logs also persist to `proclivity:logs:v1`, so the failure is recoverable after
+the fact.
+
+Because the extension ID namespaces `chrome.storage.local`, changing it starts
+the extension with empty todos, reminders and settings. Export first via
+Settings → **Data** → **Export data**, then re-import after reloading under the
+new ID. The Obsidian API key (Settings → Roadmaps) has to be re-entered too.
 
 **How the photo data is handled.** When you pick photos, the extension fetches
 each one downscaled to 1600×1000 with `Authorization: Bearer <token>`,
