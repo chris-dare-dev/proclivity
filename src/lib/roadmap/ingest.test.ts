@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { EMPTY_STATE, type ProclivityState, type Todo } from "@/types";
 import { startOfDay } from "@/lib/dateUtils";
 import {
+  ROADMAP_TAG_ID,
   ingestRoadmaps,
   isMirrorId,
   mkChartId,
@@ -54,6 +55,76 @@ describe("mirror id scheme", () => {
   });
 });
 
+describe("roadmap provenance tag", () => {
+  it("uses an id that cannot collide with a native uid, and is not a mirror id", () => {
+    expect(ROADMAP_TAG_ID).toContain(":"); // uid() is base36 — never contains ':'
+    expect(isMirrorId(ROADMAP_TAG_ID)).toBe(false);
+  });
+
+  it("stamps the tag on newly created mirror todos", () => {
+    const s = ingestRoadmaps(collected([item({ id: "paper-metadata-t-a" })]))(base());
+    expect(s.todos[0]!.tags).toEqual([ROADMAP_TAG_ID]);
+  });
+
+  it("back-fills the tag onto a mirror created before the tag existed", () => {
+    // The maintainer's live state: two mirrors ingested by an older build, so
+    // the next sync must repair them rather than needing a manual re-add.
+    const mkId = mkTodoId(SRC, "paper-metadata-t-a");
+    const s0 = base();
+    const stale: Todo = {
+      id: mkId,
+      title: "t",
+      scope: "long",
+      done: false,
+      createdAt: 1,
+      tags: [],
+    };
+    s0.todos = [stale];
+    const s1 = ingestRoadmaps(collected([item({ id: "paper-metadata-t-a" })]))(s0);
+    expect(s1.todos.find((t) => t.id === mkId)!.tags).toEqual([ROADMAP_TAG_ID]);
+    expect(s1.tags.map((t) => t.id)).toEqual([ROADMAP_TAG_ID]);
+  });
+
+  it("registers the tag exactly once across multiple roadmaps and re-ingests", () => {
+    const two: CollectedRoadmap[] = [
+      ...collected([item({ id: "paper-metadata-t-a" })]),
+      {
+        srcKey: "proclivity/gemini-nano",
+        compiled: {
+          slug: "gemini-nano",
+          title: "Gemini Nano",
+          items: [item({ id: "gemini-nano-spike-1", kind: "spike" })],
+        },
+        prefs: { defaultScope: "long", surfaceInGantt: true },
+      },
+    ];
+    const s2 = ingestRoadmaps(two)(ingestRoadmaps(two)(base()));
+    expect(s2.tags).toHaveLength(1);
+    expect(s2.tags[0]!.id).toBe(ROADMAP_TAG_ID);
+    // …and the id is not duplicated on the todos either.
+    for (const t of s2.todos) expect(t.tags).toEqual([ROADMAP_TAG_ID]);
+  });
+
+  it("registers no tag when a roadmap surfaces no todos (pure epics/milestones)", () => {
+    const s = ingestRoadmaps(
+      collected([
+        item({ id: "paper-metadata-e1", kind: "epic" }),
+        item({ id: "paper-metadata-m1", kind: "milestone" }),
+      ]),
+    )(base());
+    expect(s.todos).toHaveLength(0);
+    expect(s.tags).toEqual([]);
+  });
+
+  it("registers no tag when every actionable item opts out via surface:false", () => {
+    const s = ingestRoadmaps(
+      collected([item({ id: "paper-metadata-t-a", proclivity: { surface: false } })]),
+    )(base());
+    expect(s.todos).toHaveLength(0);
+    expect(s.tags).toEqual([]);
+  });
+});
+
 describe("todo upsert", () => {
   it("maps task/spike to todos and skips epics/milestones", () => {
     const s = ingestRoadmaps(
@@ -73,7 +144,7 @@ describe("todo upsert", () => {
     expect(a.title).toBe("Item paper-metadata-t-a");
     expect(a.scope).toBe("today");
     expect(a.done).toBe(false);
-    expect(a.tags).toEqual([]);
+    expect(a.tags).toEqual([ROADMAP_TAG_ID]);
     expect(a.notes).toBe("note a");
   });
 
@@ -116,7 +187,8 @@ describe("todo upsert", () => {
     expect(t.completedAt).toBe(222);
     expect(t.closedAt).toBe(333);
     expect(t.sprintId).toBe("sprint-x");
-    expect(t.tags).toEqual(["tag-1"]);
+    // User tags survive; the provenance tag is unioned in, never replacing them.
+    expect(t.tags).toEqual(["tag-1", ROADMAP_TAG_ID]);
     expect(t.createdAt).toBe(111);
   });
 

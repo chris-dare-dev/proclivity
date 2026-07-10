@@ -79,6 +79,16 @@ Additional rules:
   write-back and clobber a user tick. A `status: done` spike still ingests as an
   open todo.
 - `status: dropped` items → their mirror todo is **closed** (not deleted).
+- **Title comes from the compiled `item.title`, NOT the item id.** The `spike-1`
+  / `t-foo` tokens live only in the mirror **id** (`rm:<repo>/<slug>#<itemId>`),
+  which is never rendered. Searching the UI for "spike 1" finds nothing — this
+  cost a live debugging session. Every mirror todo therefore carries the reserved
+  `roadmap` tag (`ROADMAP_TAG_ID = "tag:roadmap"`, `ingest.ts`) as its only
+  visible provenance marker; filter the Long-term list by that chip to see just
+  the mirrors. Ingest **unions** the tag in (never strips user tags) and
+  back-fills it onto mirrors created before the tag existed, so a stale mirror
+  repairs itself on the next Sync. A user who deletes the tag gets it back next
+  sync — deliberate.
 
 ### Worked example: the `gemini-nano` roadmap (what the maintainer tested)
 8 items: e1/e2/e3 (epics), m1/m2/m3 (milestones), spike-1, spike-2. **All have
@@ -107,7 +117,7 @@ New (`src/lib/roadmap/` unless noted):
 | `ingest.ts` | Pure mapping + idempotent reconcile. Mirror-id scheme, `ingestRoadmaps(collected): (s)=>s`. No I/O |
 | `sync.ts` | Newtab orchestration: `syncNow()`, `onMirrorToggle()`, offset-aware `isoLocalSeconds()`. Heavy → only `import()`-ed |
 | `../../components/settings/panes/RoadmapsPane.tsx` | The Settings → Roadmaps UI (connection, add-source incl. optional vault-project field, per-source toggle/remove, Sync-now, prefs) |
-| `client.test.ts`, `ingest.test.ts`, `sync.test.ts`, `store.test.ts`, `../../background/obsidianProxy.test.ts` | 47 unit tests total |
+| `client.test.ts`, `ingest.test.ts`, `sync.test.ts`, `store.test.ts`, `../../background/obsidianProxy.test.ts` | 53 unit tests total |
 | `../../../vitest.config.ts` | Standalone Vitest config (`@` alias only) |
 
 Modified: `manifest.config.ts` (+`http://127.0.0.1/*` host perm), `src/types/index.ts`

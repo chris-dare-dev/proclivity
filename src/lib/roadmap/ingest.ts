@@ -13,8 +13,13 @@
  *
  * Reconcile invariants (design §5):
  *   1. Upsert task/spike todos, overwriting ONLY ingest-owned fields
- *      (title, scope, notes). Never touch user-owned fields (done, tags,
- *      sprintId, completedAt, closedAt, close checkpoints).
+ *      (title, scope, notes) and GUARANTEEING the `roadmap` provenance tag is
+ *      present. Never touch user-owned fields (done, sprintId, completedAt,
+ *      closedAt, close checkpoints) or any other tag the user added.
+ *      `tags` is therefore *almost* user-owned: ingest unions in exactly one
+ *      reserved id and removes nothing. A user who deletes the `roadmap` tag
+ *      from a mirror will see it return on the next sync — that is deliberate,
+ *      it is the only thing distinguishing a mirror from a native todo.
  *   2. Dropped items → close their mirror (re-create-then-re-close, since a
  *      closed mirror is not a permanent tombstone: `purgeOldClosed` may evict
  *      it, so reconcile must be able to rebuild it from source).
@@ -30,15 +35,50 @@ import type {
   GanttChart,
   GanttTask,
   ProclivityState,
+  Tag,
   Todo,
 } from "@/types";
 import { startOfDay } from "@/lib/dateUtils";
 import { closeTodo } from "@/storage/closedTodos";
+import { DEFAULT_TAG_COLOR } from "@/storage/tags";
 import type { CollectedRoadmap, CompiledItem } from "./types";
 
 /* ─── Mirror-id scheme ──────────────────────────────────────────────────── */
 
 const RM_PREFIX = "rm:";
+
+/* ─── Provenance tag ────────────────────────────────────────────────────── */
+
+/**
+ * Reserved id for the tag stamped on every mirror todo. A mirror is otherwise
+ * visually indistinguishable from a native todo — its roadmap origin lives only
+ * in the `rm:…` id, which is never rendered — so without this the Long-term
+ * list is a pile of unattributed titles.
+ *
+ * The `:` makes it collision-safe against native tag ids, which come from
+ * `uid()` (base36, never contains `:` or `#` — same guarantee the mirror-id
+ * scheme above leans on). It deliberately does NOT start with `rm:`, so
+ * `isMirrorId` stays false for it.
+ */
+export const ROADMAP_TAG_ID = "tag:roadmap";
+
+const ROADMAP_TAG: Tag = {
+  id: ROADMAP_TAG_ID,
+  label: "roadmap",
+  color: DEFAULT_TAG_COLOR,
+};
+
+/** Register the provenance tag in the global registry, once. */
+function ensureRoadmapTag(tags: Tag[]): Tag[] {
+  return tags.some((t) => t.id === ROADMAP_TAG_ID)
+    ? tags
+    : [...tags, ROADMAP_TAG];
+}
+
+/** Union the provenance tag into a todo's tag list, preserving user tags. */
+function withRoadmapTag(tags: string[]): string[] {
+  return tags.includes(ROADMAP_TAG_ID) ? tags : [...tags, ROADMAP_TAG_ID];
+}
 
 /** Todo / GanttTask mirror id for a compiled item. */
 export function mkTodoId(srcKey: string, itemId: string): string {
@@ -135,7 +175,7 @@ function buildTodo(
     scope,
     done: false,
     createdAt: now,
-    tags: [],
+    tags: [ROADMAP_TAG_ID],
   };
   if (item.summary) t.notes = item.summary;
   return t;
@@ -150,12 +190,20 @@ function buildTodo(
  *     from the per-item / default scope on CREATE only.
  *   - user `notes` — never destroyed when `summary` is absent (a summary-less
  *     re-ingest keeps whatever notes the user typed).
- *   - `done`, `tags`, `completedAt`, `closedAt`, close checkpoints, `dueAt`,
+ *   - `done`, `completedAt`, `closedAt`, close checkpoints, `dueAt`,
  *     `parentId`, `targetDate` — user-owned. We do NOT sync `done` from roadmap
  *     status here (that would fight write-back and clobber a user tick).
+ *   - `tags` — user tags are preserved; the `roadmap` provenance tag is unioned
+ *     in (never removed, nothing else stripped). This is what back-fills the
+ *     tag onto mirrors created before the tag existed, so the next sync repairs
+ *     them rather than requiring a re-add.
  */
 function patchTodo(prev: Todo, item: CompiledItem): Todo {
-  const next: Todo = { ...prev, title: item.title };
+  const next: Todo = {
+    ...prev,
+    title: item.title,
+    tags: withRoadmapTag(prev.tags),
+  };
   if (item.summary) next.notes = item.summary;
   return next;
 }
@@ -274,11 +322,13 @@ function ingestOne(
     // 1. Upsert task/spike todos (field-scoped). Map preserves order; new
     //    todos append at the end, existing keep their position.
     const byId = new Map<string, Todo>(s.todos.map((t) => [t.id, t] as const));
+    let surfacedAny = false;
     for (const item of compiled.items) {
       if (!isActionable(item)) continue;
       // surface===false → never create/refresh a Todo mirror (the item can
       // still be a Gantt bar below); a pre-existing mirror is left untouched.
       if (!surfacesAsTodo(item)) continue;
+      surfacedAny = true;
       const mkId = mkTodoId(srcKey, item.id);
       const prev = byId.get(mkId);
       byId.set(
@@ -288,7 +338,14 @@ function ingestOne(
           : buildTodo(mkId, item, itemScope(item) ?? prefs.defaultScope, now),
       );
     }
-    let next: ProclivityState = { ...s, todos: [...byId.values()] };
+    // Only register the provenance tag when a mirror todo actually carries it —
+    // a roadmap of pure epics/milestones (or all `surface: false`) must not
+    // strand an unused tag in the global registry.
+    let next: ProclivityState = {
+      ...s,
+      todos: [...byId.values()],
+      tags: surfacedAny ? ensureRoadmapTag(s.tags) : s.tags,
+    };
 
     // 2. Dropped → close. The upsert above guarantees the mirror exists first,
     //    so a purged-then-dropped item is re-created and re-closed. closeTodo
