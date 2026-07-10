@@ -15,20 +15,21 @@ You are the CURRENT-STATE CRITIC for Proclivity frontend-uplift {ID}.  Your job 
 The user-supplied scope for this uplift:
 {UPLIFT_BRIEF}
 
-Read these first (much of your 15-minute budget — context is the deliverable):
-- /Users/chris.dare/Personal/SourceCode/proclivity/CLAUDE.md (end-to-end)
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/styles/theme.css
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/newtab/App.tsx
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/newtab/App.css
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/newtab/index.css
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/sections/ (skim every section's main component)
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/components/ (skim each domain dir)
-- /Users/chris.dare/Personal/SourceCode/proclivity/package.json
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md
-- Last 3 critique notes in /.claude/notes/ that touch frontend (grep `*critique*.md`)
+Read these first (much of your 15-minute budget — context is the deliverable; repo-relative paths, resolve from the repo root):
+- `CLAUDE.md` (end-to-end)
+- `src/styles/theme.css`
+- `src/newtab/App.tsx`
+- `src/newtab/App.css`
+- `src/newtab/index.css`
+- `src/sections/` (skim every section's main component)
+- `src/components/` (skim each domain dir)
+- `package.json`
+- `.claude/references/frontend-uplift/proclivity-design-system.md` — the repo design inventory + **§9 house thesis** (thesis, invariants, named anti-references, surface map)
+- `.claude/references/frontend-design-language.md` — the taste canon: §1 anti-reference, §5 **BAN-1..15**, §10 cookie-cutter rubric, §14 evidence tiers. You do NOT own the §10 scoring (the art-direction-scout does) — but you DO flag which BAN tells are visibly present in the current code, so the two briefs triangulate.
+- `.claude/references/frontend-uplift-motion-vocabulary.md` — flat canon: §0 surface model + motion-jobs test, §8 AP-N anti-patterns (supersedes the older `frontend-uplift/motion-vocabulary.md` subdir copy)
+- Last 3 critique notes in `.claude/notes/` that touch frontend (grep `*critique*.md`)
 
-Then look at Proclivity's frontend through the lens of "what would a 2026 visual designer expect a personal-planning Chrome extension's UI to do that Proclivity's UI doesn't?"
+Then look at Proclivity's frontend through the lens of "what would a 2026 visual designer expect a personal-planning Chrome extension's UI to do that Proclivity's UI doesn't?"  Remember Proclivity is an **S-2 tool** surface (every working view) with the MeshBackground as a bounded S-1m decorative island (§9 surface map) — judge it by §6 premium-instrument discipline, NOT by experiential spectacle.
 
 Severity rubric (mirrors `references/frontend-uplift/phase-discover.md`):
 - **CRITICAL** — visual gap that erodes credibility on first load (e.g., mesh background hard-crashes light theme, section content overflows viewport on a common width). Rare.
@@ -43,7 +44,8 @@ For every visual gap you surface, capture:
 - **Severity**
 - **Affected sections / components** (cite file:line)
 - **Token-discipline / reduced-motion / a11y conflicts** (if any — these are the hardest to spot from screenshots)
-- **What 2026 SOTA expects** (cite a competitor from source-registry.md §1 or a motion-vocabulary primitive)
+- **What 2026 SOTA expects** (cite a planning/tool competitor — Linear / Sunsama / Things / Tabliss / Raycast, per the inspiration-scout's platform set — or a flat-canon `[MOT-N]` motion primitive; name the §6 premium-instrument trait it lacks)
+- **BAN tell present?** (if the gap is a `frontend-design-language.md` §5 cliché the current UI exhibits, name the `BAN-N` token + a `✓ code` file:line — this feeds the art-direction-scout's §10 rubric)
 - **What a credible v1 fill-in looks like** (one paragraph — sketch only)
 - **Why this hasn't been fixed yet** (honest read — usually "not a priority", "blocked by upstream design decision", or "the team didn't have motion-library tooling")
 
@@ -64,7 +66,7 @@ Use these sections in this order:
 3. **High gaps** — full entries.
 4. **Medium gaps** — full entries.
 5. **Low gaps** — full entries.
-6. **Token-discipline + reduced-motion + a11y conflicts found in code** — bullet list with file:line for every violation observed during the codebase read.
+6. **Token-discipline + reduced-motion + a11y conflicts found in code** — bullet list with file:line for every violation observed during the codebase read.  Include here any `frontend-design-language.md` §5 **BAN-N tells** the current UI visibly exhibits (token + `✓ code` file:line evidence per §14) — this triangulates with the art-direction-scout's §10 current-state score.
 7. **What Proclivity does well visually** — 4–6 bullets.  Calibration anchor; specific things competitors lack (e.g., "user-customizable `--accent` token; light AND dark theme support; reduced-motion baseline in `index.css`").
 8. **Themes** — 2–4 sentences on patterns across gaps.
 

@@ -132,3 +132,86 @@ Every candidate in the synthesis catalog must cite ONE of:
 - A pattern in §7 above (the "underdeveloped" list)
 
 If none of those apply, the proposal is probably not Proclivity-shaped — push back.
+
+---
+
+## §9 — House thesis (this repo's standing art direction)
+
+The shared canon (`.claude/references/frontend-design-language.md`) is product-neutral and carries **no**
+thesis — its §9 is a contract that says *the product declares its thesis in its own overlay*. This is
+that declaration for Proclivity. The `frontend-uplift-art-direction-scout` MUST read this section before
+proposing a thesis or directions; the `frontend-uplift-challenger` axis 11 scores every candidate against
+it. It states **invariants**, never a page silhouette — cloning a fixed shell across surfaces is BAN-15.
+
+### Visual thesis (one sentence — passes the swap-test)
+
+> **Proclivity is a private planning instrument you meet on every new tab: today's work and the long
+> horizon held in one calm, still frame — rendered almost entirely in ink and paper, with the single
+> accent the user chose as the only color that carries meaning.**
+
+Swap-test: substitute *Momentum* (photo-hero clock, not "one still planning frame"), *Sunsama* (hosted,
+team-adjacent, its own brand color — not "self-owned, user-chosen accent"), or *Todoist* (denser,
+multi-color priority chips). The sentence collapses for each — it is anchored to Proclivity's actual
+invariants, so it passes.
+
+### Invariants this thesis protects (NOT a silhouette)
+
+1. **Calm at extreme repeat-use.** This surface is opened dozens of times a day and is never the task —
+   it is the frame around the task. It must never demand attention, celebrate, or animate for its own
+   sake. Stillness is the default; motion earns its place only by naming a job (see below).
+2. **One still frame across time horizons.** Today → Sprint → LongTerm → Gantt is one instrument spanning
+   near-to-far planning, not a grid of equal-weight persona cards. Each view has a focal answer to "what
+   needs me now" (§6 lede discipline); no BAN-2/BAN-5 equal-card wall.
+3. **A single user-owned accent is the only chroma.** `--accent` is user-overridable (theme.css); every
+   other color is achromatic ink/paper steps. Semantic `--danger`/`--warn`/`--ok` are reserved for state
+   ONLY (BAN-11). No second neon, no rainbow tags-as-identity.
+4. **Private and local-only.** No "Welcome back, <name>", no team chrome, no telemetry, no hosted-endpoint
+   affordances (a hard `CLAUDE.md` constraint). The voice is a private instrument's, not a SaaS greeter's.
+5. **Legible-first, honest data.** 44 px rows for keyboard nav, tabular numerals on plan/date values,
+   real light+dark parity, and the reduced-motion baseline in `src/newtab/index.css` are load-bearing —
+   every direction inherits them.
+
+A run may satisfy these invariants through a canon §8 style seed (D-A Precision Instrument fits Proclivity
+most naturally), a §8 product mental-model, or a genuinely new direction — what it may **not** do is clone
+another surface's or a prior run's shell (BAN-15).
+
+### Named anti-references (what Proclivity must never become)
+
+| Anti-reference | What it looks like | BAN tokens |
+|---|---|---|
+| **The gamified to-do app** | Confetti/streak-flames on every completion, celebratory motion, "You're on fire!" copy | BAN-10 + motion anti-pattern (flat `frontend-uplift-motion-vocabulary.md` §8; confetti-on-every-todo already rejected in §6 above) |
+| **The generic AI-dashboard new-tab** | Navy shell + neon accents, sidebar + 6-up equal KPI/stat cards, "Welcome back" hero + Quick Actions | BAN-1, BAN-2, BAN-5, BAN-13 |
+| **The maximalist photo-hero new-tab** (Momentum-style) | Full-bleed background photo + centered clock + quote burying the actual planning data | BAN-8, BAN-5 (Proclivity *has* a Photos surface, but the plan is the point — the photo is never the hero) |
+| **The badge-soup planner** | Colored priority pills + status chips scattered across every todo row and card | BAN-7, BAN-11 |
+| **Multi-accent / rainbow-tag identity** | Per-tag/per-priority colors used as the primary visual system | BAN-1, BAN-11 (Proclivity commits to ONE user accent + reserved semantics) |
+
+(No persisted "never-again" screenshots exist yet; link them here when a future run captures one. The
+completed `2026q2-visual-refresh` run's screenshots under `.claude/notes/frontend-uplifts/…/screenshots/`
+are the current baseline of what IS.)
+
+### Surface map (grounded in `manifest.config.ts` — verify at read time)
+
+Proclivity's manifest declares exactly ONE UI surface: `chrome_url_overrides.newtab`. There is **no popup**
+(the toolbar `action` has no `default_popup` — the icon only carries the pending-alert badge and opens a
+new tab), **no options page, no content scripts, no injected panels.** The whole product is the new-tab
+dashboard. Therefore there is **no S-1** (marketing/landing/docs) and **no true S-1m threshold**
+(local-only, no login/onboarding/auth). Do not invent those surfaces.
+
+| Surface (code) | Class | Why / motion budget |
+|---|---|---|
+| New-tab shell — section nav + panel frame (`src/newtab/App.tsx`) | **S-2 tool** | Repeat-use, planning data, instant paint. `MOT-*` only; no spectacle. |
+| Today / Sprint / LongTerm (`src/sections/`) | **S-2 tool** | Dense planning lists; stillness; state-borne `MOT-*` only. Parallax/scroll-scrub = BLOCKER (flat §8 AP-1, on S-2). |
+| Gantt (`src/sections/Gantt.tsx`) | **S-2 tool** | Timeline data-viz; annotate, don't decorate (§6 data-viz). No scroll-driven scrub. |
+| Reminders (`src/sections/Reminders.tsx`) | **S-2 tool** | List + alarm state; `MOT-14 tick-flash`-class state feedback only; no magnetic-cursor on Snooze/Complete. |
+| Photos (`src/sections/Photos.tsx`) | **S-2 tool (media)** | Google Photos grid; skeleton loading is legitimate; the photo is content, never a hero. |
+| Calendar (`src/sections/Calendar.tsx`) | **S-2 tool** | Date grid; still. |
+| Settings modal + panes, TodoEditModal, QuickPrompt (`src/components/…`) | **S-2 tool** | Overlays; `MOT-4 scale-in` + backdrop fade only. |
+| **MeshBackground** — R3F/WebGL ambient layer (`src/components/MeshBackground.tsx`) | **S-1m-bounded (decorative island)** | The ONE place bounded ambient GPU craft is legitimate. It is NOT a full experiential surface (no threshold, no fast-path-through, always behind the working UI). Locks: reduced-motion → static poster (already lazy-loaded + shader-gated), must never obscure planning data (AP-6), must never leak parallax/scroll-motion onto the sections, single-accent-tinted. |
+
+**Consequence for the pipeline:** default `--surface tool`. The `frontend-uplift-experiential-scout` is
+**not** dispatched by default — Proclivity has no landing/hero/onboarding for it to serve. The
+MeshBackground is a bounded island the art-direction-scout may note, not a reason to flip the run to
+`experiential`. MV3 realities the challenger must respect: **CSP forbids remote code and inline script**
+(no CDN-loaded animation libs; everything bundles), the new-tab has no hosted egress (local-only), and any
+new dependency lands in the initial newtab chunk unless `React.lazy`-split (≤~400 KB soft / 500 KB hard,
+per `CLAUDE.md`).

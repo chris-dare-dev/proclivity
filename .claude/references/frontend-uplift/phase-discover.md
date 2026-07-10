@@ -1,6 +1,8 @@
-# Phase 1 — DISCOVER (parallel)
+# Phase 1 — DISCOVER (two waves, parallel within each wave)
 
-**Purpose:** dispatch 4 agents in a single assistant turn so they run concurrently in their own context windows.  The visual scout drives the live preview; the other 3 do code/web research in parallel.
+**Purpose:** dispatch scouts in TWO waves so the **art-direction frame** is grounded in live evidence before any direction is proposed.  **Wave 1 (evidence):** the visual-scout drives the live preview + the current-state-critic reads the code.  **Wave 2 (direction + outward), fed the wave-1 briefs + screenshots:** the **art-direction-scout** (EVERY mode) produces the design frame, and the library / inspiration / experiential scouts do code/web research.  Parallel WITHIN each wave; never one-at-a-time, never one blind wave.
+
+The `frontend-uplift-art-direction-scout` is the anti-cookie-cutter lens: it reads `.claude/references/frontend-design-language.md` (canon) + `.claude/references/frontend-uplift/proclivity-design-system.md` §9 (this repo's house thesis) and emits a visual thesis + 3 divergent directions + the active BAN-1..15 list + a surface map.  Synthesis OPENS with that frame.  It is **never** dropped — not even in lean mode.
 
 ## Preflight — verify dev server is up
 
@@ -14,37 +16,45 @@ If exit status != 0, halt and surface the recovery hint (`npm run dev`).  Re-inv
 
 The other 3 scouts (library, inspiration, current-state-critic) do NOT depend on the dev server.  In principle they could fire even if the preview is down.  In practice, the orchestrator should still halt the whole phase on preflight failure — partial discovery without visual evidence is low-signal.
 
-## Dispatch matrix
+## Dispatch matrix (mode → wave-2 scout set; the art-direction-scout fires in EVERY mode)
 
-| Mode | Agents fired | When to choose |
-|---|---|---|
-| **standard** (default) | visual-scout + library-scout + inspiration-scout + current-state-critic (4) | Default — the canonical configuration |
-| **lean** | visual-scout + current-state-critic (2) | When the user wants a quick scan and library/inspiration discovery is intentionally deferred |
+| Mode | Wave 1 (evidence) | Wave 2 (direction + outward) | When to choose |
+|---|---|---|---|
+| **lean** | visual + current-state | **art-direction only** | Quick scan; library/inspiration deferred.  The frame is still produced. |
+| **standard** (default) | visual + current-state | art-direction + library + inspiration | The canonical configuration |
+| **deep** | visual + current-state | art-direction + library + inspiration | Same set as standard, but note in the current-state-critic's dispatch that it should reason at maximum depth |
+| **experiential** | visual + current-state | art-direction + library + experiential | Marketing/brand work — ONLY meaningful when `--surface` ≠ `tool`; drops inspiration |
 
-Set via `checkpoint.py <ID> --set discover_mode='"standard"'` BEFORE dispatch so resume can see the original choice.
+**Surface gate (absolute):** the `frontend-uplift-experiential-scout` is dispatched ONLY when `--surface` ≠ `tool`.  Proclivity's default is `tool` (every working view is S-2; the MeshBackground is a bounded S-1m island — §9 surface map), so by default the experiential-scout does NOT fire; its parallax/WebGL candidates would be axis-11 BLOCKERs on an S-2 surface.
 
-## Dispatch protocol (CRITICAL — single turn)
+Set the mode via `checkpoint.py <ID> --set discover_mode='"standard"'` BEFORE dispatch so resume can see the original choice.  `--surface` is threaded into dispatch as `{SURFACE}` (not persisted; default `tool`).
 
-Fire **all selected agents in one assistant message** containing N `Agent` tool blocks.  Sequential dispatch destroys diversity and doubles wall-clock.
+## Dispatch protocol (CRITICAL — two waves, parallel within each)
 
-Each agent receives the FULL canonical prompt from `references/frontend-uplift/agent-prompts.md` verbatim, with these substitutions:
+Fire **each wave's agents in one assistant message** containing N `Agent` tool blocks.  Wave 1 first; when its briefs return, fire wave 2 fed the wave-1 evidence.  Do NOT serialize to one-at-a-time (destroys diversity, doubles wall-clock) and do NOT collapse both waves into one blind turn (the frame must see the evidence).
+
+Dispatch each agent **by its `subagent_type` name** — the agent's `.claude/agents/<name>.md` body IS its canonical prompt.  (The `agent-prompts.md` subdir copies are superseded and pending retirement — do not dispatch from them.  Fallback: if a just-synced agent fails name dispatch this session, use `subagent_type: general-purpose` with that agent's file body pasted inline.)  Substitutions:
 
 - `{ID}` → uplift slug
 - `{UPLIFT_BRIEF}` → `state.uplift_brief` verbatim
 - `{BRIEF_PATH}` → `.claude/notes/frontend-uplifts/{ID}/discover/<agent-short-name>-brief.md`
-- `{SCREENSHOT_DIR}` → `state.screenshot_dir` (only used by the visual scout)
+- `{SCREENSHOT_DIR}` → `state.screenshot_dir` (visual scout)
 - `{VIEWS}` → comma-joined `state.views_to_walk` (empty = default 8-view set)
+- `{SURFACE}` → the parsed `--surface` (default `tool`) — art-direction + experiential scouts
+- Wave-2 evidence for the art-direction-scout: `{VISUAL_MANIFEST}` = the `screenshots/` dir (Read renders PNGs), `{CURRENT_STATE_BRIEF}` = the current-state-critic brief path
 
-Use `isolation: worktree` on every agent — each gets a worktree-isolated repo state.  Visual-scout uses the live newtab at `http://localhost:5173/src/newtab/index.html`; that's a process-external resource (worktrees don't affect it).
+Use `isolation: worktree` on every agent.  Visual-scout uses the live newtab at `http://localhost:5173/src/newtab/index.html`; that's a process-external resource (worktrees don't affect it).
 
 ## Subagent_type and model
 
-| Agent | Sub-agent type | Model | Tools beyond default |
+| Agent (`subagent_type`) | Wave | Model | Notes |
 |---|---|---|---|
-| visual-scout | `general-purpose` | sonnet | Add `Bash` (for image-tool inspection), `mcp__Claude_Preview__*` family (load via ToolSearch if deferred) |
-| library-scout | `general-purpose` | sonnet | Standard `Bash + Read + Grep + Glob + WebSearch + WebFetch + Write` |
-| inspiration-scout | `general-purpose` | sonnet | Same as library-scout |
-| current-state-critic | `general-purpose` | sonnet | Standard (no Web tools needed; codebase-only) |
+| `frontend-uplift-visual-scout` | 1 | sonnet | Drives the live preview (`mcp__Claude_Preview__*` / Claude-in-Chrome fallback — load via ToolSearch if deferred); writes PNGs to `screenshots/` |
+| `frontend-uplift-current-state-critic` | 1 | sonnet | Codebase-only; reads the canon + §9 overlay, flags BAN-N tells |
+| `frontend-uplift-art-direction-scout` | 2 | opus / effort high | **EVERY mode.**  Produces the frame; reads the canon + §9 overlay + wave-1 evidence |
+| `frontend-uplift-library-scout` | 2 | sonnet | standard / deep / experiential |
+| `frontend-uplift-inspiration-scout` | 2 | sonnet | standard / deep (dropped in experiential) |
+| `frontend-uplift-experiential-scout` | 2 | sonnet / effort high | ONLY when `--surface` ≠ `tool` |
 
 ## Canonical 8-view set (visual-scout default)
 
@@ -103,4 +113,5 @@ Calibrate HONESTLY.  A clean view with no gaps is a credible result.
 - **Visual scout's preview tool can't reach localhost:5173** → preflight should have caught this; if it failed silently, the visual scout returns a "preview-unreachable" brief and the orchestrator surfaces to the user before advancing state.
 - **A library / inspiration scout returns a thin brief** (< 5 candidates) → re-dispatch ONCE with a stricter prompt suffix.  Accept the second attempt's result; weight accordingly in synthesis.
 - **A scout hangs for >30 min** → kill the task; re-dispatch with the same prompt.
-- **All 4 scouts fail** → halt; surface to the user.
+- **The art-direction-scout fails to return a frame** → the run is FRAME-DEGRADED.  Say so loudly.  Synthesis builds a PROVISIONAL frame from `frontend-design-language.md` §8 + the §9 overlay; the challenger's axis 11 treats a frameless catalog as a run-level BLOCKER.  Prefer re-dispatching the art-direction-scout once before falling back.
+- **All dispatched scouts fail** → halt; surface to the user.

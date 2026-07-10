@@ -31,9 +31,9 @@ Views to walk (CSV; empty = default 8-view set from references/frontend-uplift/s
 Screenshot directory: {SCREENSHOT_DIR}
 
 Read these first (5-minute orientation):
-- /Users/chris.dare/Personal/SourceCode/proclivity/CLAUDE.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md (you cite primitives by ID — e.g. [MOT-3 stagger-reveal])
+- CLAUDE.md
+- .claude/references/frontend-uplift/proclivity-design-system.md
+- .claude/references/frontend-uplift/motion-vocabulary.md (you cite primitives by ID — e.g. [MOT-3 stagger-reveal])
 
 Then walk every view (15–20 wall-clock minutes total):
 

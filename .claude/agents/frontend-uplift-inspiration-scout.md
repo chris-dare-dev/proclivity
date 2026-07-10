@@ -16,9 +16,9 @@ The user-supplied scope for this uplift:
 {UPLIFT_BRIEF}
 
 Read these first (5-minute orientation):
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/source-registry.md §1 (inspiration platforms)
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md (to anchor every proposal in Proclivity's existing surface)
+- .claude/references/frontend-uplift/source-registry.md §1 (inspiration platforms)
+- .claude/references/frontend-uplift/motion-vocabulary.md
+- .claude/references/frontend-uplift/proclivity-design-system.md (to anchor every proposal in Proclivity's existing surface)
 
 Then cover (15 wall-clock minutes total):
 

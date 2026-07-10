@@ -16,11 +16,11 @@ The user-supplied scope for this uplift:
 {UPLIFT_BRIEF}
 
 Read these first (5-minute orientation):
-- /Users/chris.dare/Personal/SourceCode/proclivity/package.json (current deps + version pins — never propose a lib Proclivity already has)
-- /Users/chris.dare/Personal/SourceCode/proclivity/CLAUDE.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/source-registry.md §2 (candidate libraries)
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md (current stack + gaps + reserved tokens)
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md
+- package.json (current deps + version pins — never propose a lib Proclivity already has)
+- CLAUDE.md
+- .claude/references/frontend-uplift/source-registry.md §2 (candidate libraries)
+- .claude/references/frontend-uplift/proclivity-design-system.md (current stack + gaps + reserved tokens)
+- .claude/references/frontend-uplift/motion-vocabulary.md
 
 Then cover (15 wall-clock minutes total):
 
