@@ -16,17 +16,37 @@ vault** via the Local REST API, **surface them as native Todos + Gantt bars**,
 and **write task-completion back** to a per-actor progress journal — all over
 loopback HTTP, no network, no new runtime deps.
 
-- **Code: complete, green, pushed.** `main` HEAD = `6edc367`, in sync with
-  `origin/main`. `npm run build` exit 0 (initial newtab chunk 305.51 kB gzip
-  97.65 kB, under the 400 kB soft ceiling). `npm test` = **27 passed**.
-- **Live integration: partially verified on the maintainer's Windows machine.**
+- **Code: complete, green, pushed.** `npm run build` exit 0 (initial newtab chunk
+  305.51 kB gzip 97.65 kB, under the 400 kB soft ceiling). `npm test` =
+  **53 passed**.
+- **Live integration: FULLY VERIFIED on the maintainer's Windows machine
+  (2026-07-09).** Phase G is closed.
   - ✅ Connect (Test connection → 200) — works.
   - ✅ Add roadmap (`readCompiled` 200 + parse) — works.
-  - ✅ Ingest → Todos — works (2 gemini-nano spikes appear under Long-term).
+  - ✅ Ingest → Todos — works (2 gemini-nano spikes under Long-term; they render
+    under their compiled **titles**, not their ids — see §2).
   - ✅ Gantt path — proven **empty-correct** (gemini-nano has no dated items;
     chart header renders, zero bars — expected, not a bug).
-  - ⛔ **Write-back — NOT yet exercised.** `plans/gemini-nano/progress/proclivity.jsonl`
-    does not exist yet. This is THE remaining verification (see §6).
+  - ✅ **Write-back — VERIFIED.** Ticking both spikes appended **two** lines to
+    `plans/gemini-nano/progress/proclivity.jsonl` (created on first write):
+    ```json
+    {"id":"gemini-nano-spike-1","field":"status","value":"done","at":"2026-07-09T23:09:48-04:00","actor":"proclivity"}
+    {"id":"gemini-nano-spike-2","field":"status","value":"done","at":"2026-07-09T23:09:49-04:00","actor":"proclivity"}
+    ```
+    LF only, no BOM, trailing newline; `at` offset-aware to seconds, no `Z`,
+    parses under `datetime.fromisoformat`. `agent.jsonl` byte-unchanged
+    (md5 `3b3e577e20751ce0572a7b803d311cc9`). Replaying the compiler's fold
+    confirms proclivity's events win for both spikes while `m1`/`m2`/`m3` still
+    resolve from `agent.jsonl` — i.e. date-only and offset-aware `at` values
+    interleave correctly under the string compare, no naive-vs-aware `TypeError`.
+  - ⚠️ **Note the test's design.** Both spikes resolve to `done` even under the
+    old truncating-POST bug (spike-1 would fall back to `agent.jsonl`, which
+    already says `done`), so the *merged status* proves nothing. Only the **line
+    count** does. If this journal ever holds one line per tick instead of
+    accumulating, the SW is truncating — see `obsidianProxy.ts`.
+  - Side effect, intended and accepted: `gemini-nano-spike-2` is now effectively
+    `done` in the plan. `spike-1` was already `done` in `agent.jsonl`, so its
+    event is a no-op on merged state.
 - Working tree has one unrelated dirty file: `M AGENTS.md` (vault-linker
   frontmatter injection from the `.obsidian` PostToolUse hook — leave it or
   commit separately; it is NOT part of Phase G).
@@ -196,9 +216,22 @@ pane shows a nudge when relevant).
 
 ---
 
-## 6. THE remaining task — verify write-back end-to-end
+## 6. ✅ DONE (2026-07-09) — write-back verified end-to-end
 
-Everything above the write-back leg is confirmed. To close Phase G:
+**This section is history.** Both spikes were ticked; the journal accumulated two
+lines; see §0 for the captured evidence. Kept as the procedure to RE-verify after
+any change to `obsidianProxy.ts` / `client.ts` / `sync.ts`.
+
+Two prerequisites this run surfaced, neither obvious:
+- The extension ID namespaces `chrome.storage.local`. Commit `19d341f` restored
+  the manifest `key`, so reloading swaps the bucket
+  (`pgkghdip…` → `cpflcminmnekdfjpmdhgblbolmclcdkk`) and the new tab comes up
+  EMPTY. Export via Settings → Data **before** reloading, re-import after.
+- The roadmap store is excluded from export (it holds the API key), so host, key
+  and source must be re-entered. Convenient side effect: the `writtenBack` cursor
+  starts empty, so both ticks are guaranteed to journal.
+
+The original procedure:
 
 1. Ensure BOTH gemini-nano spike todos are visible (Long-term tab).
 2. **Tick spike-1.** The newtab detector (`App.tsx`) fires on the `rm:` done-flip
