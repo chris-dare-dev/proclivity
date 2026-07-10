@@ -20,7 +20,8 @@ Read these first (5-minute orientation):
 - CLAUDE.md
 - .claude/references/frontend-uplift/source-registry.md §2 (candidate libraries)
 - .claude/references/frontend-uplift/proclivity-design-system.md (current stack + gaps + reserved tokens)
-- .claude/references/frontend-uplift/motion-vocabulary.md
+- .claude/references/frontend-uplift-motion-vocabulary.md  (shared primitives: cite [MOT-N])
+- .claude/references/frontend-uplift/motion-extensions.md  (Proclivity-only primitives: cite [PMOT-N])
 
 Then cover (15 wall-clock minutes total):
 
@@ -38,7 +39,7 @@ For every library you surface, capture:
 - **Maintenance signal** — last release, commit cadence, GitHub stars
 - **What Proclivity could do with it** — a SPECIFIC affordance (not "this library is good")
 - **Proclivity positioning** — adopt-as-import, vendor-copy-of-a-pattern, or design-pattern lift only
-- **Motion primitives unlocked** — cite [MOT-N] from motion-vocabulary.md
+- **Motion primitives unlocked** — cite [MOT-N] from the flat canon, or [PMOT-N] from motion-extensions.md
 - **Risk flags** — bundle bloat, license complexity, abandonware risk, React-19-only feature dependency
 - **Compatibility with React 18 + Vite + plain-CSS + strict-TS**
 - **Lazy-load plan** — if the bundle >20 KB gz, what's the React.lazy boundary?  Without one, the candidate is BLOCKER-prone.

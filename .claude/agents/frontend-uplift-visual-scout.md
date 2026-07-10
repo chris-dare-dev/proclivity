@@ -33,7 +33,8 @@ Screenshot directory: {SCREENSHOT_DIR}
 Read these first (5-minute orientation):
 - CLAUDE.md
 - .claude/references/frontend-uplift/proclivity-design-system.md
-- .claude/references/frontend-uplift/motion-vocabulary.md (you cite primitives by ID — e.g. [MOT-3 stagger-reveal])
+- .claude/references/frontend-uplift-motion-vocabulary.md  (shared primitives — cite by ID, e.g. [MOT-3 stagger-reveal])
+- .claude/references/frontend-uplift/motion-extensions.md  (Proclivity-only primitives — cite by ID, e.g. [PMOT-60 mesh-gradient-bg])
 
 Then walk every view (15–20 wall-clock minutes total):
 
@@ -52,7 +53,7 @@ After walking, write the brief.  For every VISUAL gap you surface, capture:
 - **View affected** (one or more)
 - **Screenshot evidence** (relative path under {SCREENSHOT_DIR})
 - **What a user sees** (one paragraph — be specific, NOT subjective)
-- **What 2026 SOTA would look like** (cite a motion-vocabulary primitive [MOT-N] when relevant)
+- **What 2026 SOTA would look like** (cite a canon primitive [MOT-N], or a Proclivity-only [PMOT-N], when relevant)
 - **Severity** (CRITICAL / HIGH / MEDIUM / LOW per `references/frontend-uplift/phase-discover.md`)
 - **Closest existing Proclivity pattern** (cite file:line in src/)
 

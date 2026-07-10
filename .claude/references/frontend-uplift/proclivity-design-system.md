@@ -202,7 +202,7 @@ dashboard. Therefore there is **no S-1** (marketing/landing/docs) and **no true 
 | New-tab shell — section nav + panel frame (`src/newtab/App.tsx`) | **S-2 tool** | Repeat-use, planning data, instant paint. `MOT-*` only; no spectacle. |
 | Today / Sprint / LongTerm (`src/sections/`) | **S-2 tool** | Dense planning lists; stillness; state-borne `MOT-*` only. Parallax/scroll-scrub = BLOCKER (flat §8 AP-1, on S-2). |
 | Gantt (`src/sections/Gantt.tsx`) | **S-2 tool** | Timeline data-viz; annotate, don't decorate (§6 data-viz). No scroll-driven scrub. |
-| Reminders (`src/sections/Reminders.tsx`) | **S-2 tool** | List + alarm state; `MOT-14 tick-flash`-class state feedback only; no magnetic-cursor on Snooze/Complete. |
+| Reminders (`src/sections/Reminders.tsx`) | **S-2 tool** | List + alarm state; `PMOT-14 tick-flash`-class state feedback only; no magnetic-cursor on Snooze/Complete. |
 | Photos (`src/sections/Photos.tsx`) | **S-2 tool (media)** | Google Photos grid; skeleton loading is legitimate; the photo is content, never a hero. |
 | Calendar (`src/sections/Calendar.tsx`) | **S-2 tool** | Date grid; still. |
 | Settings modal + panes, TodoEditModal, QuickPrompt (`src/components/…`) | **S-2 tool** | Overlays; `MOT-4 scale-in` + backdrop fade only. |

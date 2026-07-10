@@ -17,7 +17,8 @@ The user-supplied scope for this uplift:
 
 Read these first (5-minute orientation):
 - .claude/references/frontend-uplift/source-registry.md §1 (inspiration platforms)
-- .claude/references/frontend-uplift/motion-vocabulary.md
+- .claude/references/frontend-uplift-motion-vocabulary.md  (shared primitives: cite [MOT-N])
+- .claude/references/frontend-uplift/motion-extensions.md  (Proclivity-only primitives: cite [PMOT-N])
 - .claude/references/frontend-uplift/proclivity-design-system.md (to anchor every proposal in Proclivity's existing surface)
 
 Then cover (15 wall-clock minutes total):
@@ -33,14 +34,14 @@ For every pattern you surface, capture:
 - **Source platform** (which competitor demonstrates it)
 - **Public evidence** (URL — design-blog post, changelog, marketing page; NOT an auth-walled UI)
 - **What makes it good** (one paragraph — be specific about what a user feels)
-- **Motion vocabulary primitives** — cite [MOT-N name] from motion-vocabulary.md
+- **Motion vocabulary primitives** — cite [MOT-N name] from the flat canon, or [PMOT-N name] from motion-extensions.md. Never a bare [MOT-N] for a Proclivity-only primitive.
 - **Where it would fit in Proclivity** — map to a specific section / component (cite src/ file:line for the closest existing analog)
 - **Proclivity-positioning** (planning-surface only? settings? mesh background?)
 
 Hard rules:
 - Patterns must be VERIFIABLE via public evidence — design-blog posts, video walkthroughs, public marketing pages.  Avoid screenshots-from-memory.
 - **Bias toward PLANNING-surface patterns** (todo lists, calendars, drawers, modals).  Marketing-surface patterns matter for future welcome screens but are less load-bearing for daily use.
-- Don't propose anti-patterns from motion-vocabulary §8 (parallax on planning sections, magnetic-cursor on operational buttons, auto-rotating carousels, confetti on every todo completion).
+- Don't propose anti-patterns from motion-extensions.md §3 (PMOT-NO-N) (parallax on planning sections, magnetic-cursor on operational buttons, auto-rotating carousels, confetti on every todo completion).
 - Reserved-token respect: never propose patterns using `--danger` / `--warn` / `--ok` for decorative purposes.
 - No code.  Write a brief.
 - **Bias toward concrete deltas vs Proclivity today.**  "Linear has nice transitions" is weak; "Linear's section-switch fade lasts 200ms with a shared-element-transition on the breadcrumb — Proclivity's hard-cut between Today/Sprint feels jarring; [MOT-50 section-fade] + [MOT-51 shared-element-transition] would close this" is strong.

@@ -26,7 +26,7 @@ Read these first (much of your 15-minute budget — context is the deliverable; 
 - `package.json`
 - `.claude/references/frontend-uplift/proclivity-design-system.md` — the repo design inventory + **§9 house thesis** (thesis, invariants, named anti-references, surface map)
 - `.claude/references/frontend-design-language.md` — the taste canon: §1 anti-reference, §5 **BAN-1..15**, §10 cookie-cutter rubric, §14 evidence tiers. You do NOT own the §10 scoring (the art-direction-scout does) — but you DO flag which BAN tells are visibly present in the current code, so the two briefs triangulate.
-- `.claude/references/frontend-uplift-motion-vocabulary.md` — flat canon: §0 surface model + motion-jobs test, §8 AP-N anti-patterns (supersedes the older `frontend-uplift/motion-vocabulary.md` subdir copy)
+- `.claude/references/frontend-uplift-motion-vocabulary.md` — flat canon: §0 surface model + motion-jobs test, §8 AP-N anti-patterns (supersedes the older `frontend-uplift/motion-extensions.md` subdir copy)
 - Last 3 critique notes in `.claude/notes/` that touch frontend (grep `*critique*.md`)
 
 Then look at Proclivity's frontend through the lens of "what would a 2026 visual designer expect a personal-planning Chrome extension's UI to do that Proclivity's UI doesn't?"  Remember Proclivity is an **S-2 tool** surface (every working view) with the MeshBackground as a bounded S-1m decorative island (§9 surface map) — judge it by §6 premium-instrument discipline, NOT by experiential spectacle.

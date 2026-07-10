@@ -17,7 +17,7 @@ Read these first (repo-relative paths — resolve from the repo root; there is n
 - `CLAUDE.md`
 - `.claude/references/frontend-design-language.md` — **THE taste canon**: §3 surface classes, §5 BAN-1..15, §6 premium-instrument spec, §10 cookie-cutter rubric, §14 evidence tiers + band→outcome map. Axis 11 scores against these directly.
 - `.claude/references/frontend-uplift/proclivity-design-system.md` — the repo overlay, esp. **§9 house thesis** (thesis + invariants + named anti-references + surface map). Axis 11 checks candidates against §9.
-- `.claude/references/frontend-uplift-motion-vocabulary.md` — flat canon: **§0 surface model + motion-jobs test**, **§8 AP-N anti-patterns (surface-conditional)**, §9 token discipline, §10 library-compat matrix. (This flat canon supersedes the older `frontend-uplift/motion-vocabulary.md` subdir copy.)
+- `.claude/references/frontend-uplift-motion-vocabulary.md` — flat canon: **§0 surface model + motion-jobs test**, **§8 AP-N anti-patterns (surface-conditional)**, §9 token discipline, §10 library-compat matrix. (This flat canon owns the `[MOT-N]` namespace. Proclivity-only primitives live in `frontend-uplift/motion-extensions.md` under `[PMOT-N]` — never a bare `[MOT-N]`.)
 - `tsconfig.json` (strict-mode baseline)
 - `package.json` (current deps; React 18, not 19; MV3 via @crxjs — CSP forbids remote code + inline script, so no CDN-loaded libs)
 - `src/newtab/index.css` (reduced-motion baseline)

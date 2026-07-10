@@ -1,5 +1,12 @@
 # Canonical sub-agent prompts — frontend-uplift
 
+
+> **DEPRECATED (2026-07).** This file is no longer the dispatch source — `/frontend-uplift`
+> dispatches by `subagent_type` name. Its `[MOT-N]` citations refer to the RETIRED repo-local
+> motion table, not the fleet canon: local `MOT-31` was `magnetic-cursor`, canon `MOT-31` is
+> `floating-orbs`. Read `.claude/references/frontend-uplift/motion-extensions.md` §1 before
+> trusting any `[MOT-N]` below. Kept for history; retire deliberately.
+
 **Single source of truth for every prompt the orchestrator dispatches.**  Update here, NOT in the slash command body.  Each prompt is self-contained because sub-agents don't see the conversation context.
 
 When dispatching, copy the relevant prompt verbatim and substitute `{ID}`, `{UPLIFT_BRIEF}`, `{BRIEF_PATH}`, `{SYNTHESIS_PATH}`, `{CHALLENGE_PATH}`, `{SCREENSHOT_DIR}`, `{VIEWS}` (CSV of view ids; empty = default 8-view set).
@@ -20,9 +27,9 @@ Views to walk (CSV; empty = default 8-view set from references/frontend-uplift/s
 Screenshot directory: {SCREENSHOT_DIR}
 
 Read these first (5-minute orientation):
-- /Users/chris.dare/Personal/SourceCode/proclivity/CLAUDE.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md (you cite primitives by ID — e.g. [MOT-3 stagger-reveal])
+- CLAUDE.md
+- .claude/references/frontend-uplift/proclivity-design-system.md
+- .claude/references/frontend-uplift-motion-vocabulary.md (canon [MOT-N]) + .claude/references/frontend-uplift/motion-extensions.md (Proclivity-only [PMOT-N])
 
 Then walk every view (15–20 wall-clock minutes total):
 
@@ -80,11 +87,11 @@ The user-supplied scope for this uplift:
 {UPLIFT_BRIEF}
 
 Read these first (5-minute orientation):
-- /Users/chris.dare/Personal/SourceCode/proclivity/package.json (current deps + version pins — never propose a lib Proclivity already has)
-- /Users/chris.dare/Personal/SourceCode/proclivity/CLAUDE.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/source-registry.md §2 (candidate libraries)
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md (current stack + gaps + reserved tokens)
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md
+- package.json (current deps + version pins — never propose a lib Proclivity already has)
+- CLAUDE.md
+- .claude/references/frontend-uplift/source-registry.md §2 (candidate libraries)
+- .claude/references/frontend-uplift/proclivity-design-system.md (current stack + gaps + reserved tokens)
+- .claude/references/frontend-uplift-motion-vocabulary.md (canon) + .claude/references/frontend-uplift/motion-extensions.md (PMOT-N)
 
 Then cover (15 wall-clock minutes total):
 
@@ -141,9 +148,9 @@ The user-supplied scope for this uplift:
 {UPLIFT_BRIEF}
 
 Read these first (5-minute orientation):
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/source-registry.md §1 (inspiration platforms)
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md (to anchor every proposal in Proclivity's existing surface)
+- .claude/references/frontend-uplift/source-registry.md §1 (inspiration platforms)
+- .claude/references/frontend-uplift-motion-vocabulary.md (canon) + .claude/references/frontend-uplift/motion-extensions.md (PMOT-N)
+- .claude/references/frontend-uplift/proclivity-design-system.md (to anchor every proposal in Proclivity's existing surface)
 
 Then cover (15 wall-clock minutes total):
 
@@ -195,16 +202,16 @@ The user-supplied scope for this uplift:
 {UPLIFT_BRIEF}
 
 Read these first (much of your 15-minute budget — context is the deliverable):
-- /Users/chris.dare/Personal/SourceCode/proclivity/CLAUDE.md (end-to-end)
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/styles/theme.css
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/newtab/App.tsx
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/newtab/App.css
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/newtab/index.css
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/sections/ (skim every section's main component)
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/components/ (skim each domain dir)
-- /Users/chris.dare/Personal/SourceCode/proclivity/package.json
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md
+- CLAUDE.md (end-to-end)
+- src/styles/theme.css
+- src/newtab/App.tsx
+- src/newtab/App.css
+- src/newtab/index.css
+- src/sections/ (skim every section's main component)
+- src/components/ (skim each domain dir)
+- package.json
+- .claude/references/frontend-uplift/proclivity-design-system.md
+- .claude/references/frontend-uplift-motion-vocabulary.md (canon) + .claude/references/frontend-uplift/motion-extensions.md (PMOT-N)
 - Last 3 critique notes in /.claude/notes/ that touch frontend (grep `*critique*.md`)
 
 Then look at Proclivity's frontend through the lens of "what would a 2026 visual designer expect a personal-planning Chrome extension's UI to do that Proclivity's UI doesn't?"
@@ -259,12 +266,12 @@ You are the CHALLENGER for Proclivity frontend-uplift {ID}.  Phase 2 synthesized
 
 Read these first:
 - {SYNTHESIS_PATH} (the catalog you're critiquing) — end-to-end
-- /Users/chris.dare/Personal/SourceCode/proclivity/CLAUDE.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/proclivity-design-system.md
-- /Users/chris.dare/Personal/SourceCode/proclivity/.claude/references/frontend-uplift/motion-vocabulary.md (§8 anti-patterns especially)
-- /Users/chris.dare/Personal/SourceCode/proclivity/tsconfig.json (strict-mode baseline)
-- /Users/chris.dare/Personal/SourceCode/proclivity/package.json (current deps; React 18, not 19)
-- /Users/chris.dare/Personal/SourceCode/proclivity/src/newtab/index.css (reduced-motion baseline)
+- CLAUDE.md
+- .claude/references/frontend-uplift/proclivity-design-system.md
+- .claude/references/frontend-uplift/motion-extensions.md (§3 PMOT-NO-N anti-patterns especially)
+- tsconfig.json (strict-mode baseline)
+- package.json (current deps; React 18, not 19)
+- src/newtab/index.css (reduced-motion baseline)
 
 You may also read the 4 scout briefs under `.claude/notes/frontend-uplifts/{ID}/discover/` to ground-check the synthesis against its sources.
 
