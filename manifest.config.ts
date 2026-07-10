@@ -1,14 +1,22 @@
 import { defineManifest } from "@crxjs/vite-plugin";
 import pkg from "./package.json" with { type: "json" };
 
-// Google Photos Picker API OAuth client_id. Filled in by the user during
-// first-time setup — see README "Google Photos setup". The value below is a
-// placeholder; the Photos feature is inert until a real client_id is
-// substituted here (and the extension reloaded). We keep it in the manifest
-// (rather than chrome.storage) because `chrome.identity.getAuthToken` reads
-// its OAuth client config exclusively from manifest.json at install time.
+// Google Photos Picker API OAuth client_id — see README "Google Photos setup".
+// It lives in the manifest rather than chrome.storage because
+// `chrome.identity.getAuthToken` reads its OAuth client config exclusively
+// from manifest.json at install time.
+//
+// This is a Chrome-Extension-type client, so Google binds it to exactly one
+// Item ID: `cpflcminmnekdfjpmdhgblbolmclcdkk`, the ID that `key` below pins.
+// The two values are a matched pair — changing either one alone makes
+// getAuthToken fail with `bad client id: <client_id>`.
+//
+// The previous client (…-fuont6t2if38p47u59ers1uj65trl08d) is bound to a
+// path-derived ID from a checkout that predates `key`. It stays valid for any
+// machine still on the old manifest, and can be deleted once every install has
+// rebuilt against this one.
 const GOOGLE_OAUTH_CLIENT_ID =
-  "455929700165-fuont6t2if38p47u59ers1uj65trl08d.apps.googleusercontent.com";
+  "455929700165-g5ofdseaujmlmob280kod830ird2lsro.apps.googleusercontent.com";
 
 // Base64 DER public key pinning the extension ID to
 // `cpflcminmnekdfjpmdhgblbolmclcdkk`. Chrome takes the first 16 bytes of the
