@@ -1,0 +1,119 @@
+/* EmbedFrame — full-bleed embedded website for the OSINT / Finances tabs.
+   Reuses the shared theme tokens (--panel, --border, --accent, --text,
+   --text-dim, --radius) so it tracks light/dark and the accent preset. */
+
+.embed-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.embed-frame__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.embed-frame__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+.embed-frame__note {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.embed-frame__external {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+.embed-frame__external:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--panel);
+}
+.embed-frame__external svg {
+  display: block;
+}
+
+.embed-frame__viewport {
+  position: relative;
+  /* Tall enough to be a usable dashboard; clamps so it never overflows a
+     short viewport or grows absurdly on an ultrawide. .app caps width at
+     1100px, so the frame inherits that as its max width. */
+  height: clamp(480px, 78vh, 1100px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.embed-frame__iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  /* Fade in once the frame reports load so the panel background doesn't
+     flash through mid-navigation. */
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.embed-frame__iframe[data-loaded="true"] {
+  opacity: 1;
+}
+
+.embed-frame__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.embed-frame__spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: embed-frame-spin 0.8s linear infinite;
+}
+
+@keyframes embed-frame-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Honor reduced-motion: drop the spin and the fade (belt-and-suspenders with
+   the global theme.css reset, matching the App.css section-fade guards). */
+[data-reduced-motion="true"] .embed-frame__spinner,
+[data-reduced-motion="true"] .embed-frame__iframe {
+  animation: none;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .embed-frame__spinner {
+    animation: none;
+  }
+  .embed-frame__iframe {
+    transition: none;
+  }
+}

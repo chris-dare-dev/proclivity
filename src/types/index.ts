@@ -9,12 +9,14 @@ export type TodoScope = "today" | "sprint" | "long";
  * type close to other domain primitives like TodoScope above.
  */
 export type Tab =
+  | "osint"
   | "today"
   | "sprint"
   | "long"
   | "gantt"
   | "reminders"
   | "calendar"
+  | "finance"
   | "closed";
 
 /*

@@ -68,7 +68,21 @@ export default defineManifest({
   action: {
     default_title: "Proclivity",
   },
-  permissions: ["storage", "alarms", "identity"],
+  permissions: [
+    "storage",
+    "alarms",
+    "identity",
+    // declarativeNetRequestWithHostAccess: powers the static ruleset in
+    // `declarative_net_request` below, which strips Monarch's anti-framing
+    // response headers so the "Finances" embed tab can render app.monarch.com
+    // inside an <iframe>. The host-access variant (rather than full
+    // `declarativeNetRequest`) restricts rule effects to the origins granted
+    // in `host_permissions` — least-authority: the rules can ONLY touch
+    // *.monarch.com / *.monarchmoney.com responses, nothing else the user
+    // browses. See src/components/embed/EmbedFrame.tsx and
+    // public/dnr/monarch-embed-rules.json.
+    "declarativeNetRequestWithHostAccess",
+  ],
   // host_permissions:
   //   - photospicker.googleapis.com — Picker session lifecycle (create, poll,
   //     list mediaItems, delete).
@@ -85,7 +99,44 @@ export default defineManifest({
     "https://photospicker.googleapis.com/*",
     "https://*.googleusercontent.com/*",
     "http://127.0.0.1/*",
+    // Monarch embed (Finances tab): grants the declarativeNetRequest ruleset
+    // authority to modify response headers on Monarch's domains ONLY. Monarch
+    // redirects app.monarchmoney.com → app.monarch.com and serves assets under
+    // both, so both apexes are listed. Without host access to these, the
+    // host-access DNR variant would silently no-op and the frame would stay
+    // blocked. See public/dnr/monarch-embed-rules.json.
+    "https://*.monarch.com/*",
+    "https://*.monarchmoney.com/*",
   ],
+  // Static declarativeNetRequest ruleset. The single rule removes
+  // `x-frame-options` and `content-security-policy` from Monarch's SUB-FRAME
+  // responses so app.monarch.com renders inside the Finances embed tab.
+  //
+  // Why the whole CSP header is removed rather than surgically edited: Monarch
+  // blocks framing via BOTH `X-Frame-Options: SAMEORIGIN` and a CSP
+  // `frame-ancestors 'self' www.reddit.com *.finicity.com` directive. DNR's
+  // modifyHeaders can only add/remove/append entire headers — it cannot rewrite
+  // a substring — so dropping frame-ancestors means dropping the CSP header.
+  //
+  // Scope is deliberately narrow: `resourceTypes: ["sub_frame"]` means the rule
+  // fires ONLY when Monarch is loaded as an iframe. Browsing app.monarch.com in
+  // a normal top-level tab is a `main_frame` load and is left completely
+  // untouched — its security headers stay intact.
+  //
+  // SECURITY NOTE: stripping CSP + XFO weakens Monarch's clickjacking / XSS
+  // defenses inside the embed. This is an intentional, user-authorized tradeoff
+  // for the convenience of an embedded finance view; the EmbedFrame sandbox
+  // (no allow-top-navigation) contains frame-busting, and an "Open externally"
+  // affordance is always available.
+  declarative_net_request: {
+    rule_resources: [
+      {
+        id: "monarch_embed",
+        enabled: true,
+        path: "public/dnr/monarch-embed-rules.json",
+      },
+    ],
+  },
   oauth2: {
     client_id: GOOGLE_OAUTH_CLIENT_ID,
     scopes: [

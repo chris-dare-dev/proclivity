@@ -9,6 +9,7 @@ import { Sprint } from "@/sections/Sprint";
 import { LongTerm } from "@/sections/LongTerm";
 import { Gantt } from "@/sections/Gantt";
 import { Reminders } from "@/sections/Reminders";
+import { EmbedFrame } from "@/components/embed/EmbedFrame";
 import { useStore } from "@/storage/useStore";
 import { storage } from "@/storage/storage";
 import { configure as configureObservability } from "@/observability/logger";
@@ -151,13 +152,33 @@ const CommandPalette = lazy(
 import type { Tab } from "@/types";
 export type { Tab };
 
+// Embedded-website tabs. These render external sites in an <iframe> rather
+// than a planning surface. OSINT is the user's own tool (osint-6g5.pages.dev)
+// and frames cleanly; Finances embeds app.monarch.com, made frame-able by the
+// declarativeNetRequest header-strip ruleset in the manifest. Both are
+// always-visible (like Closed) — they are not sectionVisibility-gated.
+const OSINT_URL = "https://osint-6g5.pages.dev/";
+const MONARCH_URL = "https://app.monarch.com/";
+// Monarch sandbox: allow the app to actually run (scripts, its own-origin
+// storage, forms, OAuth popups, modals) but deliberately WITHOUT
+// `allow-top-navigation`, so frame-busting scripts can't hijack the new-tab
+// page. `allow-storage-access-by-user-activation` lets Monarch request its
+// first-party cookies via the Storage Access API when embedded third-party.
+const MONARCH_SANDBOX =
+  "allow-same-origin allow-scripts allow-forms allow-popups " +
+  "allow-popups-to-escape-sandbox allow-modals " +
+  "allow-storage-access-by-user-activation";
+
 const TABS: { id: Tab; label: string }[] = [
+  // OSINT sits first — it is the default tab on new-tab open.
+  { id: "osint", label: "OSINT" },
   { id: "today", label: "Today" },
   { id: "sprint", label: "Sprint" },
   { id: "long", label: "Long-term" },
   { id: "gantt", label: "Gantt" },
   { id: "calendar", label: "Calendar" },
   { id: "reminders", label: "Reminders" },
+  { id: "finance", label: "Finances" },
   // "Closed" sits at the rightmost slot — archival semantics. Always visible
   // (no sectionVisibility gate) so the destination promised by the close
   // action is always findable; see .claude/notes/closed-todos-research-B.md §3.
@@ -319,12 +340,15 @@ const Header = memo(function Header() {
 /**
  * Mapping from Tab id to sectionVisibility key.
  *
- * "closed" is intentionally absent — the Closed tab is always-visible (see
- * the TABS comment above and research-B.md §3 for the rationale). The
- * `visibleTabs` memo below treats Closed as unconditionally visible.
+ * "closed", "osint" and "finance" are intentionally absent — the Closed tab is
+ * always-visible (see the TABS comment above and research-B.md §3), and the two
+ * embed tabs are likewise unconditionally visible (they have no
+ * sectionVisibility key). The `visibleTabs` memo below treats all three as
+ * always-visible.
  */
+type GatedTab = Exclude<Tab, "closed" | "osint" | "finance">;
 const TAB_KEY: Record<
-  Exclude<Tab, "closed">,
+  GatedTab,
   Exclude<keyof ResolvedUserSettings["sectionVisibility"], "photos">
 > = {
   today: "today",
@@ -336,12 +360,13 @@ const TAB_KEY: Record<
 };
 
 /** Tabs whose visibility is user-controllable via Settings → Dashboard. */
-function isVisibilityGated(tabId: Tab): tabId is Exclude<Tab, "closed"> {
-  return tabId !== "closed";
+function isVisibilityGated(tabId: Tab): tabId is GatedTab {
+  return tabId !== "closed" && tabId !== "osint" && tabId !== "finance";
 }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("today");
+  // OSINT is the default tab on new-tab open (user preference).
+  const [tab, setTab] = useState<Tab>("osint");
   // m10: keyboard help overlay toggle state. Cmd+/ (Mac) / Ctrl+/ (Win/Linux)
   // opens/closes the help overlay. Lazy-loaded on first open.
   const [helpOpen, setHelpOpen] = useState(false);
@@ -607,6 +632,18 @@ export default function App() {
           and hidden sections are skipped via the visible-section gate.
         */}
         <main className="content">
+          {/* OSINT embed — always rendered (unconditional visibility) and the
+              default tab. No sectionVisibility gate. */}
+          <div
+            id="tabpanel-osint"
+            role="tabpanel"
+            aria-labelledby="tab-btn-osint"
+            hidden={tab !== "osint" && leavingTab !== "osint"}
+            data-leaving={leavingTab === "osint" ? "true" : undefined}
+            inert={leavingTab === "osint" ? true : undefined}
+          >
+            <EmbedFrame src={OSINT_URL} title="OSINT" />
+          </div>
           {rs.sectionVisibility.today && (
             <div
               id="tabpanel-today"
@@ -686,12 +723,14 @@ export default function App() {
                     // intentionally accepted here so Calendar (or a future
                     // sub-component) can deep-link to the archive.
                     const valid: Tab[] = [
+                      "osint",
                       "today",
                       "sprint",
                       "long",
                       "gantt",
                       "reminders",
                       "calendar",
+                      "finance",
                       "closed",
                     ];
                     if ((valid as string[]).includes(t)) setTab(t as Tab);
@@ -700,6 +739,27 @@ export default function App() {
               </Suspense>
             </div>
           )}
+          {/* Finances embed (Monarch) — always rendered (unconditional
+              visibility). Frame-ability is provided by the DNR header-strip
+              ruleset in the manifest; the sandbox blocks top-navigation
+              frame-busting. `note` surfaces the escape hatch prominently
+              because header-stripping can't guarantee the embed stays logged
+              in (third-party-cookie constraints). */}
+          <div
+            id="tabpanel-finance"
+            role="tabpanel"
+            aria-labelledby="tab-btn-finance"
+            hidden={tab !== "finance" && leavingTab !== "finance"}
+            data-leaving={leavingTab === "finance" ? "true" : undefined}
+            inert={leavingTab === "finance" ? true : undefined}
+          >
+            <EmbedFrame
+              src={MONARCH_URL}
+              title="Finances"
+              sandbox={MONARCH_SANDBOX}
+              note="Monarch is embedded via header-stripping — if it won't stay signed in, open it externally."
+            />
+          </div>
           {/* Closed surface — always rendered (unconditional visibility) and
               lazy-loaded so its rendering code stays out of the initial chunk
               until the user actually opens the tab. */}
