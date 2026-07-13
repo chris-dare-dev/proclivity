@@ -2,7 +2,7 @@
 
 ## 1. Scope and threat model
 
-Proclivity is a personal Chrome extension loaded unpacked on a single machine. It is not published to the Chrome Web Store, has no server component, no remote endpoints, no telemetry, and no analytics. There is no cross-device sync and no shared-account model.
+Proclivity is a personal Chrome extension loaded unpacked on a single machine. It is not published to the Chrome Web Store and has no server component, telemetry, or analytics. There is no Proclivity account, cross-device sync, or shared-account model. Network access is limited to explicit user-enabled integrations (Google Photos, read-only Google Calendar, Obsidian Local REST) and the user-opened Monarch embed.
 
 **Adversaries considered:**
 
@@ -26,10 +26,15 @@ Declared in [`manifest.config.ts`](manifest.config.ts):
 |---|---|
 | `storage` | Persist todos, sprints, Gantt tasks, and reminders in `chrome.storage.local`. |
 | `alarms` | Schedule reminder firings without keeping the extension page open. |
+| `identity` | Ask Chrome for scope-specific Google OAuth tokens after an explicit Connect action. Tokens are never persisted by Proclivity. |
+| `declarativeNetRequestWithHostAccess` | Strip framing headers only for the user-configured Monarch sub-frame. Rules cannot affect unrelated sites. |
 
 The `notifications` permission was removed (2026-07): reminders now surface as in-app alert toasts on the dashboard plus a toolbar-badge count, because OS-level notification delivery fails silently on both macOS and Windows. The manifest declares a toolbar `action` (no popup) solely to carry that badge.
 
-No `host_permissions` are declared. The extension cannot make credentialed cross-origin requests or inject content scripts into arbitrary pages.
+Host permissions are restricted to the Photos Picker/CDN, local Obsidian API,
+and Monarch domains listed in the manifest. There is no `<all_urls>`, `tabs`,
+or content-script access. Google Calendar's API supports the extension origin
+through normal CORS, so Calendar adds no host permission.
 
 `chrome_url_overrides: { newtab: "src/newtab/index.html" }` replaces only the new-tab page. It does not grant access to any existing tab, does not inject into browsing tabs, and cannot read or write any page's DOM.
 
@@ -39,22 +44,26 @@ No `host_permissions` are declared. The extension cannot make credentialed cross
 
 ## 3. Data handling
 
-State lives under **two** keys in `chrome.storage.local`, both defined in [`src/storage/constants.ts`](src/storage/constants.ts):
+State is separated by responsibility under keys defined in [`src/storage/constants.ts`](src/storage/constants.ts):
 
 | Key | Purpose | Cap |
 |---|---|---|
 | `proclivity:state:v1` | App data (todos, sprints, Gantt, reminders, tags, settings) | bounded by feature volume; ≪ 10 MB in practice |
 | `proclivity:logs:v1` | Observability ring buffer — appended on `warn` / `error` always, on `info` when the user has the debug toggle on | hard-capped at **500 entries** (~100 kB), oldest dropped on overflow |
+| `proclivity:photos:v1` | User-picked, downscaled Google Photos bytes | bounded by the Photos cache budget |
+| `proclivity:google-calendar:v1` | Enable flag plus a small history of minimal 42-day read-only event snapshots | at most 6 windows and 5,000 normalized events total; normally far below 1 MB |
+| `proclivity:roadmap:v1` | Obsidian connection configuration and write-back cursor | small configuration record |
+| `proclivity:alerts:v1` | Pending in-app reminder alerts | bounded by active reminder volume |
 
-**What is stored in the state key:** todo items (title, notes, scope, completion state, tags), sprint metadata, Gantt charts and tasks, reminders (title, fire time, recurrence, optional linked-todo ID, tags), tags, and the resolved user settings. No passwords, tokens, or authentication credentials are stored or needed.
+**What is stored in the state key:** todo items (title, notes, scope, completion state, tags), sprint metadata, Gantt charts and tasks, reminders (title, fire time, recurrence, optional linked-todo ID, tags), tags, and user settings. OAuth tokens are never stored. The user-entered Obsidian API key is isolated in the roadmap key and excluded from JSON export.
 
 **What is stored in the log key:** structured `LogEntry` records with `{ ts, level, ns, msg, ctx? }`. The `ctx` field can carry contextual values from instrumentation call sites — e.g. tool-call parse failures include up to 500 chars of the raw model output. Tag labels and prompts may therefore end up in the buffer; the cap above bounds growth. The log key is **not** included in the app's import / export flows and is not cleared by the "Clear all data" action; it has its own clear affordance in the (forthcoming) in-app log viewer.
 
-**PII boundary:** the only PII is whatever the user types as todo/reminder titles, tag labels, or chat prompts. State is processed locally; chat prompts are processed on-device by Gemini Nano. Nothing is transmitted off-device.
+**PII boundary:** local titles, notes, tags, and chat prompts remain local unless an explicitly configured feature says otherwise. Calendar stores only the fetched event ID/title/time/link needed by the grid; it does not request descriptions, attendees, organizer emails, locations, or conferencing data. Google Calendar records remain outside the main exportable state.
 
-**No data leaves the device.** `grep -rn "fetch\|XMLHttpRequest" src/` returns zero hits outside of any future sanctioned Gemini API host (none today). The newtab bundle and service worker contain no outbound network calls. Verify this remains true after every significant change (see audit checklist).
+**Documented network boundary:** outbound calls are limited to the source modules for Photos Picker/media, Google OAuth revocation, Google Calendar `events.list`, and the Obsidian proxy. Calendar receives only a bearer token plus a two-day-padded visible date range (clipped back to the exact grid locally); no local Proclivity item is an input to that request. Monarch is loaded only when its iframe destination is opened.
 
-**Storage cap:** `chrome.storage.local` is capped at approximately 10 MB across all keys for the extension. App state + log ring buffer combined are expected to stay well under 1 MB in practice. Designs that accumulate unbounded history (e.g., keeping all fired reminders forever, storing large Gantt-task bodies) need explicit pruning logic before merging.
+**Storage cap:** `chrome.storage.local` is capped at approximately 10 MB across all keys for the extension. The user-picked Photos cache dominates usage and has its own byte budget. Calendar retains at most six minimal 42-day snapshots, replaces matching windows wholesale, and enforces a 5,000-event total ceiling. Any new unbounded collection needs explicit pruning before merging.
 
 **Storage write safety:** [`src/storage/storage.ts`](src/storage/storage.ts) serializes all writes through a promise chain (`writeChain`) to prevent concurrent-update races from the newtab side. [`src/background/service-worker.ts`](src/background/service-worker.ts) maintains a separate `swWriteChain` for the same reason. The ring buffer in [`src/observability/ring-buffer.ts`](src/observability/ring-buffer.ts) maintains its own per-context chain for the same reason; cross-context interleaving (SW + newtab writing the log key simultaneously) is tolerated — at worst one entry is silently dropped, which is acceptable for a debug log. These two chains are independent — if the SW and the UI both write within the same tick, the last write wins for that key. This is acceptable for the current feature set but must be revisited if multi-tab editing or background-sync is added.
 
@@ -71,8 +80,8 @@ The service worker ([`src/background/service-worker.ts`](src/background/service-
 
 **What the SW does NOT do:**
 
-- It does not register `chrome.runtime.onMessage` or `chrome.runtime.onConnectExternal`. Other extensions and web pages cannot post messages to this SW.
-- It does not make any outbound network requests.
+- It does not register `chrome.runtime.onConnectExternal`; websites cannot post messages to it. Internal messages are validated and limited to the sanctioned Photos/Obsidian proxy operations.
+- It does not synchronize Google Calendar in the background. Calendar reads happen only from the extension page after opt-in.
 - It does not execute `eval` or dynamically constructed code.
 
 **Attacker-controlled input:** the only channel through which an external actor could influence SW behavior is `chrome.storage.local`. Websites cannot write to an extension's `chrome.storage.local` directly — that API is scoped to the extension origin. A compromised dependency bundled into the newtab page could write to storage, which the SW would then act on.
@@ -129,7 +138,7 @@ The following rules apply to any agent (or human) making code changes. They exte
 - **Never disable strict mode.** Do not remove `strict: true`, `exactOptionalPropertyTypes`, or `noUncheckedIndexedAccess` from `tsconfig.json`. Do not disable React strict mode. These catch real bugs; "it passes with strict off" is not a fix.
 - **Never add `host_permissions: "<all_urls>"`** or any broad host pattern. The extension has no legitimate need to access arbitrary websites.
 - **Never add `unsafe-eval` or `wasm-unsafe-eval` to the CSP.** If a library requires either, it is not suitable for this extension.
-- **Never introduce `fetch()`, `XMLHttpRequest`, or any remote-network call** from the newtab bundle or the service worker. This extension is local-only by design.
+- **Never introduce an undocumented remote-network call.** Any new integration must be explicitly authorized, use the narrowest host/scope, minimize transmitted data, and update this file.
 - **Never add content scripts or the `tabs` permission** without explicit authorization from the user. Content scripts dramatically expand the attack surface; they can read and modify every page the user visits.
 - **Never use `dangerouslySetInnerHTML` on user-typed content.** React escapes rendered strings by default — do not bypass that. If rich rendering of user input is ever needed, sanitize with a vetted library first.
 - **Never commit secrets.** There are no API keys, tokens, or credentials in this project. Keep it that way. If a future feature requires an API key, store it only in `chrome.storage.local` (user-entered) and never hardcode it in source.
@@ -150,9 +159,9 @@ If you find a genuine security issue, open an issue in the repository at `git@gi
 
 Run through the following on each significant change before committing:
 
-- `grep -rn "fetch\|XMLHttpRequest" src/` returns no hits (or only intentional ones with documented justification).
+- Every `fetch`/`XMLHttpRequest` hit is an intentional, documented integration with bounded inputs and validated outputs.
 - `manifest.config.ts` permissions are unchanged, or any new permission is justified in this file and in the commit message.
-- No `host_permissions` have been introduced.
+- Host permissions remain narrowly enumerated; `<all_urls>` is forbidden.
 - No `dangerouslySetInnerHTML` has been introduced on any user-controlled content.
 - `npm audit` output has been reviewed. New high/critical findings must be acknowledged before merging.
 - Any user input that flows into a URL, shell-like context, or DOM insertion point (other than normal React rendering) is validated or escaped at the point of use.

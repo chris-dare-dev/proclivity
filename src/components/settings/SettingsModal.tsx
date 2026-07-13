@@ -28,6 +28,7 @@ import { NotificationsPane } from "./panes/NotificationsPane";
 import { TodosPane } from "./panes/TodosPane";
 import { GeminiNanoPane } from "./panes/GeminiNanoPane";
 import { GooglePhotosPane } from "./panes/GooglePhotosPane";
+import { GoogleCalendarPane } from "./panes/GoogleCalendarPane";
 import { RoadmapsPane } from "./panes/RoadmapsPane";
 import { TagsPane } from "./panes/TagsPane";
 import { DataPane } from "./panes/DataPane";
@@ -504,6 +505,8 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
             live={live}
           />
         );
+      case "googleCalendar":
+        return <GoogleCalendarPane weekStart={rs.weekStart} />;
       case "roadmaps":
         return (
           <RoadmapsPane

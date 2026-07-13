@@ -1,5 +1,9 @@
-import { memo, useMemo } from "react";
-import { DayCell } from "./DayCell";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
+import {
+  CalendarDayDetailsModal,
+  DayCell,
+  type CalendarDayDetails,
+} from "./DayCell";
 import { SprintBars } from "./SprintBars";
 import {
   buildMonthGrid,
@@ -8,7 +12,15 @@ import {
   weekdayLabels,
   type MonthGridCell,
 } from "./calendarUtils";
-import type { Reminder, Sprint, Tag, Todo, WeekStart } from "@/types";
+import type {
+  Reminder,
+  Sprint,
+  Tag,
+  TimeFormat,
+  Todo,
+  WeekStart,
+} from "@/types";
+import type { GoogleCalendarEvent } from "@/lib/googleCalendar/types";
 
 interface MonthGridProps {
   compact: boolean;
@@ -21,6 +33,8 @@ interface MonthGridProps {
   todos: Todo[];
   sprints: Sprint[];
   tags: Tag[];
+  googleEvents: GoogleCalendarEvent[];
+  timeFormat: TimeFormat;
   activeSprintId?: string | undefined;
   /** Optional tab-navigation callback passed down from App. When provided,
    *  sprint bars become clickable (M3) and empty-state has actionable links (M4). */
@@ -47,17 +61,28 @@ export const MonthGrid = memo(function MonthGrid({
   todos,
   sprints,
   tags,
+  googleEvents,
+  timeFormat,
   activeSprintId,
   onTabChange,
 }: MonthGridProps) {
+  const [dayDetails, setDayDetails] = useState<CalendarDayDetails | null>(null);
+  const dayDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const openDayDetails = useCallback(
+    (details: CalendarDayDetails, trigger: HTMLButtonElement) => {
+      dayDetailsTriggerRef.current = trigger;
+      setDayDetails(details);
+    },
+    [],
+  );
   const cells: MonthGridCell[] = useMemo(
     () => buildMonthGrid(monthStart, weekStart, today),
     [monthStart, weekStart, today],
   );
 
   const dayItems = useMemo(
-    () => indexDayItems(cells, reminders, todos, today),
-    [cells, reminders, todos, today],
+    () => indexDayItems(cells, reminders, todos, today, googleEvents),
+    [cells, reminders, todos, today, googleEvents],
   );
 
   const tagById = useMemo(() => {
@@ -87,7 +112,12 @@ export const MonthGrid = memo(function MonthGrid({
       return sEnd >= gridStart && sStart <= gridEnd;
     })) return false;
     for (const items of dayItems.values()) {
-      if (items.reminders.length > 0 || items.longTermDue.length > 0 || items.todayTodos.length > 0) {
+      if (
+        items.googleEvents.length > 0 ||
+        items.reminders.length > 0 ||
+        items.longTermDue.length > 0 ||
+        items.todayTodos.length > 0
+      ) {
         return false;
       }
     }
@@ -117,6 +147,7 @@ export const MonthGrid = memo(function MonthGrid({
                 cell={cell}
                 items={
                   dayItems.get(cell.ts) ?? {
+                    googleEvents: [],
                     reminders: [],
                     longTermDue: [],
                     todayTodos: [],
@@ -125,6 +156,9 @@ export const MonthGrid = memo(function MonthGrid({
                 tagById={tagById}
                 lanes={lanesByRow[Math.floor(cell.index / 7)] ?? 0}
                 compact={compact}
+                timeFormat={timeFormat}
+                detailsOpen={dayDetails?.cellTs === cell.ts}
+                onOpenDetails={openDayDetails}
               />
             ))}
           </div>
@@ -139,6 +173,12 @@ export const MonthGrid = memo(function MonthGrid({
           />
         </div>
       </div>
+      <CalendarDayDetailsModal
+        details={dayDetails}
+        tagById={tagById}
+        returnFocusTo={dayDetailsTriggerRef.current}
+        onClose={() => setDayDetails(null)}
+      />
       {isEmpty && (
         <p className="calendar-empty-hint">
           {onTabChange !== undefined ? (

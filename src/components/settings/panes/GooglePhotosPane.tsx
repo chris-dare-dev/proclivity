@@ -21,6 +21,7 @@ import {
   type PhotosState,
 } from "@/lib/googlePhotos/store";
 import { runPickerFlow } from "@/lib/googlePhotos/picker";
+import { googleCalendarStore } from "@/lib/googleCalendar/store";
 import {
   collectDiagnostics,
   formatDiagnostics,
@@ -65,6 +66,7 @@ export function GooglePhotosPane({
   const [lastSkipped, setLastSkipped] = useState<
     Array<{ filename: string; reason: string }>
   >([]);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
   const cancelRef = useRef<{ cancelled: boolean }>({ cancelled: false });
 
   // Live-subscribe to the photos cache.
@@ -108,6 +110,7 @@ export function GooglePhotosPane({
   const onPick = useCallback(async () => {
     cancelRef.current = { cancelled: false };
     setLastSkipped([]);
+    setDisconnectError(null);
     setConn({ kind: "picking", pickerUri: null });
     try {
       const result = await runPickerFlow({
@@ -151,15 +154,29 @@ export function GooglePhotosPane({
   }, []);
 
   const onDisconnect = useCallback(async () => {
+    setDisconnectError(null);
     try {
       const token = await getToken({ interactive: false });
-      if (token) await revoke(token);
-    } catch {
-      // ignore — revoke is best-effort
+      if (!token) {
+        throw new Error("No active Google token was available to revoke.");
+      }
+      await revoke(token);
+      await photosStore.clear();
+      // Google's revoke endpoint removes the account-wide Proclivity grant,
+      // not only Photos. Keep Calendar's local state honest after success.
+      await googleCalendarStore.disableAndClear();
+      setConn({ kind: "disconnected" });
+      setLastSkipped([]);
+    } catch (cause) {
+      // Do not claim the account is disconnected or delete local caches when
+      // Google did not confirm revocation. The user can retry or remove access
+      // from their Google Account directly.
+      setDisconnectError(
+        `Google access may still be active. ${
+          cause instanceof Error ? cause.message : String(cause)
+        } No cached photos or calendar events were deleted.`,
+      );
     }
-    await photosStore.clear();
-    setConn({ kind: "disconnected" });
-    setLastSkipped([]);
   }, []);
 
   const onIntervalChange = useCallback(
@@ -212,9 +229,22 @@ export function GooglePhotosPane({
               </button>
             )}
             <button type="button" onClick={() => void onDisconnect()}>
-              Disconnect
+              Disconnect Google account
             </button>
           </div>
+        )}
+
+        {conn.kind === "connected" && (
+          <p className="settings-hint">
+            Disconnecting the Google account revokes all Proclivity Google
+            access, including Google Calendar, and clears both local caches.
+          </p>
+        )}
+
+        {disconnectError && (
+          <p className="settings-hint settings-hint--error" role="alert">
+            <strong>Couldn’t revoke Google access.</strong> {disconnectError}
+          </p>
         )}
 
         {conn.kind === "picking" && (

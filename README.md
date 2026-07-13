@@ -266,8 +266,10 @@ must pass cleanly before any change is considered done.
 
 The **Photos** tab plays a slideshow of photos the user picks from their
 Google account via the [Photos Picker API](https://developers.google.com/photos/picker).
-The feature is inert until you do the one-time Google Cloud setup below — the
-extension ships with a placeholder OAuth client_id that won't authenticate.
+The feature is inert until the one-time Google Cloud setup below is complete.
+This checkout already contains the developer's Chrome-extension OAuth client;
+forks should replace it with a client registered to their own pinned extension
+ID.
 
 1. **The extension ID is already pinned.** OAuth client_ids are bound to one
    extension ID, so it has to be stable. [`manifest.config.ts`](manifest.config.ts)
@@ -296,11 +298,11 @@ extension ships with a placeholder OAuth client_id that won't authenticate.
    credentials → OAuth client ID. Application type: **Chrome extension**.
    Paste your pinned extension ID into the Application ID field.
 
-6. **Drop the client_id into the manifest.** Open
-   [`manifest.config.ts`](manifest.config.ts) and replace
-   `REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com` with
-   the client_id from step 5. Run `npm run build` and reload the unpacked
-   extension.
+6. **Drop the client_id into the manifest (forks only).** Open
+   [`manifest.config.ts`](manifest.config.ts), replace
+   `GOOGLE_OAUTH_CLIENT_ID` with the client_id from step 5, run `npm run build`,
+   and reload the unpacked extension. The committed developer client already
+   matches the pinned ID above.
 
 7. **Connect from Settings.** Open Settings → **Google Photos** → **Connect
    Google Photos**. Chrome will surface the consent dialog the first time;
@@ -331,6 +333,50 @@ outside `ProclivityState` by design.
 The `baseUrl` on a Picker mediaItem expires roughly an hour after the pick
 session, which is why we cache the bytes locally rather than storing the
 URLs. Re-picking from the settings pane replaces the cache.
+
+---
+
+## Google Calendar setup (optional)
+
+The **Calendar** tab can overlay events from the signed-in account's primary
+Google Calendar. This is a strictly one-way source: Google events flow into the
+Proclivity grid, while local todos, sprints, reminders, Gantt tasks, finances,
+and other panel data are never sent to Google.
+
+1. In the same Google Cloud project used for Photos, open **APIs & Services →
+   Library**, find **Google Calendar API**, and enable it.
+2. In **Google Auth Platform → Data Access**, add only
+   `https://www.googleapis.com/auth/calendar.events.owned.readonly`. This scope
+   can view events on calendars the account owns; it cannot insert, update, or
+   delete events.
+3. If the app audience is **External / Testing**, add the Google account as a
+   test user. Personal testing grants can expire, in which case Proclivity will
+   show a Reconnect action rather than opening consent during page load.
+4. Run `npm run build`, reload `dist/` at `chrome://extensions`, then open
+   **Settings → Google Calendar → Connect Google Calendar**.
+
+No API key, client secret, new Chrome API permission, or Google Calendar host
+permission is required. Proclivity requests Calendar and Photos scopes
+separately, so connecting Photos does not silently request Calendar access.
+
+**Synchronization model.** On connect, month navigation, or manual refresh,
+Proclivity performs a read-only `events.list` for the visible 42-day grid. It
+asks Google to expand recurring events, follows pagination, and replaces the
+matching bounded snapshot atomically. Up to six recently viewed windows are
+retained, subject to a 5,000-event total ceiling. A successful snapshot is
+considered fresh for ten minutes; stale events stay visible if the network is
+temporarily unavailable. Incremental `syncToken` and background polling are
+intentionally deferred.
+
+**Data boundary.** Only event ID, title, start/end, all-day dates, and an
+optional validated Google Calendar link are cached under
+`proclivity:google-calendar:v1`. Descriptions, attendees, organizer email,
+locations, and conferencing data are not requested. The cache lives outside
+`ProclivityState`, is excluded from JSON exports, and can never create a local
+alarm. **Turn off and clear events** removes the local cache and cached Calendar
+token without disturbing Google Photos. The Photos pane's explicit
+**Disconnect Google account** action revokes all Proclivity Google access and
+clears both integration caches.
 
 ---
 

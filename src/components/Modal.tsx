@@ -22,6 +22,8 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Explicit opener for consumers whose autoFocus runs before this modal's effect. */
+  returnFocusTo?: HTMLElement | null;
   /**
    * Optional extra class on `.modal-panel`. SettingsModal uses this to
    * replace the default padding with its own three-region layout
@@ -30,7 +32,14 @@ interface ModalProps {
   panelClassName?: string;
 }
 
-export function Modal({ open, onClose, title, children, panelClassName }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  returnFocusTo,
+  panelClassName,
+}: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   // Unique ID per modal instance so nested modals don't share aria-labelledby (#14)
@@ -77,12 +86,13 @@ export function Modal({ open, onClose, title, children, panelClassName }: ModalP
       panelRef.current?.setAttribute("inert", "");
 
       // Defer restore via rAF so the element isn't focused mid-close-animation (#15)
+      const focusTarget = returnFocusTo ?? previousFocusRef.current;
       const raf = requestAnimationFrame(() => {
-        previousFocusRef.current?.focus();
+        focusTarget?.focus();
       });
       return () => cancelAnimationFrame(raf);
     }
-  }, [open]);
+  }, [open, returnFocusTo]);
 
   // Escape closes; Tab is delegated to the shared focus-trap hook.
   const handleKeyDown = useCallback(

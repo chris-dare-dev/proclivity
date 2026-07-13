@@ -1,7 +1,7 @@
 import { defineManifest } from "@crxjs/vite-plugin";
 import pkg from "./package.json" with { type: "json" };
 
-// Google Photos Picker API OAuth client_id — see README "Google Photos setup".
+// Shared Google integration OAuth client_id — see README's Photos + Calendar setup.
 // It lives in the manifest rather than chrome.storage because
 // `chrome.identity.getAuthToken` reads its OAuth client config exclusively
 // from manifest.json at install time.
@@ -141,6 +141,10 @@ export default defineManifest({
     client_id: GOOGLE_OAUTH_CLIENT_ID,
     scopes: [
       "https://www.googleapis.com/auth/photospicker.mediaitems.readonly",
+      // Primary-calendar import only. This scope can view events on calendars
+      // the user owns, but cannot insert, update, delete, or otherwise publish
+      // Proclivity data back to Google Calendar.
+      "https://www.googleapis.com/auth/calendar.events.owned.readonly",
     ],
   },
 });

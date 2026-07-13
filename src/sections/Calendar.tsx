@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { MonthGrid } from "./calendar/MonthGrid";
 import {
   addMonths,
+  calendarGridWindow,
   isCurrentMonth,
   monthLabel,
   startOfMonth,
 } from "./calendar/calendarUtils";
 import { startOfDay } from "@/lib/dateUtils";
 import { useStore } from "@/storage/useStore";
+import { OPEN_SETTINGS_EVENT } from "@/storage/constants";
+import {
+  useGoogleCalendar,
+  type GoogleCalendarSyncStatus,
+} from "@/hooks/useGoogleCalendar";
 import "./calendar/calendar.css";
 
 /**
@@ -48,6 +54,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
 
   // L5: only weekStart is used from settings — inline rather than resolvedSettings.
   const weekStart = state.settings.weekStart ?? "mon";
+  const timeFormat = state.settings.timeFormat ?? "auto";
 
   // The currently-focused month. Initialized to "today's month" so the
   // user always lands on something useful; navigation is purely local
@@ -81,6 +88,16 @@ export default function Calendar({ onTabChange }: CalendarProps) {
 
   const showingCurrent = isCurrentMonth(monthStart);
   const label = useMemo(() => monthLabel(monthStart), [monthStart]);
+  const { windowStart, windowEnd } = useMemo(
+    () => calendarGridWindow(monthStart, weekStart),
+    [monthStart, weekStart],
+  );
+  const googleCalendar = useGoogleCalendar(windowStart, windowEnd);
+  const openGoogleCalendarSettings = useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent(OPEN_SETTINGS_EVENT, { detail: "googleCalendar" }),
+    );
+  }, []);
 
   return (
     <section ref={sectionRef} className="calendar-section" aria-label="Calendar">
@@ -128,6 +145,15 @@ export default function Calendar({ onTabChange }: CalendarProps) {
           re-triggering on heading focus navigation. */}
       <span className="sr-only" aria-live="polite">{label}</span>
 
+      <GoogleCalendarStatus
+        status={googleCalendar.status}
+        eventCount={googleCalendar.events.length}
+        lastSyncedAt={googleCalendar.lastSyncedAt}
+        error={googleCalendar.error}
+        onRefresh={() => void googleCalendar.refresh()}
+        onOpenSettings={openGoogleCalendarSettings}
+      />
+
       <Legend />
 
       <MonthGrid
@@ -139,6 +165,8 @@ export default function Calendar({ onTabChange }: CalendarProps) {
         todos={state.todos}
         sprints={state.sprints}
         tags={state.tags}
+        googleEvents={googleCalendar.events}
+        timeFormat={timeFormat}
         {...(state.activeSprintId !== undefined
           ? { activeSprintId: state.activeSprintId }
           : {})}
@@ -162,6 +190,10 @@ function Legend() {
       {/* L2: mirror the R/T/L glyph letters from chip dots into legend dots
           so users can decode the pairing at a glance. */}
       <li>
+        <span className="calendar-legend__dot calendar-legend__dot--google" aria-hidden="true">G</span>{" "}
+        Google event
+      </li>
+      <li>
         <span className="calendar-legend__dot calendar-legend__dot--reminder" aria-hidden="true">R</span>{" "}
         Reminder
       </li>
@@ -174,5 +206,95 @@ function Legend() {
         Long-term
       </li>
     </ul>
+  );
+}
+
+function GoogleCalendarStatus({
+  status,
+  eventCount,
+  lastSyncedAt,
+  error,
+  onRefresh,
+  onOpenSettings,
+}: {
+  status: GoogleCalendarSyncStatus;
+  eventCount: number;
+  lastSyncedAt: number | null;
+  error: string | null;
+  onRefresh: () => void;
+  onOpenSettings: () => void;
+}) {
+  if (status === "loading") {
+    return (
+      <div className="calendar-google-status" aria-live="polite">
+        <CalendarDays size={15} aria-hidden="true" />
+        <span>Checking Google Calendar…</span>
+      </div>
+    );
+  }
+
+  if (status === "off" || status === "reconnect") {
+    return (
+      <div className="calendar-google-status" aria-live="polite">
+        <CalendarDays size={15} aria-hidden="true" />
+        <span>
+          {status === "reconnect"
+            ? "Google Calendar needs to reconnect."
+            : "Add your Google events to this calendar."}
+        </span>
+        <button type="button" onClick={onOpenSettings}>
+          {status === "reconnect" ? "Reconnect" : "Connect read-only"}
+        </button>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div
+        className="calendar-google-status calendar-google-status--error"
+        aria-live="polite"
+      >
+        <CalendarDays size={15} aria-hidden="true" />
+        <span>
+          <strong>Google Calendar couldn’t refresh.</strong>{" "}
+          {error ?? "Try again or reconnect in Settings."}
+          {eventCount > 0 ? " Showing cached events." : ""}
+        </span>
+        <button type="button" onClick={onRefresh}>Retry</button>
+        <button type="button" onClick={onOpenSettings}>Settings</button>
+      </div>
+    );
+  }
+
+  const syncedLabel = lastSyncedAt
+    ? new Date(lastSyncedAt).toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "just now";
+  return (
+    <div className="calendar-google-status" aria-live="polite">
+      <CalendarDays size={15} aria-hidden="true" />
+      <span>
+        {status === "syncing"
+          ? `Updating Google Calendar${eventCount > 0 ? ` · ${eventCount} cached` : ""}…`
+          : `Google Calendar · ${eventCount} event${eventCount === 1 ? "" : "s"} · synced ${syncedLabel}`}
+      </span>
+      <button
+        type="button"
+        onClick={onRefresh}
+        disabled={status === "syncing"}
+        aria-label="Refresh Google Calendar"
+        title="Refresh Google Calendar"
+      >
+        <RefreshCw
+          size={13}
+          aria-hidden="true"
+          className={status === "syncing" ? "is-spinning" : undefined}
+        />
+        <span>{status === "syncing" ? "Syncing" : "Refresh"}</span>
+      </button>
+    </div>
   );
 }

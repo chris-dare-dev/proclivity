@@ -24,7 +24,7 @@
  *                   indication; Agent A leaves it visually unused
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SettingsPaneId } from "@/types";
 import { PANE_ORDER } from "./panes/registry";
 
@@ -42,6 +42,27 @@ export function SettingsSidebar({
   dirty = false,
 }: SettingsSidebarProps) {
   const navRef = useRef<HTMLElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 639px)").matches
+      : false,
+  );
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 639px)");
+    const update = () => setIsNarrow(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [isNarrow, paneId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
@@ -50,10 +71,22 @@ export function SettingsSidebar({
 
       switch (e.key) {
         case "ArrowDown":
+          if (isNarrow) return;
+          e.preventDefault();
+          nextIndex = (currentIndex + 1) % panes.length;
+          break;
+        case "ArrowRight":
+          if (!isNarrow) return;
           e.preventDefault();
           nextIndex = (currentIndex + 1) % panes.length;
           break;
         case "ArrowUp":
+          if (isNarrow) return;
+          e.preventDefault();
+          nextIndex = (currentIndex - 1 + panes.length) % panes.length;
+          break;
+        case "ArrowLeft":
+          if (!isNarrow) return;
           e.preventDefault();
           nextIndex = (currentIndex - 1 + panes.length) % panes.length;
           break;
@@ -85,7 +118,7 @@ export function SettingsSidebar({
         buttons?.[nextIndex]?.focus();
       }
     },
-    [onChangePane],
+    [isNarrow, onChangePane],
   );
 
   return (
@@ -93,7 +126,7 @@ export function SettingsSidebar({
       ref={navRef}
       className="settings-sidebar"
       role="tablist"
-      aria-orientation="vertical"
+      aria-orientation={isNarrow ? "horizontal" : "vertical"}
       aria-label="Settings sections"
     >
       {PANE_ORDER.map((entry, index) => {
@@ -105,6 +138,7 @@ export function SettingsSidebar({
         return (
           <button
             key={entry.id}
+            ref={isActive ? activeTabRef : undefined}
             type="button"
             role="tab"
             aria-selected={isActive}

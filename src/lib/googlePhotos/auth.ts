@@ -17,8 +17,11 @@
  */
 
 import { getLogger } from "@/observability/logger";
+import { clearGoogleToken, getGoogleToken } from "@/lib/googleAuth";
 
 const REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
+export const GOOGLE_PHOTOS_SCOPE =
+  "https://www.googleapis.com/auth/photospicker.mediaitems.readonly";
 const log = getLogger("photos:auth");
 
 /**
@@ -202,83 +205,36 @@ interface GetTokenOptions {
  * captured `diagnostics` blob) on any failure, including user cancellation.
  */
 export async function getToken(opts: GetTokenOptions): Promise<string | null> {
-  if (typeof chrome === "undefined" || !chrome.identity?.getAuthToken) {
-    const diag = collectDiagnostics();
-    const explanation = explainFailure(diag);
-    log.error("getToken.unavailable", {
-      explanation,
-      diagnostics: diag,
+  log.debug("getToken.invoking", { interactive: opts.interactive });
+  try {
+    // Passing the scope explicitly is load-bearing now that Calendar shares
+    // the OAuth client: connecting Photos must never request Calendar access.
+    const token = await getGoogleToken({
+      interactive: opts.interactive,
+      scopes: [GOOGLE_PHOTOS_SCOPE],
     });
-    // Also write a console.error so the user can copy it from DevTools even
-    // if observability persistence is off.
+    if (token) log.debug("getToken.success", { tokenLength: token.length });
+    else log.debug("getToken.silent.miss");
+    return token;
+  } catch (cause) {
+    const diagnostics = collectDiagnostics();
+    const diagnosticExplanation = explainFailure(diagnostics);
+    const diagnosticIsSpecific =
+      !diagnosticExplanation.startsWith("Unknown failure") &&
+      !diagnosticExplanation.startsWith("Chrome reported:");
+    const message = diagnosticIsSpecific
+      ? diagnosticExplanation
+      : cause instanceof Error
+        ? cause.message
+        : String(cause);
+    log.error("getToken.failed", { message, diagnostics });
     // eslint-disable-next-line no-console
-    console.error("[photos:auth] chrome.identity unavailable", {
-      explanation,
-      diagnostics: diag,
+    console.error("[photos:auth] Google sign-in failed", {
+      message,
+      diagnostics,
     });
-    throw new GoogleAuthError(explanation, diag);
+    throw new GoogleAuthError(message, diagnostics, cause);
   }
-  return new Promise<string | null>((resolve, reject) => {
-    log.debug("getToken.invoking", { interactive: opts.interactive });
-    chrome.identity.getAuthToken({ interactive: opts.interactive }, (result) => {
-      const lastError = chrome.runtime.lastError?.message;
-      if (lastError) {
-        // Non-interactive "not signed in" comes back as an error string —
-        // treat it as a soft `null` so callers can render a Connect button
-        // without try/catch noise.
-        if (!opts.interactive) {
-          log.debug("getToken.silent.miss", { lastError });
-          resolve(null);
-          return;
-        }
-        const diag = collectDiagnostics();
-        log.error("getToken.runtimeError", {
-          lastError,
-          diagnostics: diag,
-        });
-        // eslint-disable-next-line no-console
-        console.error("[photos:auth] chrome.identity returned an error", {
-          lastError,
-          diagnostics: diag,
-        });
-        // Prefer a diagnostic-derived explanation (e.g. "placeholder client_id")
-        // over Chrome's verbatim message ("bad client id: {0}") when one fits.
-        // The raw lastError is still in diag.chrome.lastRuntimeError if anyone
-        // wants to read it. We fall back to lastError when no specific
-        // explanation applies.
-        const explanation = explainFailure(diag);
-        const isGeneric =
-          explanation.startsWith("Unknown failure") ||
-          explanation.startsWith("Chrome reported:");
-        reject(new GoogleAuthError(isGeneric ? lastError : explanation, diag));
-        return;
-      }
-      // MV3 returns `{ token, grantedScopes }`; MV2 returned a bare string.
-      // Handle both shapes for safety.
-      const token =
-        typeof result === "string"
-          ? result
-          : (result as { token?: string } | undefined)?.token;
-      if (!token) {
-        if (!opts.interactive) {
-          resolve(null);
-          return;
-        }
-        const diag = collectDiagnostics();
-        log.error("getToken.noToken", { diagnostics: diag });
-        // eslint-disable-next-line no-console
-        console.error("[photos:auth] chrome.identity returned no token", {
-          diagnostics: diag,
-        });
-        reject(
-          new GoogleAuthError("No token returned from chrome.identity", diag),
-        );
-        return;
-      }
-      log.debug("getToken.success", { tokenLength: token.length });
-      resolve(token);
-    });
-  });
 }
 
 /**
@@ -289,11 +245,7 @@ export async function getToken(opts: GetTokenOptions): Promise<string | null> {
  * Call after a 401 from the Photos API.
  */
 export async function clearToken(token: string): Promise<void> {
-  if (typeof chrome === "undefined" || !chrome.identity?.removeCachedAuthToken)
-    return;
-  await new Promise<void>((resolve) => {
-    chrome.identity.removeCachedAuthToken({ token }, () => resolve());
-  });
+  await clearGoogleToken(token);
 }
 
 /**
@@ -301,18 +253,35 @@ export async function clearToken(token: string): Promise<void> {
  * Account no longer lists Proclivity under "Apps with access", and any
  * outstanding cached token returns 401.
  *
- * Failure is non-fatal — we still clear the local cache so the UI flips back
- * to disconnected.
+ * Throws unless Google returns success. Chrome's token cache is cleared in
+ * either case, but callers must not claim remote revocation succeeded on a
+ * network error or non-2xx response.
  */
 export async function revoke(token: string): Promise<void> {
   try {
-    await fetch(`${REVOKE_ENDPOINT}?token=${encodeURIComponent(token)}`, {
+    const response = await fetch(REVOKE_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }).toString(),
     });
-  } catch {
-    // Network failure during revoke is non-fatal — clearToken below still
-    // makes the extension forget the token locally.
+    if (!response.ok) {
+      throw new Error(
+        `Google rejected the access-revocation request (${response.status}).`,
+      );
+    }
+  } finally {
+    // Revocation is account-wide for this Google Cloud project, so remove
+    // every Chrome-cached Google token (Photos and Calendar), not only this
+    // token. Do this even on failure so a rejected token is never reused.
+    if (
+      typeof chrome !== "undefined" &&
+      chrome.identity?.clearAllCachedAuthTokens
+    ) {
+      await new Promise<void>((resolve) => {
+        chrome.identity.clearAllCachedAuthTokens(() => resolve());
+      });
+    } else {
+      await clearToken(token);
+    }
   }
-  await clearToken(token);
 }

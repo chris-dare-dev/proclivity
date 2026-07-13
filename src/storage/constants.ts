@@ -33,6 +33,13 @@ export const STORAGE_KEY = "proclivity:state:v1";
 export const PHOTOS_STORAGE_KEY = "proclivity:photos:v1";
 
 /**
+ * Dedicated read-only Google Calendar integration state. Kept outside the
+ * main ProclivityState so event titles never enter exports and Google data can
+ * never be mistaken for a local reminder, todo, sprint, or Gantt task.
+ */
+export const GOOGLE_CALENDAR_STORAGE_KEY = "proclivity:google-calendar:v1";
+
+/**
  * chrome.storage.local key for roadmap ingest config + write-back bookkeeping
  * (Phase G). Kept separate from STORAGE_KEY so the secret it holds (the
  * Obsidian Local REST API bearer token) plus the write-back dedup cursor never
