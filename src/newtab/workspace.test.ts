@@ -29,7 +29,7 @@ describe("workspace registry", () => {
     expect(WORKSPACE_GROUPS.map((group) => group.label)).toEqual([
       "Intelligence",
       "Planning",
-      "Money",
+      "Finances",
       "Memory",
       "Archive",
     ]);
@@ -45,7 +45,7 @@ describe("workspace registry", () => {
 
   it("returns the metadata used by the workspace header", () => {
     expect(workspaceSurface("finance")).toMatchObject({
-      label: "Finances",
+      label: "Monarch",
       group: "money",
       kind: "embed",
     });

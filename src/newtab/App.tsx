@@ -960,7 +960,7 @@ export default function App() {
         content = shouldMountEmbed("finance") ? (
           <EmbedFrame
             src={MONARCH_URL}
-            title="Finances"
+            title="Monarch"
             sandbox={MONARCH_SANDBOX}
             note="If Monarch will not stay signed in here, use the external workspace."
           />

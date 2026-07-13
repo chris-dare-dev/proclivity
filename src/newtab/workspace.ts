@@ -23,7 +23,7 @@ export interface WorkspaceGroup {
 export const WORKSPACE_GROUPS: readonly WorkspaceGroup[] = [
   { id: "intelligence", label: "Intelligence" },
   { id: "planning", label: "Planning" },
-  { id: "money", label: "Money" },
+  { id: "money", label: "Finances" },
   { id: "memory", label: "Memory" },
   { id: "archive", label: "Archive" },
 ];
@@ -80,7 +80,7 @@ export const WORKSPACE_SURFACES: readonly WorkspaceSurface[] = [
   },
   {
     id: "finance",
-    label: "Finances",
+    label: "Monarch",
     group: "money",
     description: "Monarch workspace · protected external surface",
     kind: "embed",
