@@ -19,8 +19,8 @@ This file is curated by hand from `CLAUDE.md`, `src/styles/theme.css`, and the s
 | Charts / canvas | `@react-three/fiber` + `three.js` for the MeshBackground; lazy-loaded | Three.js is intentionally large and already lazy-loaded |
 | State | Zero global store; `useStore` hook over `chrome.storage.local` | NO Zustand; NO Redux; NO Jotai — the storage hook IS the global state |
 | Data persistence | `chrome.storage.local` (~10 MB cap) | NO IndexedDB by default; adding Dexie / idb-keyval is a major architectural change |
-| Icons | None standardized | Section components use inline SVG or none; standardizing an icon library is itself a candidate |
-| Motion | None installed | Animation currently lives in raw CSS transitions; adopting a library is a foundational candidate |
+| Icons | `lucide-react` for shell actions; some legacy inline SVG | New shell controls should use Lucide only when the icon clarifies a concrete action; visible text remains primary navigation |
+| Motion | `motion` v12 + `@formkit/auto-animate` + CSS transitions | Motion is already a load-bearing, lazy-split capability. New motion still needs a named orientation, feedback, or continuity job |
 
 ## 2. Color tokens (CSS custom properties; defined in `src/styles/theme.css`)
 
@@ -145,9 +145,9 @@ it. It states **invariants**, never a page silhouette — cloning a fixed shell 
 
 ### Visual thesis (one sentence — passes the swap-test)
 
-> **Proclivity is a private planning instrument you meet on every new tab: today's work and the long
-> horizon held in one calm, still frame — rendered almost entirely in ink and paper, with the single
-> accent the user chose as the only color that carries meaning.**
+> **Proclivity is a private field desk you meet on every new tab: the user's current inclination —
+> investigate, plan, remember, or review money — receives the full working canvas while every other
+> instrument waits quietly at the edge, rendered in ink and paper with one user-owned accent.**
 
 Swap-test: substitute *Momentum* (photo-hero clock, not "one still planning frame"), *Sunsama* (hosted,
 team-adjacent, its own brand color — not "self-owned, user-chosen accent"), or *Todoist* (denser,
@@ -159,9 +159,10 @@ invariants, so it passes.
 1. **Calm at extreme repeat-use.** This surface is opened dozens of times a day and is never the task —
    it is the frame around the task. It must never demand attention, celebrate, or animate for its own
    sake. Stillness is the default; motion earns its place only by naming a job (see below).
-2. **One still frame across time horizons.** Today → Sprint → LongTerm → Gantt is one instrument spanning
-   near-to-far planning, not a grid of equal-weight persona cards. Each view has a focal answer to "what
-   needs me now" (§6 lede discipline); no BAN-2/BAN-5 equal-card wall.
+2. **One focal instrument, optionally one companion.** OSINT, Today, Gantt, Finances, Photos, and the
+   archive are not equal cards in a dashboard wall. One surface owns the working canvas; a user may pin
+   one contextual companion without turning the new tab into a tiled control room. Today → Sprint →
+   LongTerm → Gantt still reads as one planning instrument across time horizons.
 3. **A single user-owned accent is the only chroma.** `--accent` is user-overridable (theme.css); every
    other color is achromatic ink/paper steps. Semantic `--danger`/`--warn`/`--ok` are reserved for state
    ONLY (BAN-11). No second neon, no rainbow tags-as-identity.
@@ -205,6 +206,8 @@ dashboard. Therefore there is **no S-1** (marketing/landing/docs) and **no true 
 | Reminders (`src/sections/Reminders.tsx`) | **S-2 tool** | List + alarm state; `PMOT-14 tick-flash`-class state feedback only; no magnetic-cursor on Snooze/Complete. |
 | Photos (`src/sections/Photos.tsx`) | **S-2 tool (media)** | Google Photos grid; skeleton loading is legitimate; the photo is content, never a hero. |
 | Calendar (`src/sections/Calendar.tsx`) | **S-2 tool** | Date grid; still. |
+| OSINT embed (`src/components/embed/EmbedFrame.tsx`) | **S-2 tool (external)** | Investigation is the default deep-work surface. It needs maximum usable width, a persistent external escape hatch, and no decorative competition. |
+| Finances / Monarch embed (`src/components/embed/EmbedFrame.tsx`) | **S-2 tool (external)** | Sensitive personal-finance workspace. Preserve the narrow DNR and sandbox boundary; make third-party-cookie limitations explicit. |
 | Settings modal + panes, TodoEditModal, QuickPrompt (`src/components/…`) | **S-2 tool** | Overlays; `MOT-4 scale-in` + backdrop fade only. |
 | **MeshBackground** — R3F/WebGL ambient layer (`src/components/MeshBackground.tsx`) | **S-1m-bounded (decorative island)** | The ONE place bounded ambient GPU craft is legitimate. It is NOT a full experiential surface (no threshold, no fast-path-through, always behind the working UI). Locks: reduced-motion → static poster (already lazy-loaded + shader-gated), must never obscure planning data (AP-6), must never leak parallax/scroll-motion onto the sections, single-accent-tinted. |
 
@@ -215,3 +218,28 @@ MeshBackground is a bounded island the art-direction-scout may note, not a reaso
 (no CDN-loaded animation libs; everything bundles), the new-tab has no hosted egress (local-only), and any
 new dependency lands in the initial newtab chunk unless `React.lazy`-split (≤~400 KB soft / 500 KB hard,
 per `CLAUDE.md`).
+
+---
+
+## §10 — Responsive workspace contract (2026 Q3)
+
+The `responsive-workspace` direction applies the standing thesis without replacing it with a fixed
+silhouette. These are product invariants for the shell:
+
+1. **Use the available viewport.** The shell is a full-block-size grid with intrinsic tracks. There is no
+   centered `max-width` cap and no ordinary-flow `100vw` breakout. Every grid/flex child that may contain
+   a chart, iframe, or long toolbar gets `min-inline-size: 0` and owns its overflow.
+2. **Group destinations by intent.** Intelligence, Planning, Money, Memory, and Archive form a text-first
+   switchboard. They are destinations, not an ARIA tablist; the current destination uses `aria-current`.
+3. **One primary + at most one companion.** Wide windows may opt into a bounded companion. The companion
+   collapses before either panel becomes unusable, and never appears on narrow windows. Focus mode always
+   has a visible exit because embedded pages can capture keyboard input.
+4. **Panels respond to their slot, not only the viewport.** The workspace slots establish inline-size
+   containers. Gantt, Photos, embeds, calendars, reminders, and card canvases must recompose against their
+   allocated panel width.
+5. **Media is a destination.** Google Photos no longer sits above every task. It becomes a first-class
+   Memory surface, supplies a useful empty state, pauses when hidden, and never becomes the new-tab hero.
+6. **External embeds stay bounded.** OSINT and Monarch retain the external-open escape hatch. Monarch's
+   sandbox, DNR rules, manifest key, host permissions, and local storage identity are not broadened.
+7. **Issues is a reserved IA slot, not a fabricated feature.** It ships only after its source, auth, data
+   contract, and empty/error states are decided.

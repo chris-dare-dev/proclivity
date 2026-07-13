@@ -60,6 +60,14 @@
   --panel-pad-x: 20px;
   --form-gap: 12px;
 
+  /* Full-viewport workspace shell */
+  --workspace-rail-width: 176px;
+  --workspace-gap: 12px;
+
+  /* Shared interaction timing */
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+
   /* Typography */
   --font-size-base: 15px;
   --line-height-base: 1.5;

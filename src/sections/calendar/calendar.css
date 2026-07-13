@@ -474,7 +474,7 @@
 
 /* ───────────────────────── Compact layout ─────────────────── */
 
-@media (max-width: 720px) {
+@container workspace-panel (max-width: 720px) {
   .calendar-grid__cells {
     grid-template-rows: repeat(6, minmax(72px, 1fr));
   }

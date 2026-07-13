@@ -155,6 +155,22 @@ export const DraggableCard = memo(function DraggableCard({
     return { w: el.offsetWidth, h: el.offsetHeight };
   }
 
+  function clampToCanvas(x: number, y: number): { x: number; y: number } {
+    const el = elRef.current;
+    const canvas = el?.closest<HTMLElement>(".card-canvas");
+    if (!el || !canvas) return { x: Math.max(0, x), y: Math.max(0, y) };
+    return {
+      x: clamp(x, 0, Math.max(0, canvas.clientWidth - el.offsetWidth)),
+      y: Math.max(0, y),
+    };
+  }
+
+  function maxWidthAtCurrentPosition(): number {
+    const canvas = elRef.current?.closest<HTMLElement>(".card-canvas");
+    if (!canvas) return MAX_W;
+    return Math.max(MIN_W, Math.min(MAX_W, canvas.clientWidth - position.x));
+  }
+
   // ── Position drag ────────────────────────────────────────────────
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -190,9 +206,8 @@ export const DraggableCard = memo(function DraggableCard({
 
     const rawX = drag.origX + (e.clientX - drag.startClientX);
     const rawY = drag.origY + (e.clientY - drag.startClientY);
-    const clampedX = Math.max(0, rawX);
-    const clampedY = Math.max(0, rawY);
-    applyPosition(clampedX, clampedY);
+    const clamped = clampToCanvas(rawX, rawY);
+    applyPosition(clamped.x, clamped.y);
   };
 
   const commitDrag = (e: PointerEvent<HTMLDivElement>) => {
@@ -210,9 +225,13 @@ export const DraggableCard = memo(function DraggableCard({
 
     const rawX = drag.origX + (e.clientX - drag.startClientX);
     const rawY = drag.origY + (e.clientY - drag.startClientY);
+    const clamped = clampToCanvas(
+      snapTo(rawX, CARD_GRID_SIZE),
+      snapTo(rawY, CARD_GRID_SIZE),
+    );
     const snapped: CardPosition = {
-      x: Math.max(0, snapTo(rawX, CARD_GRID_SIZE)),
-      y: Math.max(0, snapTo(rawY, CARD_GRID_SIZE)),
+      x: clamped.x,
+      y: clamped.y,
       z: position.z,
       w: position.w,
       h: position.h,
@@ -238,7 +257,13 @@ export const DraggableCard = memo(function DraggableCard({
     }
 
     applyPosition(drag.origX, drag.origY);
-    onPositionChange(itemId, { x: drag.origX, y: drag.origY, z: position.z, w: position.w, h: position.h });
+    onPositionChange(itemId, {
+      x: drag.origX,
+      y: drag.origY,
+      z: position.z,
+      w: position.w,
+      h: position.h,
+    });
     void e;
   };
 
@@ -271,7 +296,10 @@ export const DraggableCard = memo(function DraggableCard({
 
     const rawW = rs.origW + (e.clientX - rs.startClientX);
     const rawH = rs.origH + (e.clientY - rs.startClientY);
-    applySize(clamp(rawW, MIN_W, MAX_W), clamp(rawH, MIN_H, MAX_H));
+    applySize(
+      clamp(rawW, MIN_W, maxWidthAtCurrentPosition()),
+      clamp(rawH, MIN_H, MAX_H),
+    );
   };
 
   const commitResize = (e: PointerEvent<HTMLDivElement>) => {
@@ -285,7 +313,11 @@ export const DraggableCard = memo(function DraggableCard({
 
     const rawW = rs.origW + (e.clientX - rs.startClientX);
     const rawH = rs.origH + (e.clientY - rs.startClientY);
-    const snappedW = clamp(snapTo(rawW, CARD_GRID_SIZE), MIN_W, MAX_W);
+    const snappedW = clamp(
+      snapTo(rawW, CARD_GRID_SIZE),
+      MIN_W,
+      maxWidthAtCurrentPosition(),
+    );
     const snappedH = clamp(snapTo(rawH, CARD_GRID_SIZE), MIN_H, MAX_H);
 
     applySize(snappedW, snappedH);
@@ -321,29 +353,58 @@ export const DraggableCard = memo(function DraggableCard({
         const el = elRef.current;
         if (el) {
           el.classList.remove("is-dragging");
-          try { elRef.current?.releasePointerCapture(drag.pointerId); } catch { /* ok */ }
+          try {
+            elRef.current?.releasePointerCapture(drag.pointerId);
+          } catch {
+            // The pointer may already have been released by the browser.
+          }
           const canvas = el.closest(".card-canvas");
           if (canvas) canvas.classList.remove("is-dragging");
         }
 
         applyPosition(drag.origX, drag.origY);
-        onPositionChange(itemId, { x: drag.origX, y: drag.origY, z: position.z, w: position.w, h: position.h });
+        onPositionChange(itemId, {
+          x: drag.origX,
+          y: drag.origY,
+          z: position.z,
+          w: position.w,
+          h: position.h,
+        });
       }
       return;
     }
 
     // Shift+Arrow: resize by one grid unit.
     // Arrow alone: nudge position by one grid unit (10 with Ctrl).
-    if (e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+    if (
+      e.shiftKey &&
+      (e.key === "ArrowLeft" ||
+        e.key === "ArrowRight" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown")
+    ) {
       e.preventDefault();
       const { w: curW, h: curH } = currentSize();
       let newW = curW;
       let newH = curH;
 
-      if (e.key === "ArrowRight") newW = clamp(curW + CARD_GRID_SIZE, MIN_W, MAX_W);
-      else if (e.key === "ArrowLeft") newW = clamp(curW - CARD_GRID_SIZE, MIN_W, MAX_W);
-      else if (e.key === "ArrowDown") newH = clamp(curH + CARD_GRID_SIZE, MIN_H, MAX_H);
-      else if (e.key === "ArrowUp") newH = clamp(curH - CARD_GRID_SIZE, MIN_H, MAX_H);
+      if (e.key === "ArrowRight") {
+        newW = clamp(
+          curW + CARD_GRID_SIZE,
+          MIN_W,
+          maxWidthAtCurrentPosition(),
+        );
+      } else if (e.key === "ArrowLeft") {
+        newW = clamp(
+          curW - CARD_GRID_SIZE,
+          MIN_W,
+          maxWidthAtCurrentPosition(),
+        );
+      } else if (e.key === "ArrowDown") {
+        newH = clamp(curH + CARD_GRID_SIZE, MIN_H, MAX_H);
+      } else if (e.key === "ArrowUp") {
+        newH = clamp(curH - CARD_GRID_SIZE, MIN_H, MAX_H);
+      }
 
       applySize(newW, newH);
       onResize?.(itemId, { w: newW, h: newH });
@@ -355,14 +416,31 @@ export const DraggableCard = memo(function DraggableCard({
     let newX = position.x;
     let newY = position.y;
 
-    if (e.key === "ArrowLeft") { e.preventDefault(); newX = Math.max(0, position.x - nudge); }
-    else if (e.key === "ArrowRight") { e.preventDefault(); newX = position.x + nudge; }
-    else if (e.key === "ArrowUp") { e.preventDefault(); newY = Math.max(0, position.y - nudge); }
-    else if (e.key === "ArrowDown") { e.preventDefault(); newY = position.y + nudge; }
-    else return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      newX = position.x - nudge;
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      newX = position.x + nudge;
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      newY = Math.max(0, position.y - nudge);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      newY = position.y + nudge;
+    } else {
+      return;
+    }
 
-    const newPos: CardPosition = { x: newX, y: newY, z: position.z, w: position.w, h: position.h };
-    applyPosition(newX, newY);
+    const clamped = clampToCanvas(newX, newY);
+    const newPos: CardPosition = {
+      x: clamped.x,
+      y: clamped.y,
+      z: position.z,
+      w: position.w,
+      h: position.h,
+    };
+    applyPosition(clamped.x, clamped.y);
     onPositionChange(itemId, newPos);
     onDragEnd?.(itemId, newPos);
   };

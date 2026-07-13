@@ -20,7 +20,7 @@
   margin-bottom: 12px;
 }
 
-@media (max-width: 640px) {
+@container workspace-panel (max-width: 640px) {
   .reminder-form-grid {
     grid-template-columns: 1fr;
   }

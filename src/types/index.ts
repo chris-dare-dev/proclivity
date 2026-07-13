@@ -17,6 +17,7 @@ export type Tab =
   | "reminders"
   | "calendar"
   | "finance"
+  | "photos"
   | "closed";
 
 /*

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo } from "react";
 import type { DayItems, MonthGridCell } from "./calendarUtils";
 import type { Tag } from "@/types";
 
@@ -14,6 +14,7 @@ interface DayCellProps {
   /** Lane count for this cell's week-row — set as `data-lanes` so CSS can
    *  apply the correct padding-top without a CSS-variable scoping issue. */
   lanes: number;
+  compact: boolean;
 }
 
 /**
@@ -30,6 +31,7 @@ export const DayCell = memo(function DayCell({
   items,
   tagById,
   lanes,
+  compact,
 }: DayCellProps) {
   const dayNum = new Date(cell.ts).getDate();
 
@@ -63,21 +65,8 @@ export const DayCell = memo(function DayCell({
     })),
   ];
 
-  // H2: responsive chip cap — switch to mobile cap at ≤720px.
-  // Mobile users visiting long titles must use the source tab — acceptable
-  // trade-off for v1 (no tap-to-expand sheet implemented).
-  const [isMobile, setIsMobile] = useState(
-    () => window.matchMedia("(max-width: 720px)").matches,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 720px)");
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
   const totalItems = allChips.length;
-  const cap = isMobile ? MAX_CHIPS_MOBILE : MAX_CHIPS_DESKTOP;
+  const cap = compact ? MAX_CHIPS_MOBILE : MAX_CHIPS_DESKTOP;
   const visibleChips = allChips.slice(0, cap);
   const remaining = totalItems - cap;
 

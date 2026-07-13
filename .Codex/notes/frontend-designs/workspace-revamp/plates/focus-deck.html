@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Focus Deck direction plate</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#111;color:#eee;font:14px/1.4 system-ui,sans-serif}button{font:inherit;color:inherit}
+    .shell{min-height:100vh;display:grid;grid-template-columns:176px minmax(0,1fr);border:1px solid #444}.rail{padding:18px 12px;border-right:1px solid #444;background:#171717}.mark{font:600 15px/1 system-ui;margin:3px 8px 26px}.group{margin:0 0 19px}.group-label{margin:0 8px 6px;color:#888;font:600 10px/1.2 ui-monospace,monospace;letter-spacing:.13em;text-transform:uppercase}.nav{display:block;width:100%;border:0;border-left:2px solid transparent;background:transparent;padding:7px 8px;text-align:left;color:#aaa}.nav.active{border-left-color:#eee;background:#262626;color:#fff}.nav.future{color:#666}.keys{position:absolute;left:20px;bottom:18px;color:#777;font:11px ui-monospace,monospace}.main{min-width:0;display:grid;grid-template-rows:auto minmax(0,1fr);height:100vh}.top{display:flex;align-items:end;gap:20px;padding:17px 20px 13px;border-bottom:1px solid #444}.title{font-size:21px;font-weight:580}.sub{margin-top:2px;color:#888;font-size:12px}.clock{margin-left:auto;text-align:right;font:18px ui-monospace,monospace}.date{color:#888;font-size:11px}.actions{display:flex;gap:6px}.actions button{border:1px solid #555;background:#1d1d1d;padding:7px 10px}.stage{min-width:0;min-height:0;padding:12px;display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:10px;background:#0d0d0d}.panel{min-width:0;min-height:0;border:1px solid #444;background:#161616;display:flex;flex-direction:column}.bar{height:34px;display:flex;align-items:center;padding:0 10px;border-bottom:1px solid #3d3d3d;color:#aaa;font-size:11px}.bar b{color:#eee;margin-right:8px}.bar span:last-child{margin-left:auto}.osint{padding:18px;overflow:hidden}.brief{display:grid;grid-template-columns:1.4fr .9fr;gap:24px}.brief h1{margin:0 0 6px;font-size:28px;font-weight:560}.brief p{margin:0;color:#999;max-width:64ch}.rule{height:1px;background:#444;margin:18px 0}.signal{display:grid;grid-template-columns:90px 1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid #333}.signal small{color:#777;font:10px ui-monospace,monospace}.signal strong{font-weight:520}.signal em{color:#aaa;font-style:normal}.side{padding:14px;overflow:hidden}.side h2{font-size:15px;margin:0 0 3px}.side>p{color:#888;font-size:11px;margin:0 0 14px}.task{padding:11px 0;border-top:1px solid #3c3c3c;display:grid;grid-template-columns:14px 1fr;gap:8px}.box{width:12px;height:12px;border:1px solid #777;margin-top:3px}.task small{display:block;color:#777;margin-top:3px}.plate{position:fixed;right:14px;bottom:12px;color:#777;font:10px ui-monospace,monospace}
+    @media(max-width:900px){.shell{grid-template-columns:1fr}.rail{display:none}.stage{grid-template-columns:1fr}.panel.companion{display:none}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail"><div class="mark">PROCLIVITY / FIELD DESK</div>
+      <div class="group"><div class="group-label">Intelligence</div><button class="nav active">OSINT</button><button class="nav future">Issues / reserved</button></div>
+      <div class="group"><div class="group-label">Planning</div><button class="nav">Today</button><button class="nav">Gantt</button><button class="nav">Calendar</button><button class="nav">Reminders</button></div>
+      <div class="group"><div class="group-label">Money</div><button class="nav">Finances</button></div>
+      <div class="group"><div class="group-label">Memory</div><button class="nav">Photos</button></div>
+      <div class="group"><div class="group-label">Archive</div><button class="nav">Closed</button></div><div class="keys">Ctrl K / switch</div>
+    </aside>
+    <main class="main">
+      <header class="top"><div><div class="title">OSINT</div><div class="sub">Intelligence workspace / live external surface</div></div><div class="clock">10:42 <div class="date">MON 13 JUL</div></div><div class="actions"><button>Companion: Today</button><button>Swap</button><button>Focus</button></div></header>
+      <section class="stage">
+        <article class="panel"><div class="bar"><b>OSINT</b> Embedded workspace <span>Open externally ↗</span></div><div class="osint"><div class="brief"><div><small>DAILY BRIEF / 13 JUL 2026</small><h1>Signals worth investigating</h1><p>One uninterrupted surface owns the canvas. Investigation results are represented here only to test hierarchy and working width.</p></div><div><small>WATCHLIST</small><div class="rule"></div><p>6 monitored sources<br>2 material changes<br>Last sweep 10:38</p></div></div><div class="rule"></div><div class="signal"><small>10:31 / WEB</small><strong>Domain relationship changed</strong><em>Inspect</em></div><div class="signal"><small>09:48 / DOC</small><strong>New filing matches saved entity</strong><em>Review</em></div><div class="signal"><small>08:14 / MAP</small><strong>Location evidence needs corroboration</strong><em>Queue</em></div></div></article>
+        <aside class="panel companion"><div class="bar"><b>TODAY</b><span>Unpin ×</span></div><div class="side"><h2>Monday, July 13</h2><p>3 open / 1 scheduled</p><div class="task"><span class="box"></span><div>Reconcile OSINT sources<small>Investigation / before noon</small></div></div><div class="task"><span class="box"></span><div>Review Gantt milestones<small>Planning / 14:00</small></div></div><div class="task"><span class="box"></span><div>Check Monarch categories<small>Money / 17:30</small></div></div></div></aside>
+      </section>
+    </main>
+  </div><div class="plate">DIRECTION A / FOCUS DECK / GRAYSCALE PLATE</div>
+</body></html>

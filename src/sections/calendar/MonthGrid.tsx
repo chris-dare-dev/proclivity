@@ -11,6 +11,7 @@ import {
 import type { Reminder, Sprint, Tag, Todo, WeekStart } from "@/types";
 
 interface MonthGridProps {
+  compact: boolean;
   monthStart: number;
   weekStart: WeekStart;
   /** Live local-midnight timestamp for "today" — kept up-to-date via a
@@ -38,6 +39,7 @@ interface MonthGridProps {
  * The `today` prop updates once per day via a midnight-tick in Calendar.tsx.
  */
 export const MonthGrid = memo(function MonthGrid({
+  compact,
   monthStart,
   weekStart,
   today,
@@ -122,6 +124,7 @@ export const MonthGrid = memo(function MonthGrid({
                 }
                 tagById={tagById}
                 lanes={lanesByRow[Math.floor(cell.index / 7)] ?? 0}
+                compact={compact}
               />
             ))}
           </div>

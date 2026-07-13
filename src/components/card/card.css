@@ -2,14 +2,10 @@
 
 .card-canvas {
   position: relative;
-  /* Full-bleed: span the entire viewport width regardless of the centered
-   * .app container around it. This is card-mode only — the list-mode
-   * sections continue to live inside .app's max-width. Combined with the
-   * negative left margin the canvas effectively "breaks out" of .app while
-   * keeping its in-flow position for vertical layout. */
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  /* The full-viewport shell allocates the available inline size. Card mode
+   * stays inside that panel instead of breaking out with 100vw. */
+  inline-size: 100%;
+  min-inline-size: 0;
   /* min-height keeps the canvas visible even when all cards are filtered.
    * Updated by the section component as cards are positioned. */
   min-height: 400px;
@@ -57,7 +53,7 @@
 /* Narrow viewport: hide canvas; a fallback list shown in its place.
  * Section components render both .card-canvas and .card-fallback-list,
  * toggling visibility via this media query. */
-@media (max-width: 599px) {
+@container workspace-panel (max-width: 599px) {
   .card-canvas { display: none; }
   .card-fallback-list { display: flex !important; }
 }

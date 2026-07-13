@@ -1,8 +1,25 @@
-import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  memo,
+  Suspense,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { LazyMotion } from "motion/react";
 import { Toaster } from "sonner";
-import { Settings, MessageCircle } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Maximize2,
+  MessageCircle,
+  Minimize2,
+  Settings,
+} from "lucide-react";
 import "./App.css";
 import { Today } from "@/sections/Today";
 import { Sprint } from "@/sections/Sprint";
@@ -14,6 +31,13 @@ import { useStore } from "@/storage/useStore";
 import { storage } from "@/storage/storage";
 import { configure as configureObservability } from "@/observability/logger";
 import type { SettingsPaneId } from "@/types";
+import {
+  surfacesInGroup,
+  WORKSPACE_GROUPS,
+  WORKSPACE_SURFACES,
+  workspaceSurface,
+  type WorkspaceSurface,
+} from "./workspace";
 
 // Motion v12 (LazyMotion + domAnimation) — m2 frontend-uplift foundation.
 // LazyMotion is a Context provider; the actual feature pack
@@ -120,11 +144,8 @@ const ClosedTodosView = lazy(() =>
   })),
 );
 
-// Photos slideshow banner — lazy so the base64 photo cache and slideshow
-// CSS only load when the feature is enabled. Mounted between the header
-// and the tab bar (not as a tab) so the slideshow reads as a persistent
-// widget rather than another planning surface. Hidden by default;
-// visibility is flipped on after the first successful pick.
+// Photos is a first-class Memory workspace. It stays lazy so the base64 cache
+// and media CSS never land in the initial chunk for users who leave it hidden.
 const Photos = lazy(() => import("@/sections/Photos"));
 
 // Keyboard help overlay — lazy so the shortcut-list component and its CSS
@@ -169,22 +190,6 @@ const MONARCH_SANDBOX =
   "allow-popups-to-escape-sandbox allow-modals " +
   "allow-storage-access-by-user-activation";
 
-const TABS: { id: Tab; label: string }[] = [
-  // OSINT sits first — it is the default tab on new-tab open.
-  { id: "osint", label: "OSINT" },
-  { id: "today", label: "Today" },
-  { id: "sprint", label: "Sprint" },
-  { id: "long", label: "Long-term" },
-  { id: "gantt", label: "Gantt" },
-  { id: "calendar", label: "Calendar" },
-  { id: "reminders", label: "Reminders" },
-  { id: "finance", label: "Finances" },
-  // "Closed" sits at the rightmost slot — archival semantics. Always visible
-  // (no sectionVisibility gate) so the destination promised by the close
-  // action is always findable; see .claude/notes/closed-todos-research-B.md §3.
-  { id: "closed", label: "Closed" },
-];
-
 function greetingFor(
   d: Date,
   schedule: "standard" | "earlyBird" | "nightOwl" = "standard",
@@ -203,9 +208,29 @@ function greetingFor(
   return "Good evening";
 }
 
+interface HeaderProps {
+  surface: WorkspaceSurface;
+  visibleTabs: readonly WorkspaceSurface[];
+  companionTab: Tab | null;
+  focusMode: boolean;
+  canShowCompanion: boolean;
+  onCompanionChange: (tab: Tab | null) => void;
+  onSwap: () => void;
+  onToggleFocus: () => void;
+}
+
 // Header owns its own 1-second tick so the rest of App doesn't re-render
 // on each clock update (Pattern F).
-const Header = memo(function Header() {
+const Header = memo(function Header({
+  surface,
+  visibleTabs,
+  companionTab,
+  focusMode,
+  canShowCompanion,
+  onCompanionChange,
+  onSwap,
+  onToggleFocus,
+}: HeaderProps) {
   const { state } = useStore();
   const [now, setNow] = useState(() => new Date());
   // Deep-link: `?settings=<paneId>` opens the modal to that pane on first
@@ -239,12 +264,15 @@ const Header = memo(function Header() {
       namespaces: rs.debug.namespaces,
     });
   }, [rs.debug.enabled, rs.debug.namespaces]);
-  // m11: bridge from CommandPalette's "Open Settings" action → setSettingsOpen.
-  // setSettingsOpen lives in Header memo scope; CommandPalette mounts as a
-  // sibling of Header in App() return (no prop-drilling path). Custom event
-  // matches the NAV_CLOSED_EVENT topology (synthesis §3.2).
+  // Bridge shell actions to the settings modal without prop-drilling. A
+  // SettingsPaneId detail lets Photos deep-link to its setup pane; callers
+  // without a detail retain the normal last-pane behavior.
   useEffect(() => {
-    const handler = () => setSettingsOpen(true);
+    const handler = (event: Event) => {
+      const pane = (event as CustomEvent<SettingsPaneId>).detail;
+      if (pane && SETTINGS_PANE_IDS.has(pane)) setPendingInitialPane(pane);
+      setSettingsOpen(true);
+    };
     window.addEventListener(OPEN_SETTINGS_EVENT, handler);
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, handler);
   }, []);
@@ -266,24 +294,87 @@ const Header = memo(function Header() {
   };
 
   const chatEnabled = rs.geminiNano.chatEnabled;
+  const groupLabel =
+    WORKSPACE_GROUPS.find((group) => group.id === surface.group)?.label ?? "Workspace";
+  const companionSurface = companionTab ? workspaceSurface(companionTab) : null;
 
   return (
     <>
       <header className="header">
         <div className="header-left">
-          <div className="greeting">{greeting}</div>
-          <div className="date">
-            {now.toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
+          <div className="workspace-kicker">{groupLabel}</div>
+          <div className="workspace-title-row">
+            <h1>{surface.label}</h1>
+            {companionSurface && (
+              <span className="workspace-companion-status">
+                + {companionSurface.label}
+                {!canShowCompanion ? " on wide windows" : ""}
+              </span>
+            )}
           </div>
+          <p className="workspace-description">{surface.description}</p>
         </div>
         <div className="header-right">
-          <div className="clock">
+          <div className="header-day-context">
+            {greeting && <span className="greeting">{greeting}</span>}
+            <span className="date">
+              {now.toLocaleDateString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+          <div className="clock" aria-label={`Current time ${now.toLocaleTimeString(undefined, timeOpts)}`}>
             {now.toLocaleTimeString(undefined, timeOpts)}
           </div>
+          {canShowCompanion && (
+            <label className="companion-picker">
+              <span>Companion</span>
+              <select
+                value={companionTab ?? ""}
+                onChange={(event) =>
+                  onCompanionChange(
+                    event.target.value ? (event.target.value as Tab) : null,
+                  )
+                }
+              >
+                <option value="">None</option>
+                {visibleTabs
+                  .filter((candidate) => candidate.id !== surface.id)
+                  .map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.label}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
+          {canShowCompanion && companionSurface && (
+            <button
+              type="button"
+              className="workspace-action workspace-swap-action"
+              onClick={onSwap}
+              title="Swap primary and companion workspaces"
+            >
+              <ArrowLeftRight size={15} aria-hidden="true" />
+              <span>Swap</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="workspace-action"
+            aria-pressed={focusMode}
+            onClick={onToggleFocus}
+            title={focusMode ? "Exit focus mode" : "Focus the primary workspace"}
+          >
+            {focusMode ? (
+              <Minimize2 size={15} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={15} aria-hidden="true" />
+            )}
+            <span>{focusMode ? "Exit focus" : "Focus"}</span>
+          </button>
           {chatEnabled && (
             <button
               type="button"
@@ -340,16 +431,14 @@ const Header = memo(function Header() {
 /**
  * Mapping from Tab id to sectionVisibility key.
  *
- * "closed", "osint" and "finance" are intentionally absent — the Closed tab is
- * always-visible (see the TABS comment above and research-B.md §3), and the two
- * embed tabs are likewise unconditionally visible (they have no
- * sectionVisibility key). The `visibleTabs` memo below treats all three as
- * always-visible.
+ * "closed", "osint" and "finance" are intentionally absent — archive and
+ * external-workspace destinations are always findable. Photos remains coupled
+ * to its setup flow and appears once sectionVisibility.photos is enabled.
  */
 type GatedTab = Exclude<Tab, "closed" | "osint" | "finance">;
 const TAB_KEY: Record<
   GatedTab,
-  Exclude<keyof ResolvedUserSettings["sectionVisibility"], "photos">
+  keyof ResolvedUserSettings["sectionVisibility"]
 > = {
   today: "today",
   sprint: "sprint",
@@ -357,6 +446,7 @@ const TAB_KEY: Record<
   gantt: "gantt",
   reminders: "reminders",
   calendar: "calendar",
+  photos: "photos",
 };
 
 /** Tabs whose visibility is user-controllable via Settings → Dashboard. */
@@ -367,6 +457,18 @@ function isVisibilityGated(tabId: Tab): tabId is GatedTab {
 export default function App() {
   // OSINT is the default tab on new-tab open (user preference).
   const [tab, setTab] = useState<Tab>("osint");
+  // A wide workspace may opt into one companion. The choice stays in memory
+  // when focus mode or a narrow viewport collapses the split.
+  const [companionTab, setCompanionTab] = useState<Tab | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  const [canShowCompanion, setCanShowCompanion] = useState(() =>
+    window.matchMedia("(min-width: 1280px)").matches,
+  );
+  const workspaceNavRef = useRef<HTMLElement | null>(null);
+  const [navOverflow, setNavOverflow] = useState({
+    before: false,
+    after: false,
+  });
   // m10: keyboard help overlay toggle state. Cmd+/ (Mac) / Ctrl+/ (Win/Linux)
   // opens/closes the help overlay. Lazy-loaded on first open.
   const [helpOpen, setHelpOpen] = useState(false);
@@ -424,6 +526,14 @@ export default function App() {
   const prevTabRef = useRef<Tab>(tab);
   const { state } = useStore();
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1280px)");
+    const onChange = (event: MediaQueryListEvent) => setCanShowCompanion(event.matches);
+    setCanShowCompanion(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
 
   // useLayoutEffect (not useEffect) so the data-staggered toggle commits
   // BEFORE the browser paints the new tab's contents. Otherwise items
@@ -485,11 +595,133 @@ export default function App() {
 
   const visibleTabs = useMemo(
     () =>
-      TABS.filter((t) =>
-        isVisibilityGated(t.id) ? rs.sectionVisibility[TAB_KEY[t.id]] : true,
+      WORKSPACE_SURFACES.filter((surface) =>
+        isVisibilityGated(surface.id)
+          ? rs.sectionVisibility[TAB_KEY[surface.id]]
+          : true,
       ),
     [rs.sectionVisibility],
   );
+
+  // The navigation becomes a horizontal strip below 1280px. Track both
+  // clipped edges so CSS can provide an honest, bidirectional overflow cue.
+  useEffect(() => {
+    const nav = workspaceNavRef.current;
+    if (!nav) return;
+    const updateOverflow = () => {
+      const before = nav.scrollLeft > 2;
+      const after = nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2;
+      setNavOverflow((current) =>
+        current.before === before && current.after === after
+          ? current
+          : { before, after },
+      );
+    };
+    updateOverflow();
+    nav.addEventListener("scroll", updateOverflow, { passive: true });
+    const observer = new ResizeObserver(updateOverflow);
+    observer.observe(nav);
+    return () => {
+      nav.removeEventListener("scroll", updateOverflow);
+      observer.disconnect();
+    };
+  }, [visibleTabs]);
+
+  const handleSelectTab = useCallback(
+    (next: Tab) => {
+      if (next === tab) return;
+      // Selecting the current companion promotes it and keeps the old primary
+      // as the companion. This makes rail and command-palette navigation
+      // predictable while preserving the user's two-surface arrangement.
+      if (next === companionTab) setCompanionTab(tab);
+      setTab(next);
+    },
+    [companionTab, tab],
+  );
+
+  const handleCompanionChange = useCallback(
+    (next: Tab | null) => setCompanionTab(next === tab ? null : next),
+    [tab],
+  );
+
+  const handleSwap = useCallback(() => {
+    if (!companionTab) return;
+    const previousPrimary = tab;
+    setTab(companionTab);
+    setCompanionTab(previousPrimary);
+  }, [companionTab, tab]);
+
+  const splitActive =
+    canShowCompanion && !focusMode && companionTab !== null && companionTab !== tab;
+
+  // Each external workspace mounts only after first use, then stays warm.
+  // There are exactly two bounded embeds, so this preserves their in-frame
+  // navigation/session UI without returning to eager Finance network work.
+  const [visitedEmbeds, setVisitedEmbeds] = useState<
+    ReadonlySet<"osint" | "finance">
+  >(() => new Set(["osint"]));
+  useEffect(() => {
+    const nextEmbed =
+      tab === "osint" || tab === "finance"
+        ? tab
+        : splitActive &&
+            (companionTab === "osint" || companionTab === "finance")
+          ? companionTab
+          : null;
+    if (!nextEmbed) return;
+    setVisitedEmbeds((current) => {
+      if (current.has(nextEmbed)) return current;
+      const next = new Set(current);
+      next.add(nextEmbed);
+      return next;
+    });
+  }, [companionTab, splitActive, tab]);
+
+  const shouldMountEmbed = (id: "osint" | "finance") =>
+    tab === id ||
+    (splitActive && companionTab === id) ||
+    leavingTab === id ||
+    visitedEmbeds.has(id);
+
+  const panelSlot = (id: Tab): "primary" | "companion" | undefined =>
+    id === tab ? "primary" : splitActive && id === companionTab ? "companion" : undefined;
+  const panelIsLeaving = (id: Tab) => !splitActive && leavingTab === id;
+  const panelIsVisible = (id: Tab) => panelSlot(id) !== undefined || panelIsLeaving(id);
+  // React 18 predates first-class inert typing. The empty string is the
+  // standards-correct boolean-attribute value and avoids React's warning for
+  // `inert={true}` while retaining the existing transition accessibility guard.
+  const inertWhenLeaving = (id: Tab) =>
+    panelIsLeaving(id) ? ("" as unknown as boolean) : undefined;
+
+  // Keep the DOM and keyboard focus order aligned with the visual workspace:
+  // primary first, companion second, then the outgoing/resting panels. Stable
+  // section keys let React move each mounted panel without resetting its local
+  // component state.
+  const orderedPanelIds = useMemo(() => {
+    const rank = (id: Tab) => {
+      if (id === tab) return 0;
+      if (splitActive && id === companionTab) return 1;
+      if (!splitActive && id === leavingTab) return 2;
+      return 3;
+    };
+
+    return visibleTabs
+      .map((surface, registryIndex) => ({
+        id: surface.id,
+        rank: rank(surface.id),
+        registryIndex,
+      }))
+      .sort((a, b) => a.rank - b.rank || a.registryIndex - b.registryIndex)
+      .map(({ id }) => id);
+  }, [companionTab, leavingTab, splitActive, tab, visibleTabs]);
+
+  useEffect(() => {
+    document.getElementById(`workspace-nav-${tab}`)?.scrollIntoView({
+      block: "nearest",
+      inline: "center",
+      behavior: "auto",
+    });
+  }, [tab]);
 
   // If the active tab gets hidden via settings, fall back to the first
   // visible one so the dashboard never renders an "invisible" section.
@@ -512,19 +744,32 @@ export default function App() {
           leavingTimeoutRef.current = undefined;
         }
         setLeavingTab(null);
+        setCompanionTab((current) =>
+          current === firstVisible.id ? null : current,
+        );
         setTab(firstVisible.id);
       }
     }
   }, [rs.sectionVisibility, tab, visibleTabs]);
 
+  // A setup toggle can hide the companion while the primary remains valid.
+  useEffect(() => {
+    if (
+      companionTab !== null &&
+      !visibleTabs.some((surface) => surface.id === companionTab)
+    ) {
+      setCompanionTab(null);
+    }
+  }, [companionTab, visibleTabs]);
+
   // Listen for cross-section "jump to Closed" requests from the counter
   // affordance in each active section. Cleanup on unmount keeps the listener
   // scoped to App's lifetime.
   useEffect(() => {
-    const handler = () => setTab("closed");
+    const handler = () => handleSelectTab("closed");
     window.addEventListener(NAV_CLOSED_EVENT, handler);
     return () => window.removeEventListener(NAV_CLOSED_EVENT, handler);
-  }, []);
+  }, [handleSelectTab]);
 
   // Phase G: roadmap write-back detector. An INDEPENDENT storage subscription
   // (not the useStore render path) snapshots rm:-prefixed todos' `done` flags
@@ -576,6 +821,106 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const renderWorkspacePanel = (id: Tab) => {
+    let modifier: "embed" | "list" | "tool" | "media";
+    let content: ReactNode;
+
+    switch (id) {
+      case "osint":
+        modifier = "embed";
+        content = shouldMountEmbed("osint") ? (
+          <EmbedFrame src={OSINT_URL} title="OSINT" />
+        ) : null;
+        break;
+      case "today":
+        modifier = "list";
+        content = <Today />;
+        break;
+      case "sprint":
+        modifier = "list";
+        content = <Sprint />;
+        break;
+      case "long":
+        modifier = "list";
+        content = <LongTerm />;
+        break;
+      case "gantt":
+        modifier = "tool";
+        content = <Gantt />;
+        break;
+      case "reminders":
+        modifier = "list";
+        content = <Reminders />;
+        break;
+      case "calendar":
+        modifier = "tool";
+        content = (
+          <Suspense fallback={null}>
+            <Calendar
+              onTabChange={(next) => {
+                const destination = WORKSPACE_SURFACES.find(
+                  (surface) => surface.id === next,
+                );
+                if (destination) handleSelectTab(destination.id);
+              }}
+            />
+          </Suspense>
+        );
+        break;
+      case "finance":
+        modifier = "embed";
+        content = shouldMountEmbed("finance") ? (
+          <EmbedFrame
+            src={MONARCH_URL}
+            title="Finances"
+            sandbox={MONARCH_SANDBOX}
+            note="If Monarch will not stay signed in here, use the external workspace."
+          />
+        ) : null;
+        break;
+      case "photos":
+        modifier = "media";
+        content = (
+          <Suspense fallback={null}>
+            <Photos
+              active={panelIsVisible("photos") && !panelIsLeaving("photos")}
+            />
+          </Suspense>
+        );
+        break;
+      case "closed":
+        modifier = "list";
+        content = (
+          <Suspense fallback={null}>
+            <ClosedTodosView />
+          </Suspense>
+        );
+        break;
+    }
+
+    const staggered =
+      (id === "today" || id === "sprint" || id === "long") &&
+      staggeredTab === id;
+
+    return (
+      <section
+        key={id}
+        id={`workspace-panel-${id}`}
+        role="region"
+        aria-labelledby={`workspace-nav-${id}`}
+        className={`workspace-panel workspace-panel--${modifier}`}
+        hidden={!panelIsVisible(id)}
+        data-slot={panelSlot(id)}
+        data-staggered={staggered ? "true" : undefined}
+        data-leaving={panelIsLeaving(id) ? "true" : undefined}
+        inert={inertWhenLeaving(id)}
+        aria-hidden={panelIsLeaving(id) ? true : undefined}
+      >
+        {content}
+      </section>
+    );
+  };
+
   return (
     <LazyMotion features={loadDomAnimation} strict>
       {rs.meshEnabled && (
@@ -586,201 +931,102 @@ export default function App() {
           />
         </Suspense>
       )}
-      <div className="app">
-        <Header />
+      <div
+        className="app"
+        data-focus-mode={focusMode ? "true" : undefined}
+        data-split={splitActive ? "true" : undefined}
+      >
+        <Header
+          surface={workspaceSurface(tab)}
+          visibleTabs={visibleTabs}
+          companionTab={companionTab}
+          focusMode={focusMode}
+          canShowCompanion={canShowCompanion}
+          onCompanionChange={handleCompanionChange}
+          onSwap={handleSwap}
+          onToggleFocus={() => setFocusMode((current) => !current)}
+        />
 
-        {/* QuickPrompt — always-visible Nano prompt. Renders nothing when the
-            feature toggle is off OR Nano is unavailable OR we're in card mode.
-            Suspense fallback is null so layout doesn't shift while the lazy
-            chunk loads. */}
-        <Suspense fallback={null}>
-          <QuickPrompt />
-        </Suspense>
-
-        {/* Photos banner — sits between header/QuickPrompt and the tab bar.
-            The Photos component itself returns null when no photos are
-            cached, so the slot collapses cleanly until the user picks. The
-            sectionVisibility.photos toggle still gates whether the banner
-            is even rendered for users who want to hide it. */}
-        {rs.sectionVisibility.photos && (
-          <Suspense fallback={null}>
-            <Photos />
-          </Suspense>
-        )}
-
-        {/* L3: each tab button gets an id so the matching tabpanel can
-            reference it via aria-labelledby, completing the tablist pattern. */}
-        <nav className="tabs" role="tablist">
-          {visibleTabs.map((t) => (
-            <button
-              key={t.id}
-              id={`tab-btn-${t.id}`}
-              role="tab"
-              aria-selected={tab === t.id}
-              aria-controls={`tabpanel-${t.id}`}
-              className={`tab ${tab === t.id ? "tab-active" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-
-        {/*
-          Keep all sections mounted (#39) — switching tabs preserves
-          local state (drafts, expanded archived sprints, etc.). Inactive
-          and hidden sections are skipped via the visible-section gate.
-        */}
-        <main className="content">
-          {/* OSINT embed — always rendered (unconditional visibility) and the
-              default tab. No sectionVisibility gate. */}
-          <div
-            id="tabpanel-osint"
-            role="tabpanel"
-            aria-labelledby="tab-btn-osint"
-            hidden={tab !== "osint" && leavingTab !== "osint"}
-            data-leaving={leavingTab === "osint" ? "true" : undefined}
-            inert={leavingTab === "osint" ? true : undefined}
-          >
-            <EmbedFrame src={OSINT_URL} title="OSINT" />
+        <aside className="workspace-rail" aria-label="Workspace navigation">
+          <div className="workspace-brand">
+            <span>Proclivity</span>
+            <small>Field desk</small>
           </div>
-          {rs.sectionVisibility.today && (
-            <div
-              id="tabpanel-today"
-              role="tabpanel"
-              aria-labelledby="tab-btn-today"
-              hidden={tab !== "today" && leavingTab !== "today"}
-              data-staggered={staggeredTab === "today" ? "true" : undefined}
-              data-leaving={leavingTab === "today" ? "true" : undefined}
-              inert={leavingTab === "today" ? true : undefined}
-            >
-              <Today />
-            </div>
-          )}
-          {rs.sectionVisibility.sprint && (
-            <div
-              id="tabpanel-sprint"
-              role="tabpanel"
-              aria-labelledby="tab-btn-sprint"
-              hidden={tab !== "sprint" && leavingTab !== "sprint"}
-              data-staggered={staggeredTab === "sprint" ? "true" : undefined}
-              data-leaving={leavingTab === "sprint" ? "true" : undefined}
-              inert={leavingTab === "sprint" ? true : undefined}
-            >
-              <Sprint />
-            </div>
-          )}
-          {rs.sectionVisibility.longTerm && (
-            <div
-              id="tabpanel-long"
-              role="tabpanel"
-              aria-labelledby="tab-btn-long"
-              hidden={tab !== "long" && leavingTab !== "long"}
-              data-staggered={staggeredTab === "long" ? "true" : undefined}
-              data-leaving={leavingTab === "long" ? "true" : undefined}
-              inert={leavingTab === "long" ? true : undefined}
-            >
-              <LongTerm />
-            </div>
-          )}
-          {rs.sectionVisibility.gantt && (
-            <div
-              id="tabpanel-gantt"
-              role="tabpanel"
-              aria-labelledby="tab-btn-gantt"
-              hidden={tab !== "gantt" && leavingTab !== "gantt"}
-              data-leaving={leavingTab === "gantt" ? "true" : undefined}
-              inert={leavingTab === "gantt" ? true : undefined}
-            >
-              <Gantt />
-            </div>
-          )}
-          {rs.sectionVisibility.reminders && (
-            <div
-              id="tabpanel-reminders"
-              role="tabpanel"
-              aria-labelledby="tab-btn-reminders"
-              hidden={tab !== "reminders" && leavingTab !== "reminders"}
-              data-leaving={leavingTab === "reminders" ? "true" : undefined}
-              inert={leavingTab === "reminders" ? true : undefined}
-            >
-              <Reminders />
-            </div>
-          )}
-          {rs.sectionVisibility.calendar && (
-            <div
-              id="tabpanel-calendar"
-              role="tabpanel"
-              aria-labelledby="tab-btn-calendar"
-              hidden={tab !== "calendar" && leavingTab !== "calendar"}
-              data-leaving={leavingTab === "calendar" ? "true" : undefined}
-              inert={leavingTab === "calendar" ? true : undefined}
-            >
-              <Suspense fallback={null}>
-                <Calendar
-                  onTabChange={(t) => {
-                    // Guard: only switch to a valid Tab value. "closed" is
-                    // intentionally accepted here so Calendar (or a future
-                    // sub-component) can deep-link to the archive.
-                    const valid: Tab[] = [
-                      "osint",
-                      "today",
-                      "sprint",
-                      "long",
-                      "gantt",
-                      "reminders",
-                      "calendar",
-                      "finance",
-                      "closed",
-                    ];
-                    if ((valid as string[]).includes(t)) setTab(t as Tab);
-                  }}
-                />
-              </Suspense>
-            </div>
-          )}
-          {/* Finances embed (Monarch) — always rendered (unconditional
-              visibility). Frame-ability is provided by the DNR header-strip
-              ruleset in the manifest; the sandbox blocks top-navigation
-              frame-busting. `note` surfaces the escape hatch prominently
-              because header-stripping can't guarantee the embed stays logged
-              in (third-party-cookie constraints). */}
-          <div
-            id="tabpanel-finance"
-            role="tabpanel"
-            aria-labelledby="tab-btn-finance"
-            hidden={tab !== "finance" && leavingTab !== "finance"}
-            data-leaving={leavingTab === "finance" ? "true" : undefined}
-            inert={leavingTab === "finance" ? true : undefined}
+          <nav
+            ref={workspaceNavRef}
+            className="workspace-nav"
+            aria-label="Destinations"
+            data-overflow-before={navOverflow.before ? "true" : undefined}
+            data-overflow-after={navOverflow.after ? "true" : undefined}
           >
-            <EmbedFrame
-              src={MONARCH_URL}
-              title="Finances"
-              sandbox={MONARCH_SANDBOX}
-              note="Monarch is embedded via header-stripping — if it won't stay signed in, open it externally."
-            />
+            {WORKSPACE_GROUPS.map((group) => {
+              const groupSurfaces = surfacesInGroup(visibleTabs, group.id);
+              if (groupSurfaces.length === 0) return null;
+              return (
+                <div className="workspace-nav-group" key={group.id}>
+                  <div className="workspace-nav-label">{group.label}</div>
+                  <div className="workspace-nav-items">
+                    {groupSurfaces.map((surface) => (
+                      <button
+                        key={surface.id}
+                        id={`workspace-nav-${surface.id}`}
+                        type="button"
+                        className="workspace-nav-button"
+                        aria-label={`${surface.label}${
+                          companionTab === surface.id
+                            ? ", companion workspace"
+                            : ""
+                        }`}
+                        aria-current={tab === surface.id ? "page" : undefined}
+                        aria-controls={`workspace-panel-${surface.id}`}
+                        data-companion={
+                          companionTab === surface.id ? "true" : undefined
+                        }
+                        onClick={() => handleSelectTab(surface.id)}
+                      >
+                        <span>{surface.label}</span>
+                        {companionTab === surface.id && (
+                          <span className="workspace-nav-companion" aria-hidden="true">
+                            +
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
+          <div className="workspace-rail-footer">
+            <kbd>Ctrl K</kbd>
+            <span>switch</span>
           </div>
-          {/* Closed surface — always rendered (unconditional visibility) and
-              lazy-loaded so its rendering code stays out of the initial chunk
-              until the user actually opens the tab. */}
-          <div
-            id="tabpanel-closed"
-            role="tabpanel"
-            aria-labelledby="tab-btn-closed"
-            hidden={tab !== "closed" && leavingTab !== "closed"}
-            data-leaving={leavingTab === "closed" ? "true" : undefined}
-            inert={leavingTab === "closed" ? true : undefined}
-          >
+        </aside>
+
+        <div className="workspace-main">
+          {/* QuickPrompt renders nothing when disabled; display:contents on the
+              wrapper prevents an empty shell row. */}
+          <div className="workspace-prompt">
             <Suspense fallback={null}>
-              <ClosedTodosView />
+              <QuickPrompt />
             </Suspense>
           </div>
-          {visibleTabs.length === 0 && (
-            <div className="section-empty">
-              All sections are hidden. Open Settings to re-enable one.
-            </div>
-          )}
-        </main>
+
+          {/* Sections stay mounted to preserve drafts and local view state.
+              The two external iframes use a bounded warm-cache policy above. */}
+          <main
+            className="content"
+            data-split={splitActive ? "true" : undefined}
+            aria-label="Workspace panels"
+          >
+            {orderedPanelIds.map(renderWorkspacePanel)}
+            {visibleTabs.length === 0 && (
+              <div className="section-empty">
+                All sections are hidden. Open Settings to re-enable one.
+              </div>
+            )}
+          </main>
+        </div>
       </div>
       {/* Keyboard help overlay — outside .app so it renders above all sections
           via the Modal portal. Lazy-loaded; null fallback avoids layout shift. */}
@@ -801,7 +1047,7 @@ export default function App() {
         <CommandPalette
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
-          onSwitchTab={setTab}
+          onSwitchTab={handleSelectTab}
           onOpenHelp={() => setHelpOpen(true)}
           visibleTabs={visibleTabs}
         />

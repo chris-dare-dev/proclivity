@@ -33,6 +33,7 @@ import {
 
 /** Fallback card height for canvas-height computation when no h is stored. */
 const CARD_DEFAULT_HEIGHT = 180;
+const CARD_DEFAULT_WIDTH = 240;
 
 interface UseCardLayoutOptions<T extends { id: string }> {
   /** All items in this section (used for cascade layout and canvasMinHeight). */
@@ -68,6 +69,7 @@ export function useCardLayout<T extends { id: string }>({
   update,
 }: UseCardLayoutOptions<T>): UseCardLayoutResult {
   const canvasElRef = useRef<HTMLDivElement | null>(null);
+  const [canvasWidth, setCanvasWidth] = useState(0);
 
   // Build the cascade for un-positioned items (called both for init and useEffect).
   const computeInitialPositions = useCallback((): Record<string, CardPosition> => {
@@ -113,10 +115,39 @@ export function useCardLayout<T extends { id: string }>({
   }, [itemKeyStr, layoutsPresent]);
 
   const getPosition = useCallback(
-    (id: string): CardPosition =>
-      localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 },
-    [localPositions, cardLayouts],
+    (id: string): CardPosition => {
+      const position =
+        localPositions[id] ?? cardLayouts?.[id] ?? { x: 0, y: 0, z: 0 };
+      if (canvasWidth <= 0) return position;
+      const width = Math.min(position.w ?? CARD_DEFAULT_WIDTH, canvasWidth);
+      const x = Math.min(
+        Math.max(0, position.x),
+        Math.max(0, canvasWidth - width),
+      );
+      return {
+        ...position,
+        x,
+        ...(position.w !== undefined ? { w: width } : {}),
+      };
+    },
+    [canvasWidth, localPositions, cardLayouts],
   );
+
+  // Card coordinates are persisted in pixels. Measure the containing panel so
+  // getPosition can clamp its *rendered* geometry after a window/split resize
+  // without destructively overwriting the user's wider saved arrangement.
+  useEffect(() => {
+    const canvas = canvasElRef.current;
+    if (!canvas) return;
+    const updateWidth = (width: number) => setCanvasWidth(Math.floor(width));
+    updateWidth(canvas.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) updateWidth(entry.contentRect.width);
+    });
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
 
   // Canvas height accounts for explicit card h (from resize) so the bottom of
   // a tall resized card is never clipped.
@@ -140,7 +171,14 @@ export function useCardLayout<T extends { id: string }>({
   const onDragEnd = useCallback(
     async (id: string, pos: CardPosition) => {
       // CRITICAL fix: pass w/h so a drag never silently wipes user-set resize dims.
-      await update(setCardPositionToFront(id, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }));
+      await update(
+        setCardPositionToFront(id, {
+          x: pos.x,
+          y: pos.y,
+          w: pos.w,
+          h: pos.h,
+        }),
+      );
     },
     [update],
   );
@@ -163,7 +201,12 @@ export function useCardLayout<T extends { id: string }>({
       await update((s) => {
         const layouts = s.cardLayouts ?? {};
         const existing = layouts[id] ?? { x: 0, y: 0, z: 0 };
-        return setCardPositionToFront(id, { x: existing.x, y: existing.y, w: size.w, h: size.h })(s);
+        return setCardPositionToFront(id, {
+          x: existing.x,
+          y: existing.y,
+          w: size.w,
+          h: size.h,
+        })(s);
       });
     },
     [update, cardLayouts],

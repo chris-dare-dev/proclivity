@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MonthGrid } from "./calendar/MonthGrid";
 import {
@@ -30,6 +30,21 @@ interface CalendarProps {
 
 export default function Calendar({ onTabChange }: CalendarProps) {
   const { state } = useStore();
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [compact, setCompact] = useState(false);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+    const update = (width: number) => setCompact(width <= 720);
+    update(section.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) update(entry.contentRect.width);
+    });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
 
   // L5: only weekStart is used from settings — inline rather than resolvedSettings.
   const weekStart = state.settings.weekStart ?? "mon";
@@ -68,7 +83,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
   const label = useMemo(() => monthLabel(monthStart), [monthStart]);
 
   return (
-    <section className="calendar-section" aria-label="Calendar">
+    <section ref={sectionRef} className="calendar-section" aria-label="Calendar">
       <header className="calendar-header">
         <div className="calendar-header__nav">
           <button
@@ -116,6 +131,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
       <Legend />
 
       <MonthGrid
+        compact={compact}
         monthStart={monthStart}
         weekStart={weekStart}
         today={today}
@@ -160,4 +176,3 @@ function Legend() {
     </ul>
   );
 }
-

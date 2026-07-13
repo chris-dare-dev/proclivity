@@ -1,6 +1,6 @@
 /**
  * GooglePhotosPane — connect to Google Photos and manage the cached
- * photo set that powers the Photos slideshow widget.
+ * photo set that powers the Photos Memory workspace.
  *
  * Live state (subscribes to photosStore directly rather than going through
  * useStore) because the cache lives under its own chrome.storage key and is
@@ -186,9 +186,9 @@ export function GooglePhotosPane({
       <section className="settings-section">
         <h3 className="settings-section-heading">Google Photos</h3>
         <p className="settings-hint" style={{ marginTop: 0 }}>
-          Pick photos from your Google account to use as a rotating
-          slideshow on the dashboard. Photos are downloaded and cached
-          locally — nothing leaves your browser after the pick.
+          Pick photos from your Google account for the Memory workspace.
+          Photos are downloaded and cached locally — nothing leaves your
+          browser after the pick.
         </p>
 
         {conn.kind === "checking" && (
@@ -290,10 +290,10 @@ export function GooglePhotosPane({
         <h3 className="settings-section-heading">Slideshow</h3>
 
         <ToggleSwitch
-          label="Show Photos banner on the dashboard"
+          label="Show Photos in workspace navigation"
           checked={pendingPhotosVisible}
           onChange={setPendingPhotosVisible}
-          hint="When off, the slideshow banner above the tab bar is hidden even if you have cached photos."
+          hint="When off, the Photos destination is hidden even if you have cached photos."
         />
 
         <div className="settings-field">
@@ -318,7 +318,7 @@ export function GooglePhotosPane({
           name="settings-photos-display"
           legend="Display style"
           options={[
-            { value: "crop", label: "Banner" },
+            { value: "crop", label: "Fill" },
             { value: "full", label: "Full" },
             { value: "compact", label: "Compact" },
           ]}
@@ -330,7 +330,7 @@ export function GooglePhotosPane({
               shuffle,
             })
           }
-          hint="Banner is a fixed-height strip with the image cropped to fill. Full grows the banner so the whole image is visible. Compact shows a smaller centered version with breathing room around it."
+          hint="Fill crops media to occupy the panel. Full keeps the entire item visible. Compact centers a smaller version with breathing room."
         />
 
         <ToggleSwitch
