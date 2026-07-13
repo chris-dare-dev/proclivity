@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildEventsUrl,
   GoogleCalendarApiError,
@@ -215,6 +215,168 @@ describe("Google Calendar GET-only client", () => {
       expect.objectContaining<Partial<GoogleCalendarApiError>>({ status: 401 }),
     );
     expect(calls).toBe(1);
+  });
+
+  it.each([
+    {
+      name: "legacy accessNotConfigured",
+      body: {
+        error: {
+          message:
+            "Calendar API has not been used in project secret-project before.",
+          errors: [
+            {
+              reason: "accessNotConfigured",
+              domain: "usageLimits",
+            },
+          ],
+        },
+      },
+      reason: "accessNotConfigured",
+    },
+    {
+      name: "modern SERVICE_DISABLED",
+      body: {
+        error: {
+          status: "PERMISSION_DENIED",
+          message: "Service disabled for owner@example.com.",
+          details: [
+            {
+              "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+              reason: "SERVICE_DISABLED",
+              metadata: { consumer: "projects/secret-project" },
+            },
+          ],
+        },
+      },
+      reason: "SERVICE_DISABLED",
+    },
+    {
+      name: "standard API_DISABLED",
+      body: {
+        error: {
+          status: "PERMISSION_DENIED",
+          details: [{ reason: "API_DISABLED" }],
+        },
+      },
+      reason: "API_DISABLED",
+    },
+  ])("classifies $name without exposing raw Google details", async ({
+    body,
+    reason,
+  }) => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      return new Response(JSON.stringify(body), { status: 403 });
+    }) as typeof fetch;
+
+    const error = await listPrimaryCalendarEvents({
+      token: "secret-token",
+      windowStart: 1,
+      windowEnd: 2,
+      fetchImpl,
+    }).catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(GoogleCalendarApiError);
+    expect(error).toMatchObject({
+      status: 403,
+      kind: "api-disabled",
+      reason,
+    });
+    expect((error as Error).message).toContain("API is disabled");
+    expect((error as Error).message).not.toMatch(
+      /secret-project|owner@example\.com|secret-token/,
+    );
+    expect(calls).toBe(1);
+  });
+
+  it("classifies an insufficient-scope 403 as requiring reconnection", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            status: "PERMISSION_DENIED",
+            details: [{ reason: "ACCESS_TOKEN_SCOPE_INSUFFICIENT" }],
+          },
+        }),
+        { status: 403 },
+      )) as typeof fetch;
+
+    const error = await listPrimaryCalendarEvents({
+      token: "wrong-scope",
+      windowStart: 1,
+      windowEnd: 2,
+      fetchImpl,
+    }).catch((cause: unknown) => cause);
+
+    expect(error).toMatchObject({
+      status: 403,
+      kind: "authorization",
+      reason: "ACCESS_TOKEN_SCOPE_INSUFFICIENT",
+    });
+    expect((error as Error).message).toContain("reconnect");
+  });
+
+  it("retries rate-limit 403s but not permanent permission failures", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      if (calls < 3) {
+        return new Response(
+          JSON.stringify({
+            error: { errors: [{ reason: "rateLimitExceeded" }] },
+          }),
+          { status: 403 },
+        );
+      }
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const request = listPrimaryCalendarEvents({
+        token: "rate-limited",
+        windowStart: 1,
+        windowEnd: 2,
+        fetchImpl,
+      });
+      await vi.runAllTimersAsync();
+      await expect(request).resolves.toEqual([]);
+      expect(calls).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("surfaces only a bounded identifier for an unknown 403", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "Denied for private-user@example.com using token abc123.",
+            errors: [{ reason: "FUTURE_PERMISSION_REASON" }],
+          },
+        }),
+        { status: 403 },
+      )) as typeof fetch;
+
+    const error = await listPrimaryCalendarEvents({
+      token: "abc123",
+      windowStart: 1,
+      windowEnd: 2,
+      fetchImpl,
+    }).catch((cause: unknown) => cause);
+
+    expect(error).toMatchObject({
+      status: 403,
+      kind: "permission",
+      reason: "FUTURE_PERMISSION_REASON",
+    });
+    expect((error as Error).message).toContain("FUTURE_PERMISSION_REASON");
+    expect((error as Error).message).not.toMatch(
+      /private-user@example\.com|abc123/,
+    );
   });
 
   it("constructs only the bounded primary event-list endpoint", () => {

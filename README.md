@@ -343,8 +343,11 @@ Google Calendar. This is a strictly one-way source: Google events flow into the
 Proclivity grid, while local todos, sprints, reminders, Gantt tasks, finances,
 and other panel data are never sent to Google.
 
-1. In the same Google Cloud project used for Photos, open **APIs & Services →
-   Library**, find **Google Calendar API**, and enable it.
+1. In the same Google Cloud project used for Photos, [open Google Calendar API
+   for project `455929700165`](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=455929700165)
+   and enable it. The project number must match the prefix of the OAuth client
+   ID in `manifest.config.ts`; enabling the API in another selected project
+   does not activate it for Proclivity.
 2. In **Google Auth Platform → Data Access**, add only
    `https://www.googleapis.com/auth/calendar.events.owned.readonly`. This scope
    can view events on calendars the account owns; it cannot insert, update, or

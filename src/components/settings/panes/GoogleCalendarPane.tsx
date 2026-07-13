@@ -63,6 +63,8 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
       // This is intentionally interactive only from an explicit user click.
       token = await getCalendarToken({ interactive: true });
       if (!token) throw new Error("Google did not return an access token.");
+      // OAuth has succeeded even if the first Calendar API sync does not.
+      setHasToken(true);
       const { windowStart, windowEnd } = calendarGridWindow(
         startOfMonth(Date.now()),
         weekStart,
@@ -77,7 +79,10 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
       setHasToken(true);
       setStatus("idle");
     } catch (cause) {
-      if (cause instanceof GoogleCalendarApiError && cause.status === 401) {
+      if (
+        cause instanceof GoogleCalendarApiError &&
+        cause.kind === "authorization"
+      ) {
         if (token) await clearCalendarToken(token);
         setHasToken(false);
       }
@@ -153,6 +158,8 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
             <CalendarDays size={16} aria-hidden="true" />
             {status === "working"
               ? "Connecting…"
+              : hasToken
+                ? "Retry Google Calendar sync"
               : integration.enabled
                 ? "Reconnect Google Calendar"
                 : "Connect Google Calendar"}
@@ -182,7 +189,10 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
 
         {status === "error" && error && (
           <div className="settings-hint settings-hint--error" role="alert">
-            <strong>Google Calendar couldn’t connect.</strong> {error}
+            <strong>
+              Google Calendar couldn’t {hasToken ? "sync" : "connect"}.
+            </strong>{" "}
+            {error}
           </div>
         )}
 

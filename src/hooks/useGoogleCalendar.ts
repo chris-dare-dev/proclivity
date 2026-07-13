@@ -103,7 +103,10 @@ export function useGoogleCalendar(
       ) {
         return;
       }
-      if (cause instanceof GoogleCalendarApiError && cause.status === 401) {
+      if (
+        cause instanceof GoogleCalendarApiError &&
+        cause.kind === "authorization"
+      ) {
         if (token) await clearCalendarToken(token);
         if (!isCurrentRequest(activeRequest, controller)) return;
         setStatus("reconnect");

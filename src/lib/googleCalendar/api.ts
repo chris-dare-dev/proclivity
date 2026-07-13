@@ -7,14 +7,47 @@ import {
 
 const EVENTS_ENDPOINT =
   "https://www.googleapis.com/calendar/v3/calendars/primary/events";
-const RETRYABLE_STATUS = new Set([403, 429, 500, 502, 503, 504]);
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const API_DISABLED_REASONS = new Set([
+  "accessnotconfigured",
+  "apidisabled",
+  "servicedisabled",
+]);
+const AUTHORIZATION_REASONS = new Set([
+  "accesstokenscopeinsufficient",
+  "insufficientpermissions",
+]);
+const RATE_LIMIT_REASONS = new Set([
+  "ratelimitexceeded",
+  "userratelimitexceeded",
+]);
+const QUOTA_REASONS = new Set([
+  "dailylimitexceeded",
+  "dailylimitexceededunreg",
+  "quotaexceeded",
+]);
+const ADMIN_POLICY_REASONS = new Set([
+  "adminpolicyenforced",
+  "userblockedbyadmin",
+]);
 
 type FetchLike = typeof fetch;
+
+export type GoogleCalendarApiErrorKind =
+  | "authorization"
+  | "api-disabled"
+  | "rate-limit"
+  | "quota"
+  | "admin-policy"
+  | "permission"
+  | "request";
 
 export class GoogleCalendarApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly kind: GoogleCalendarApiErrorKind,
+    readonly reason: string | null = null,
   ) {
     super(message);
     this.name = "GoogleCalendarApiError";
@@ -210,18 +243,30 @@ async function fetchWithRetry(
   token: string,
   signal?: AbortSignal | undefined,
 ): Promise<Response> {
-  const delays = [250, 750];
+  const baseDelays = [1_000, 2_000];
   for (let attempt = 0; ; attempt += 1) {
     const response = await fetchImpl(url, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
       ...(signal ? { signal } : {}),
     });
-    if (!RETRYABLE_STATUS.has(response.status) || attempt >= delays.length) {
+    const retryable = await isRetryableResponse(response);
+    if (!retryable || attempt >= baseDelays.length) {
       return response;
     }
-    await abortableDelay(delays[attempt]!, signal);
+    const jitter = Math.floor(Math.random() * 1_001);
+    await abortableDelay(baseDelays[attempt]! + jitter, signal);
   }
+}
+
+async function isRetryableResponse(response: Response): Promise<boolean> {
+  if (RETRYABLE_STATUS.has(response.status)) return true;
+  if (response.status !== 403) return false;
+
+  // Calendar reports some rate limits as HTTP 403. Inspect a clone so the
+  // original body remains available for the user-facing error classifier.
+  const details = await parseGoogleApiError(response.clone());
+  return RATE_LIMIT_REASONS.has(normalizeReason(details.reason));
 }
 
 async function abortableDelay(
@@ -243,23 +288,139 @@ async function abortableDelay(
 }
 
 async function apiError(response: Response): Promise<GoogleCalendarApiError> {
-  let detail = "";
+  const details = await parseGoogleApiError(response);
+  const classification = classifyApiError(response.status, details.reason);
+  return new GoogleCalendarApiError(
+    classification.message,
+    response.status,
+    classification.kind,
+    details.reason,
+  );
+}
+
+interface ParsedGoogleApiError {
+  reason: string | null;
+}
+
+async function parseGoogleApiError(
+  response: Response,
+): Promise<ParsedGoogleApiError> {
   try {
     const body = asRecord(await response.json());
     const error = asRecord(body?.error);
-    if (typeof error?.message === "string") detail = ` ${error.message}`;
+    if (!error) return { reason: null };
+
+    const reasons = [
+      ...extractReasons(error.errors),
+      ...extractReasons(error.details),
+    ];
+    return { reason: selectReason(reasons) };
   } catch {
-    // A status-specific message below is still actionable without a JSON body.
+    return { reason: null };
   }
-  const message =
-    response.status === 401
-      ? "Google Calendar authorization expired. Reconnect to continue."
-      : response.status === 403
-        ? "Google Calendar denied read access. Enable the Calendar API and grant the read-only scope."
-        : response.status === 429
-          ? "Google Calendar is temporarily rate-limiting requests. Try again shortly."
-          : `Google Calendar request failed (${response.status}).${detail}`;
-  return new GoogleCalendarApiError(message, response.status);
+}
+
+function extractReasons(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const reasons: string[] = [];
+  for (const entry of value) {
+    const reason = safeIdentifier(asRecord(entry)?.reason);
+    if (reason) reasons.push(reason);
+  }
+  return reasons;
+}
+
+function safeIdentifier(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^[A-Za-z][A-Za-z0-9_.-]{0,99}$/.test(trimmed) ? trimmed : null;
+}
+
+function selectReason(reasons: string[]): string | null {
+  const knownSets = [
+    API_DISABLED_REASONS,
+    AUTHORIZATION_REASONS,
+    RATE_LIMIT_REASONS,
+    QUOTA_REASONS,
+    ADMIN_POLICY_REASONS,
+  ];
+  for (const known of knownSets) {
+    const match = reasons.find((reason) => known.has(normalizeReason(reason)));
+    if (match) return match;
+  }
+  return reasons[0] ?? null;
+}
+
+function normalizeReason(reason: string | null): string {
+  return reason?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
+}
+
+function classifyApiError(
+  status: number,
+  reason: string | null,
+): { message: string; kind: GoogleCalendarApiErrorKind } {
+  if (status === 401) {
+    return {
+      message: "Google Calendar authorization expired. Reconnect to continue.",
+      kind: "authorization",
+    };
+  }
+  if (status === 429) {
+    return {
+      message:
+        "Google Calendar is temporarily rate-limiting requests. Try again shortly.",
+      kind: "rate-limit",
+    };
+  }
+  if (status !== 403) {
+    return {
+      message: `Google Calendar request failed (${status}).`,
+      kind: "request",
+    };
+  }
+
+  const normalized = normalizeReason(reason);
+  if (API_DISABLED_REASONS.has(normalized)) {
+    return {
+      message:
+        "The Google Calendar API is disabled in the exact Cloud project tied to Proclivity's OAuth client. Enable it there, wait a minute for the change to propagate, then retry.",
+      kind: "api-disabled",
+    };
+  }
+  if (AUTHORIZATION_REASONS.has(normalized)) {
+    return {
+      message:
+        "Google sign-in succeeded, but this token cannot read Calendar events. Confirm the Calendar read-only scope under Google Auth Platform > Data Access, then reconnect.",
+      kind: "authorization",
+    };
+  }
+  if (RATE_LIMIT_REASONS.has(normalized)) {
+    return {
+      message:
+        "Google Calendar is temporarily rate-limiting requests. Try again shortly.",
+      kind: "rate-limit",
+    };
+  }
+  if (QUOTA_REASONS.has(normalized)) {
+    return {
+      message:
+        "Google Calendar reached an API or Calendar usage limit. Check Calendar usage limits and the Cloud project's API quotas, then retry later.",
+      kind: "quota",
+    };
+  }
+  if (ADMIN_POLICY_REASONS.has(normalized)) {
+    return {
+      message:
+        "A Google Workspace administrator policy blocked Calendar access. Contact the administrator or try an unmanaged account.",
+      kind: "admin-policy",
+    };
+  }
+  return {
+    message: reason
+      ? `Google Calendar denied the API request (Google reason: ${reason}). Check the Calendar API and OAuth settings, then retry.`
+      : "Google Calendar denied the API request. Check the Calendar API and OAuth settings, then retry.",
+    kind: "permission",
+  };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
