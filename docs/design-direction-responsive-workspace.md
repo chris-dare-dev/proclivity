@@ -95,7 +95,10 @@ primary destination.
 
 ### Geometry and responsive behavior
 
-- 1280 px and wider: 176 px switchboard + intrinsic primary stage; optional 320–420 px companion.
+- 1280 px and wider: 176 px switchboard + intrinsic primary stage; optional 280–720 px companion.
+  The live maximum is also capped at half of the usable stage and preserves a 540 px primary floor.
+  A focusable 24 px hit target in the 12 px gutter supports pointer dragging, 16 px arrow-key steps,
+  Shift-modified 48 px steps, Home/End bounds, Escape cancellation, and Enter/double-click reset.
 - 840–1279 px: one stage; navigation becomes a compact destination strip and companion state is retained
   but collapsed.
 - Below 840 px: one stage, compact header, horizontally scrollable grouped destinations with a visible
@@ -144,9 +147,12 @@ each viewport. The scorecard and evidence live under
 2. Photos: first-class Memory destination, not a persistent banner.
 3. Rearrangement: primary/companion selection plus Swap and Focus, not arbitrary freeform tiling.
 4. Issues: named in the information architecture only; no empty fake panel ships.
+5. Companion width: slot-based, dynamically resizable, and persisted as a preferred width. Temporary
+   viewport clamping never overwrites that preference; companion selection itself remains transient.
 
 ## Deferred questions
 
-- Whether primary/companion state should persist after the interaction model has been used in practice.
+- Whether primary/companion destination selection should persist after the interaction model has been
+  used in practice. Width persistence is settled independently.
 - Whether card-layout pixel geometry should migrate to proportional coordinates in a separate milestone.
 - Whether the bounded two-iframe warm cache needs an eviction policy if more external workspaces are added.

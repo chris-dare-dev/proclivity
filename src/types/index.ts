@@ -261,6 +261,8 @@ export interface UserSettings {
   density?: DensityLevel | undefined;
   fontSize?: FontSizeScale | undefined;
   reducedMotion?: boolean | undefined;
+  /** Preferred width of the right-hand workspace companion, in CSS pixels. */
+  workspaceCompanionWidthPx?: number | undefined;
 
   // Background
   meshEnabled?: boolean | undefined;
@@ -446,6 +448,8 @@ export interface ResolvedUserSettings {
   density: DensityLevel;
   fontSize: FontSizeScale;
   reducedMotion: boolean;
+  /** Preferred right-hand companion width, clamped to the global 280–720px range. */
+  workspaceCompanionWidthPx: number;
   meshEnabled: boolean;
   meshIntensity: number;
   meshColorMode: MeshColorMode;

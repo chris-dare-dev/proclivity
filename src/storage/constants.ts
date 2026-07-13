@@ -5,6 +5,10 @@ import type {
   SettingsPaneId,
   UserSettings,
 } from "@/types";
+import {
+  clampCompanionWidth,
+  WORKSPACE_COMPANION_DEFAULT_WIDTH,
+} from "@/lib/workspaceSizing";
 
 // Re-export so consumers can import from the module that owns it.
 export type { SettingsPaneId };
@@ -141,6 +145,7 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   density: "default",
   fontSize: "md",
   reducedMotion: false,
+  workspaceCompanionWidthPx: WORKSPACE_COMPANION_DEFAULT_WIDTH,
   meshEnabled: true,
   // Matches the legacy CSS opacity of 0.18 (≈ 20%). Controls .mesh-background
   // opacity directly via the --mesh-intensity CSS custom property; the shader
@@ -227,6 +232,9 @@ export function resolvedSettings(s: UserSettings): ResolvedUserSettings {
     density: s.density ?? DEFAULT_SETTINGS.density,
     fontSize: s.fontSize ?? DEFAULT_SETTINGS.fontSize,
     reducedMotion: s.reducedMotion ?? DEFAULT_SETTINGS.reducedMotion,
+    workspaceCompanionWidthPx: clampCompanionWidth(
+      s.workspaceCompanionWidthPx,
+    ),
     meshEnabled: s.meshEnabled ?? DEFAULT_SETTINGS.meshEnabled,
     meshIntensity: s.meshIntensity ?? DEFAULT_SETTINGS.meshIntensity,
     meshColorMode: s.meshColorMode ?? DEFAULT_SETTINGS.meshColorMode,

@@ -231,9 +231,11 @@ silhouette. These are product invariants for the shell:
    a chart, iframe, or long toolbar gets `min-inline-size: 0` and owns its overflow.
 2. **Group destinations by intent.** Intelligence, Planning, Money, Memory, and Archive form a text-first
    switchboard. They are destinations, not an ARIA tablist; the current destination uses `aria-current`.
-3. **One primary + at most one companion.** Wide windows may opt into a bounded companion. The companion
-   collapses before either panel becomes unusable, and never appears on narrow windows. Focus mode always
-   has a visible exit because embedded pages can capture keyboard input.
+3. **One primary + at most one companion.** Wide windows may opt into a bounded companion. Its right-hand
+   slot is resizable from 280–720 px, capped at half of the usable stage while preserving a 540 px primary;
+   the preferred width persists while the selected destination remains transient. The companion collapses
+   before either panel becomes unusable and never appears on narrow windows. Focus mode always has a visible
+   exit because embedded pages can capture keyboard input.
 4. **Panels respond to their slot, not only the viewport.** The workspace slots establish inline-size
    containers. Gantt, Photos, embeds, calendars, reminders, and card canvases must recompose against their
    allocated panel width.

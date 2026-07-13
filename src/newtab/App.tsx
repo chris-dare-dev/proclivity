@@ -1,7 +1,9 @@
 import {
+  Fragment,
   lazy,
   memo,
   Suspense,
+  type CSSProperties,
   type ReactNode,
   useCallback,
   useEffect,
@@ -31,6 +33,12 @@ import { useStore } from "@/storage/useStore";
 import { storage } from "@/storage/storage";
 import { configure as configureObservability } from "@/observability/logger";
 import type { SettingsPaneId } from "@/types";
+import {
+  clampCompanionWidth,
+  companionWidthBounds,
+  WORKSPACE_COMPANION_DEFAULT_WIDTH,
+} from "@/lib/workspaceSizing";
+import { CompanionResizeHandle } from "./CompanionResizeHandle";
 import {
   surfacesInGroup,
   WORKSPACE_GROUPS,
@@ -460,11 +468,19 @@ export default function App() {
   // A wide workspace may opt into one companion. The choice stays in memory
   // when focus mode or a narrow viewport collapses the split.
   const [companionTab, setCompanionTab] = useState<Tab | null>(null);
+  const [companionWidth, setCompanionWidth] = useState(
+    WORKSPACE_COMPANION_DEFAULT_WIDTH,
+  );
+  const [workspaceInlineSize, setWorkspaceInlineSize] = useState<
+    number | undefined
+  >(undefined);
+  const [companionResizing, setCompanionResizing] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [canShowCompanion, setCanShowCompanion] = useState(() =>
     window.matchMedia("(min-width: 1280px)").matches,
   );
   const workspaceNavRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLElement | null>(null);
   const [navOverflow, setNavOverflow] = useState({
     before: false,
     after: false,
@@ -524,8 +540,71 @@ export default function App() {
   const [leavingTab, setLeavingTab] = useState<Tab | null>(null);
   const leavingTimeoutRef = useRef<number | undefined>(undefined);
   const prevTabRef = useRef<Tab>(tab);
-  const { state } = useStore();
+  const { state, update } = useStore();
   const rs = useMemo(() => resolvedSettings(state.settings), [state.settings]);
+
+  useEffect(() => {
+    setCompanionWidth(rs.workspaceCompanionWidthPx);
+  }, [rs.workspaceCompanionWidthPx]);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const setMeasuredWidth = (width: number) => {
+      const rounded = Math.round(width);
+      setWorkspaceInlineSize((current) =>
+        current === rounded ? current : rounded,
+      );
+    };
+    const styles = window.getComputedStyle(content);
+    setMeasuredWidth(
+      content.getBoundingClientRect().width -
+        Number.parseFloat(styles.paddingLeft) -
+        Number.parseFloat(styles.paddingRight),
+    );
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setMeasuredWidth(entry.contentRect.width);
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
+  const companionBounds = useMemo(
+    () => companionWidthBounds(workspaceInlineSize),
+    [workspaceInlineSize],
+  );
+  const effectiveCompanionWidth = clampCompanionWidth(
+    companionWidth,
+    workspaceInlineSize,
+  );
+  const contentStyle = {
+    "--workspace-companion-size": `${effectiveCompanionWidth}px`,
+  } as CSSProperties & { "--workspace-companion-size": string };
+
+  const previewCompanionWidth = useCallback((nextWidth: number) => {
+    contentRef.current?.style.setProperty(
+      "--workspace-companion-size",
+      `${nextWidth}px`,
+    );
+  }, []);
+
+  const commitCompanionWidth = useCallback(
+    (nextWidth: number) => {
+      const preferredWidth = clampCompanionWidth(nextWidth);
+      setCompanionWidth(preferredWidth);
+      void update((current) => ({
+        ...current,
+        settings: {
+          ...current.settings,
+          workspaceCompanionWidthPx: preferredWidth,
+        },
+      }));
+    },
+    [update],
+  );
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1280px)");
@@ -653,6 +732,14 @@ export default function App() {
 
   const splitActive =
     canShowCompanion && !focusMode && companionTab !== null && companionTab !== tab;
+
+  // Pointer previews mutate the CSS custom property directly to avoid
+  // re-rendering iframe-heavy panels on every move. Reassert React's resolved
+  // width whenever the split lifecycle changes so an interrupted drag can
+  // never leave an imperative preview behind.
+  useLayoutEffect(() => {
+    previewCompanionWidth(effectiveCompanionWidth);
+  }, [effectiveCompanionWidth, previewCompanionWidth, splitActive]);
 
   // Each external workspace mounts only after first use, then stays warm.
   // There are exactly two bounded embeds, so this preserves their in-frame
@@ -1015,11 +1102,32 @@ export default function App() {
           {/* Sections stay mounted to preserve drafts and local view state.
               The two external iframes use a bounded warm-cache policy above. */}
           <main
+            ref={contentRef}
             className="content"
             data-split={splitActive ? "true" : undefined}
+            data-resizing={companionResizing ? "true" : undefined}
+            style={contentStyle}
             aria-label="Workspace panels"
           >
-            {orderedPanelIds.map(renderWorkspacePanel)}
+            {orderedPanelIds.map((id, index) => (
+              <Fragment key={id}>
+                {renderWorkspacePanel(id)}
+                {splitActive && index === 0 && companionTab && (
+                  <CompanionResizeHandle
+                    width={effectiveCompanionWidth}
+                    min={companionBounds.min}
+                    max={companionBounds.max}
+                    defaultWidth={WORKSPACE_COMPANION_DEFAULT_WIDTH}
+                    workspaceInlineSize={workspaceInlineSize}
+                    companionLabel={workspaceSurface(companionTab).label}
+                    controlsId={`workspace-panel-${companionTab}`}
+                    onPreview={previewCompanionWidth}
+                    onCommit={commitCompanionWidth}
+                    onDraggingChange={setCompanionResizing}
+                  />
+                )}
+              </Fragment>
+            ))}
             {visibleTabs.length === 0 && (
               <div className="section-empty">
                 All sections are hidden. Open Settings to re-enable one.
