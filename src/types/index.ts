@@ -241,6 +241,7 @@ export type SettingsPaneId =
   | "geminiNano"
   | "googlePhotos"
   | "googleCalendar"
+  | "outlookCalendar"
   | "roadmaps"
   | "tags"
   | "data"

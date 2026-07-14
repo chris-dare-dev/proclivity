@@ -19,6 +19,10 @@ import {
 } from "@/lib/dateUtils";
 import type { Reminder, Sprint, Todo, WeekStart } from "@/types";
 import type { GoogleCalendarEvent } from "@/lib/googleCalendar/types";
+import type { OutlookIcsEvent } from "@/lib/outlookIcs/types";
+
+/** Read-only events imported from an external calendar provider. */
+export type ExternalCalendarEvent = GoogleCalendarEvent | OutlookIcsEvent;
 
 /** Total cells rendered per month grid. Stable 6 × 7 layout so the
  *  surrounding chrome never reflows when the month changes. */
@@ -410,8 +414,8 @@ export function lanesPerWeekRow(sprints: Sprint[], cells: MonthGridCell[]): numb
  * bars, not cell content.
  */
 export interface DayItems {
-  /** Read-only Google Calendar events intersecting this local day. */
-  googleEvents: GoogleCalendarEvent[];
+  /** Read-only external calendar events intersecting this local day. */
+  calendarEvents: ExternalCalendarEvent[];
   /** Reminders firing on this day (recurrence already expanded). */
   reminders: Reminder[];
   /** Long-term todos whose `dueAt` falls on this day. */
@@ -435,12 +439,12 @@ export function indexDayItems(
   reminders: Reminder[],
   todos: Todo[],
   today: number,
-  googleEvents: GoogleCalendarEvent[],
+  calendarEvents: ExternalCalendarEvent[],
 ): Map<number, DayItems> {
   const byCellTs = new Map<number, DayItems>();
   for (const c of cells) {
     byCellTs.set(c.ts, {
-      googleEvents: [],
+      calendarEvents: [],
       reminders: [],
       longTermDue: [],
       todayTodos: [],
@@ -450,10 +454,10 @@ export function indexDayItems(
   const from = cells[0]!.ts;
   const to = addDays(cells[cells.length - 1]!.ts, 1);
 
-  // Google uses half-open intervals. `end - 1ms` prevents an event ending
-  // exactly at midnight from leaking into the following day. Multi-day events
-  // are repeated into every intersecting visible cell.
-  for (const event of googleEvents) {
+  // External calendars use half-open intervals. `end - 1ms` prevents an event
+  // ending exactly at midnight from leaking into the following day. Multi-day
+  // events are repeated into every intersecting visible cell.
+  for (const event of calendarEvents) {
     let cursor = event.allDay
       ? fromDateInput(event.startDate)
       : startOfDay(event.start);
@@ -462,12 +466,12 @@ export function indexDayItems(
       : startOfDay(event.end - 1);
     if (cursor < from) cursor = from;
     while (cursor <= lastDay && cursor < to) {
-      byCellTs.get(cursor)?.googleEvents.push(event);
+      byCellTs.get(cursor)?.calendarEvents.push(event);
       cursor = addDays(cursor, 1);
     }
   }
   for (const items of byCellTs.values()) {
-    items.googleEvents.sort((a, b) => {
+    items.calendarEvents.sort((a, b) => {
       if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
       return a.start - b.start;
     });

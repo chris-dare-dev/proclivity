@@ -15,6 +15,8 @@ import {
   useGoogleCalendar,
   type GoogleCalendarSyncStatus,
 } from "@/hooks/useGoogleCalendar";
+import { useOutlookIcsCalendar } from "@/hooks/useOutlookIcsCalendar";
+import type { OutlookIcsSnapshot } from "@/lib/outlookIcs/types";
 import "./calendar/calendar.css";
 
 /**
@@ -93,9 +95,19 @@ export default function Calendar({ onTabChange }: CalendarProps) {
     [monthStart, weekStart],
   );
   const googleCalendar = useGoogleCalendar(windowStart, windowEnd);
+  const outlookCalendar = useOutlookIcsCalendar(windowStart, windowEnd);
+  const calendarEvents = useMemo(
+    () => [...googleCalendar.events, ...outlookCalendar.events],
+    [googleCalendar.events, outlookCalendar.events],
+  );
   const openGoogleCalendarSettings = useCallback(() => {
     window.dispatchEvent(
       new CustomEvent(OPEN_SETTINGS_EVENT, { detail: "googleCalendar" }),
+    );
+  }, []);
+  const openOutlookCalendarSettings = useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent(OPEN_SETTINGS_EVENT, { detail: "outlookCalendar" }),
     );
   }, []);
 
@@ -154,7 +166,16 @@ export default function Calendar({ onTabChange }: CalendarProps) {
         onOpenSettings={openGoogleCalendarSettings}
       />
 
-      <Legend />
+      {outlookCalendar.snapshot ? (
+        <OutlookSnapshotStatus
+          snapshot={outlookCalendar.snapshot}
+          eventCount={outlookCalendar.events.length}
+          stale={outlookCalendar.stale}
+          onOpenSettings={openOutlookCalendarSettings}
+        />
+      ) : null}
+
+      <Legend showOutlook={outlookCalendar.snapshot !== null} />
 
       <MonthGrid
         compact={compact}
@@ -165,7 +186,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
         todos={state.todos}
         sprints={state.sprints}
         tags={state.tags}
-        googleEvents={googleCalendar.events}
+        calendarEvents={calendarEvents}
         timeFormat={timeFormat}
         {...(state.activeSprintId !== undefined
           ? { activeSprintId: state.activeSprintId }
@@ -176,7 +197,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
   );
 }
 
-function Legend() {
+function Legend({ showOutlook }: { showOutlook: boolean }) {
   return (
     <ul className="calendar-legend" aria-label="Legend">
       {/* H3: show both active and inactive sprint bar states so the legend
@@ -193,6 +214,12 @@ function Legend() {
         <span className="calendar-legend__dot calendar-legend__dot--google" aria-hidden="true">G</span>{" "}
         Google event
       </li>
+      {showOutlook ? (
+        <li>
+          <span className="calendar-legend__dot calendar-legend__dot--outlook" aria-hidden="true">O</span>{" "}
+          Outlook snapshot
+        </li>
+      ) : null}
       <li>
         <span className="calendar-legend__dot calendar-legend__dot--reminder" aria-hidden="true">R</span>{" "}
         Reminder
@@ -206,6 +233,41 @@ function Legend() {
         Long-term
       </li>
     </ul>
+  );
+}
+
+function OutlookSnapshotStatus({
+  snapshot,
+  eventCount,
+  stale,
+  onOpenSettings,
+}: {
+  snapshot: OutlookIcsSnapshot;
+  eventCount: number;
+  stale: boolean;
+  onOpenSettings: () => void;
+}) {
+  const importedLabel = new Date(snapshot.importedAt).toLocaleDateString(
+    undefined,
+    { month: "short", day: "numeric", year: "numeric" },
+  );
+  return (
+    <div
+      className={`calendar-outlook-status${
+        stale ? " calendar-outlook-status--stale" : ""
+      }`}
+      aria-live="polite"
+    >
+      <CalendarDays size={15} aria-hidden="true" />
+      <span>
+        {stale ? <strong>Outlook snapshot is over 7 days old.</strong> : null}{" "}
+        {eventCount} event{eventCount === 1 ? "" : "s"} in view · imported{" "}
+        {importedLabel}
+      </span>
+      <button type="button" onClick={onOpenSettings}>
+        Replace snapshot
+      </button>
+    </div>
   );
 }
 

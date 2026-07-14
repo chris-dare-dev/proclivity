@@ -4,7 +4,7 @@
  * Owns:
  *   - Export data (immediate action, no Done/Cancel lifecycle)
  *   - Import data (immediate action, closes modal on success)
- *   - Clear all data (two-step confirm, closes modal on confirm)
+ *   - Clear local planning data (two-step confirm, closes modal on confirm)
  *
  * Tag mutations in TagsPane also bypass Done/Cancel; same pattern applies here.
  *
@@ -14,7 +14,7 @@
  *     is written by exportData() in src/storage/exportImport.ts.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 function SectionHeader({ children }: { children: ReactNode }) {
   return <h3 className="settings-section-heading">{children}</h3>;
@@ -54,6 +54,19 @@ export function DataPane({
   onFileSelected,
   lastExportAt,
 }: DataPaneProps) {
+  const previousClearStage = useRef(clearStage);
+  const clearTriggerRef = useRef<HTMLButtonElement>(null);
+  const clearCancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (previousClearStage.current === clearStage) return;
+    previousClearStage.current = clearStage;
+    const target =
+      clearStage === "confirm" ? clearCancelRef.current : clearTriggerRef.current;
+    const raf = requestAnimationFrame(() => target?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, [clearStage]);
+
   const daysSinceExport =
     lastExportAt !== undefined
       ? Math.floor((Date.now() - lastExportAt) / 86_400_000)
@@ -118,20 +131,27 @@ export function DataPane({
         <div className="settings-clear-zone">
           {clearStage === "rest" ? (
             <button
+              ref={clearTriggerRef}
               type="button"
               className="btn-danger"
               onClick={() => setClearStage("confirm")}
             >
-              Clear all data
+              Clear local planning data
             </button>
           ) : (
             <div className="settings-clear-confirm">
               <p>
                 This will permanently delete all your todos, sprints, Gantt
-                charts, and reminders. This action cannot be undone.
+                charts, reminders, tags, saved card layouts, and the imported
+                Outlook snapshot. Your preferences stay unchanged. This
+                action cannot be undone.
               </p>
               <div className="settings-clear-buttons">
-                <button type="button" onClick={() => setClearStage("rest")}>
+                <button
+                  ref={clearCancelRef}
+                  type="button"
+                  onClick={() => setClearStage("rest")}
+                >
                   Cancel
                 </button>
                 <button
@@ -139,7 +159,7 @@ export function DataPane({
                   className="btn-danger"
                   onClick={onClearConfirm}
                 >
-                  Delete everything
+                  Delete listed data
                 </button>
               </div>
             </div>

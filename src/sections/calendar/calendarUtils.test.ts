@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GoogleCalendarEvent } from "@/lib/googleCalendar/types";
+import type { OutlookIcsEvent } from "@/lib/outlookIcs/types";
 import { addDays } from "@/lib/dateUtils";
 import {
   buildMonthGrid,
@@ -24,7 +25,24 @@ function googleEvent(
   } as GoogleCalendarEvent;
 }
 
-describe("Google events in the month-grid index", () => {
+function outlookEvent(
+  overrides: Partial<OutlookIcsEvent> &
+    Pick<OutlookIcsEvent, "id" | "start" | "end">,
+): OutlookIcsEvent {
+  const { id, start, end, ...rest } = overrides;
+  return {
+    id,
+    title: "Outlook event",
+    start,
+    end,
+    source: "outlook-ics",
+    readOnly: true,
+    allDay: false,
+    ...rest,
+  } as OutlookIcsEvent;
+}
+
+describe("external events in the month-grid index", () => {
   const monthStart = new Date(2026, 6, 1).getTime();
   const cells = buildMonthGrid(
     startOfMonth(monthStart),
@@ -44,10 +62,10 @@ describe("Google events in the month-grid index", () => {
       endDateExclusive: "2026-07-16",
     });
     const indexed = indexDayItems(cells, [], [], start, [event]);
-    expect(indexed.get(start)?.googleEvents).toHaveLength(1);
-    expect(indexed.get(addDays(start, 1))?.googleEvents).toHaveLength(1);
-    expect(indexed.get(addDays(start, 2))?.googleEvents).toHaveLength(1);
-    expect(indexed.get(end)?.googleEvents).toHaveLength(0);
+    expect(indexed.get(start)?.calendarEvents).toHaveLength(1);
+    expect(indexed.get(addDays(start, 1))?.calendarEvents).toHaveLength(1);
+    expect(indexed.get(addDays(start, 2))?.calendarEvents).toHaveLength(1);
+    expect(indexed.get(end)?.calendarEvents).toHaveLength(0);
   });
 
   it("does not leak a timed event ending at midnight into the next day", () => {
@@ -59,8 +77,8 @@ describe("Google events in the month-grid index", () => {
       end: midnight,
     });
     const indexed = indexDayItems(cells, [], [], day, [event]);
-    expect(indexed.get(day)?.googleEvents).toHaveLength(1);
-    expect(indexed.get(midnight)?.googleEvents).toHaveLength(0);
+    expect(indexed.get(day)?.calendarEvents).toHaveLength(1);
+    expect(indexed.get(midnight)?.calendarEvents).toHaveLength(0);
   });
 
   it("indexes a timed event on both days when it crosses midnight", () => {
@@ -72,7 +90,26 @@ describe("Google events in the month-grid index", () => {
       end: new Date(2026, 6, 14, 1, 0).getTime(),
     });
     const indexed = indexDayItems(cells, [], [], day, [event]);
-    expect(indexed.get(day)?.googleEvents).toHaveLength(1);
-    expect(indexed.get(nextDay)?.googleEvents).toHaveLength(1);
+    expect(indexed.get(day)?.calendarEvents).toHaveLength(1);
+    expect(indexed.get(nextDay)?.calendarEvents).toHaveLength(1);
+  });
+
+  it("indexes Google and Outlook events through the same interval rules", () => {
+    const day = new Date(2026, 6, 13).getTime();
+    const google = googleEvent({
+      id: "gcal:primary:meeting",
+      start: new Date(2026, 6, 13, 9, 0).getTime(),
+      end: new Date(2026, 6, 13, 10, 0).getTime(),
+    });
+    const outlook = outlookEvent({
+      id: "outlook:meeting",
+      start: new Date(2026, 6, 13, 11, 0).getTime(),
+      end: new Date(2026, 6, 13, 12, 0).getTime(),
+    });
+
+    const indexed = indexDayItems(cells, [], [], day, [outlook, google]);
+    expect(
+      indexed.get(day)?.calendarEvents.map((event) => event.source),
+    ).toEqual(["google-calendar", "outlook-ics"]);
   });
 });

@@ -28,6 +28,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SettingsPaneId } from "@/types";
 import { PANE_ORDER } from "./panes/registry";
 
+const NARROW_SETTINGS_QUERY = "(max-width: 719px)";
+
 interface SettingsSidebarProps {
   paneId: SettingsPaneId;
   onChangePane: (id: SettingsPaneId) => void;
@@ -45,12 +47,12 @@ export function SettingsSidebar({
   const activeTabRef = useRef<HTMLButtonElement>(null);
   const [isNarrow, setIsNarrow] = useState(() =>
     typeof window !== "undefined"
-      ? window.matchMedia("(max-width: 639px)").matches
+      ? window.matchMedia(NARROW_SETTINGS_QUERY).matches
       : false,
   );
 
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 639px)");
+    const query = window.matchMedia(NARROW_SETTINGS_QUERY);
     const update = () => setIsNarrow(query.matches);
     update();
     query.addEventListener("change", update);

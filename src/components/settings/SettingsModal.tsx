@@ -21,6 +21,7 @@ import type {
   WeekStart,
 } from "@/types";
 import { exportData, importData } from "@/storage/exportImport";
+import { outlookIcsStore } from "@/lib/outlookIcs/store";
 import { SettingsSidebar } from "./SettingsSidebar";
 import { GeneralPane } from "./panes/GeneralPane";
 import { AppearancePane } from "./panes/AppearancePane";
@@ -29,6 +30,7 @@ import { TodosPane } from "./panes/TodosPane";
 import { GeminiNanoPane } from "./panes/GeminiNanoPane";
 import { GooglePhotosPane } from "./panes/GooglePhotosPane";
 import { GoogleCalendarPane } from "./panes/GoogleCalendarPane";
+import { OutlookCalendarPane } from "./panes/OutlookCalendarPane";
 import { RoadmapsPane } from "./panes/RoadmapsPane";
 import { TagsPane } from "./panes/TagsPane";
 import { DataPane } from "./panes/DataPane";
@@ -396,23 +398,29 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
   };
 
   const handleClearAll = async () => {
-    await update((s): ProclivityState => ({
-      todos: [],
-      sprints: [],
-      ganttCharts: [],
-      ganttTasks: [],
-      reminders: [],
-      // Preserve lastExportAt across Clear-all so backup recency always shows
-      // accurate data (the user cleared their content, not their export history).
-      settings: {
-        settingsV2Seen: true,
-        ...(s.settings.lastExportAt !== undefined
-          ? { lastExportAt: s.settings.lastExportAt }
-          : undefined),
-      },
-      tags: [],
-    }));
-    onClose();
+    setImportError(null);
+    try {
+      // The imported work-calendar snapshot intentionally lives outside the
+      // main export envelope, so it must be cleared explicitly here.
+      await outlookIcsStore.clear();
+      await update((s): ProclivityState => ({
+        todos: [],
+        sprints: [],
+        ganttCharts: [],
+        ganttTasks: [],
+        reminders: [],
+        // This action clears planning content, not the user's preferences or
+        // export-history timestamp.
+        settings: { ...s.settings },
+        tags: [],
+      }));
+      onClose();
+    } catch {
+      setClearStage("rest");
+      setImportError(
+        "Local data could not be completely cleared. Some data may remain; try again.",
+      );
+    }
   };
 
   /* ── Active pane renderer ─────────────────────────────────── */
@@ -507,6 +515,8 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         );
       case "googleCalendar":
         return <GoogleCalendarPane weekStart={rs.weekStart} />;
+      case "outlookCalendar":
+        return <OutlookCalendarPane />;
       case "roadmaps":
         return (
           <RoadmapsPane

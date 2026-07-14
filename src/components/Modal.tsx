@@ -67,10 +67,22 @@ export function Modal({
   useEffect(() => {
     if (open) {
       previousFocusRef.current = document.activeElement as HTMLElement;
-      // Focus is handled by consumer autoFocus (#34 — removed setTimeout here)
+      // Capture the opener before applying the fallback focus below.
       // Re-enable interaction on the panel in case the previous close-cycle
       // set inert (re-open of the same Modal instance held by AnimatePresence).
       panelRef.current?.removeAttribute("inert");
+      // Native autoFocus still wins. Consumers without one (notably Settings)
+      // get a safe fallback inside the dialog after the opener is recorded.
+      const raf = requestAnimationFrame(() => {
+        const panel = panelRef.current;
+        if (!panel || panel.contains(document.activeElement)) return;
+        panel
+          .querySelector<HTMLElement>(
+            'button:not([disabled]), a[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          )
+          ?.focus();
+      });
+      return () => cancelAnimationFrame(raf);
     } else {
       // m7 rect H1: AnimatePresence holds the panel in DOM for ~180 ms
       // during the exit animation. The useFocusTrap hook is still wired

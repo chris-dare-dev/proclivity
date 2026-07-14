@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDayDetailsModal,
   DayCell,
@@ -10,6 +10,7 @@ import {
   indexDayItems,
   packSegmentLanes,
   weekdayLabels,
+  type ExternalCalendarEvent,
   type MonthGridCell,
 } from "./calendarUtils";
 import type {
@@ -20,7 +21,6 @@ import type {
   Todo,
   WeekStart,
 } from "@/types";
-import type { GoogleCalendarEvent } from "@/lib/googleCalendar/types";
 
 interface MonthGridProps {
   compact: boolean;
@@ -33,7 +33,7 @@ interface MonthGridProps {
   todos: Todo[];
   sprints: Sprint[];
   tags: Tag[];
-  googleEvents: GoogleCalendarEvent[];
+  calendarEvents: ExternalCalendarEvent[];
   timeFormat: TimeFormat;
   activeSprintId?: string | undefined;
   /** Optional tab-navigation callback passed down from App. When provided,
@@ -61,29 +61,46 @@ export const MonthGrid = memo(function MonthGrid({
   todos,
   sprints,
   tags,
-  googleEvents,
+  calendarEvents,
   timeFormat,
   activeSprintId,
   onTabChange,
 }: MonthGridProps) {
   const [dayDetails, setDayDetails] = useState<CalendarDayDetails | null>(null);
-  const dayDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const dayDetailsOpenRef = useRef(false);
+  const calendarGridRef = useRef<HTMLDivElement | null>(null);
+  const [dayDetailsFocusTarget, setDayDetailsFocusTarget] =
+    useState<HTMLElement | null>(null);
   const openDayDetails = useCallback(
     (details: CalendarDayDetails, trigger: HTMLButtonElement) => {
-      dayDetailsTriggerRef.current = trigger;
+      dayDetailsOpenRef.current = true;
+      setDayDetailsFocusTarget(trigger);
       setDayDetails(details);
     },
     [],
   );
+  const closeDayDetails = useCallback(() => {
+    dayDetailsOpenRef.current = false;
+    setDayDetails(null);
+  }, []);
   const cells: MonthGridCell[] = useMemo(
     () => buildMonthGrid(monthStart, weekStart, today),
     [monthStart, weekStart, today],
   );
 
   const dayItems = useMemo(
-    () => indexDayItems(cells, reminders, todos, today, googleEvents),
-    [cells, reminders, todos, today, googleEvents],
+    () => indexDayItems(cells, reminders, todos, today, calendarEvents),
+    [cells, reminders, todos, today, calendarEvents],
   );
+
+  // Day details contain display copies. Close them as soon as any underlying
+  // source changes so removed work-calendar titles cannot remain on screen.
+  useEffect(() => {
+    if (!dayDetailsOpenRef.current) return;
+    dayDetailsOpenRef.current = false;
+    setDayDetailsFocusTarget(calendarGridRef.current);
+    setDayDetails(null);
+  }, [calendarEvents, compact, monthStart, reminders, timeFormat, today, todos, weekStart]);
 
   const tagById = useMemo(() => {
     const m = new Map<string, Tag>();
@@ -113,7 +130,7 @@ export const MonthGrid = memo(function MonthGrid({
     })) return false;
     for (const items of dayItems.values()) {
       if (
-        items.googleEvents.length > 0 ||
+        items.calendarEvents.length > 0 ||
         items.reminders.length > 0 ||
         items.longTermDue.length > 0 ||
         items.todayTodos.length > 0
@@ -130,7 +147,13 @@ export const MonthGrid = memo(function MonthGrid({
           role="grid" without full keyboard semantics is worse than no role
           because AT users expect arrow-key navigation that isn't implemented.
           Cells carry aria-label for date context. */}
-      <div className="calendar-grid">
+      <div
+        ref={calendarGridRef}
+        className="calendar-grid"
+        role="group"
+        aria-label="Calendar month"
+        tabIndex={-1}
+      >
         <div className="calendar-grid__header">
           {labels.map((label) => (
             <div key={label} className="calendar-grid__weekday">
@@ -147,7 +170,7 @@ export const MonthGrid = memo(function MonthGrid({
                 cell={cell}
                 items={
                   dayItems.get(cell.ts) ?? {
-                    googleEvents: [],
+                    calendarEvents: [],
                     reminders: [],
                     longTermDue: [],
                     todayTodos: [],
@@ -176,8 +199,8 @@ export const MonthGrid = memo(function MonthGrid({
       <CalendarDayDetailsModal
         details={dayDetails}
         tagById={tagById}
-        returnFocusTo={dayDetailsTriggerRef.current}
-        onClose={() => setDayDetails(null)}
+        returnFocusTo={dayDetailsFocusTarget}
+        onClose={closeDayDetails}
       />
       {isEmpty && (
         <p className="calendar-empty-hint">

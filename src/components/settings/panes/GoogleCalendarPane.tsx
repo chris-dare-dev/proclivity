@@ -123,7 +123,7 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
     >
       <section className="settings-section">
         <h3 className="settings-section-heading">Google Calendar</h3>
-        <div className="google-calendar-boundary">
+        <div className="calendar-integration-boundary">
           <ShieldCheck size={18} aria-hidden="true" />
           <div>
             <strong>One-way and read-only</strong>
@@ -151,7 +151,7 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
         {status !== "checking" && !connected && (
           <button
             type="button"
-            className="google-calendar-action"
+            className="calendar-integration-action"
             onClick={() => void syncCurrentWindow()}
             disabled={status === "working"}
           >
@@ -170,7 +170,7 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
           <div className="settings-row">
             <button
               type="button"
-              className="google-calendar-action"
+              className="calendar-integration-action"
               onClick={() => void syncCurrentWindow()}
               disabled={status === "working"}
             >
@@ -196,7 +196,7 @@ export function GoogleCalendarPane({ weekStart }: { weekStart: WeekStart }) {
           </div>
         )}
 
-        <dl className="google-calendar-facts">
+        <dl className="calendar-integration-facts">
           <div>
             <dt>Status</dt>
             <dd>{connected ? "Connected · read-only" : "Not connected"}</dd>

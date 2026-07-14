@@ -11,7 +11,8 @@ const MAX_CHIPS_MOBILE = 2;
 
 export type CalendarChipItem =
   | {
-      kind: "google";
+      kind: "calendar";
+      provider: "google" | "outlook";
       id: string;
       title: string;
       label: string;
@@ -25,6 +26,12 @@ export interface CalendarDayDetails {
   cellTs: number;
   dateLabel: string;
   chips: CalendarChipItem[];
+}
+
+function chipKey(chip: CalendarChipItem): string {
+  return chip.kind === "calendar"
+    ? `${chip.kind}-${chip.provider}-${chip.id}`
+    : `${chip.kind}-${chip.id}`;
 }
 
 interface DayCellProps {
@@ -71,13 +78,21 @@ export const DayCell = memo(function DayCell({
   });
 
   // Merge all item types into one ordered list for cap/overflow logic.
-  const googleChips: CalendarChipItem[] = items.googleEvents.map((event) => ({
-    kind: "google" as const,
-    id: event.id,
-    title: event.title,
-    label: googleEventLabel(event, cell.ts, timeFormat),
-    ...(event.htmlLink ? { htmlLink: event.htmlLink } : {}),
-  }));
+  const calendarChips: CalendarChipItem[] = items.calendarEvents.map(
+    (event) => ({
+      kind: "calendar" as const,
+      provider:
+        event.source === "google-calendar"
+          ? ("google" as const)
+          : ("outlook" as const),
+      id: event.id,
+      title: event.title,
+      label: calendarEventLabel(event, cell.ts, timeFormat),
+      ...(event.source === "google-calendar" && event.htmlLink
+        ? { htmlLink: event.htmlLink }
+        : {}),
+    }),
+  );
   const localChips: CalendarChipItem[] = [
     ...items.reminders.map((r) => ({
       kind: "reminder" as const,
@@ -101,10 +116,10 @@ export const DayCell = memo(function DayCell({
       tags: t.tags,
     })),
   ];
-  // Keep one Google event prominent without allowing a meeting-heavy day to
+  // Keep one external event prominent without allowing a meeting-heavy day to
   // push every local reminder/todo behind the compact-cell cap.
-  const allChips: CalendarChipItem[] = googleChips.length
-    ? [googleChips[0]!, ...localChips, ...googleChips.slice(1)]
+  const allChips: CalendarChipItem[] = calendarChips.length
+    ? [calendarChips[0]!, ...localChips, ...calendarChips.slice(1)]
     : localChips;
 
   const totalItems = allChips.length;
@@ -137,7 +152,7 @@ export const DayCell = memo(function DayCell({
       <ul className="calendar-cell__items">
         {visibleChips.map((chip) => (
           <CalendarChip
-            key={`${chip.kind}-${chip.id}-${cell.ts}`}
+            key={`${chipKey(chip)}-${cell.ts}`}
             chip={chip}
             dateLabel={dateLabel}
             tagById={tagById}
@@ -198,7 +213,7 @@ export function CalendarDayDetailsModal({
         <ul className="calendar-day-details__items">
           {details?.chips.map((chip) => (
             <CalendarChip
-              key={`details-${chip.kind}-${chip.id}-${details.cellTs}`}
+              key={`details-${chipKey(chip)}-${details.cellTs}`}
               chip={chip}
               dateLabel={details.dateLabel}
               tagById={tagById}
@@ -224,19 +239,24 @@ function CalendarChip({
   dateLabel: string;
   tagById: Map<string, Tag>;
 }) {
-  if (chip.kind === "google") {
+  if (chip.kind === "calendar") {
+    const isGoogle = chip.provider === "google";
+    const providerLabel = isGoogle ? "Google Calendar" : "Outlook snapshot";
     const content = (
       <>
-        <span className="calendar-chip__dot" aria-hidden="true">G</span>
+        <span className="sr-only">{providerLabel}: </span>
+        <span className="calendar-chip__dot" aria-hidden="true">
+          {isGoogle ? "G" : "O"}
+        </span>
         <span className="calendar-chip__label">{chip.label}</span>
       </>
     );
     return (
       <li
-        className="calendar-chip calendar-chip--google"
-        title={`Google Calendar: ${chip.title}`}
+        className={`calendar-chip calendar-chip--${chip.provider}`}
+        title={`${providerLabel}: ${chip.title}`}
       >
-        {chip.htmlLink ? (
+        {isGoogle && chip.htmlLink ? (
           <a
             className="calendar-chip__link"
             href={chip.htmlLink}
@@ -286,8 +306,8 @@ function CalendarChip({
   );
 }
 
-function googleEventLabel(
-  event: DayItems["googleEvents"][number],
+function calendarEventLabel(
+  event: DayItems["calendarEvents"][number],
   cellTs: number,
   timeFormat: TimeFormat,
 ): string {

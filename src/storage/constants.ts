@@ -40,6 +40,13 @@ export const PHOTOS_STORAGE_KEY = "proclivity:photos:v1";
 export const GOOGLE_CALENDAR_STORAGE_KEY = "proclivity:google-calendar:v1";
 
 /**
+ * Dedicated read-only Outlook ICS snapshot. Kept outside the main
+ * ProclivityState so imported work-calendar data never enters exports and can
+ * never be mistaken for a local reminder, sprint, todo, or Gantt task.
+ */
+export const OUTLOOK_ICS_STORAGE_KEY = "proclivity:outlook-ics:v1";
+
+/**
  * chrome.storage.local key for roadmap ingest config + write-back bookkeeping
  * (Phase G). Kept separate from STORAGE_KEY so the secret it holds (the
  * Obsidian Local REST API bearer token) plus the write-back dedup cursor never

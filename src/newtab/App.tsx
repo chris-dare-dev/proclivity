@@ -80,6 +80,7 @@ const SETTINGS_PANE_IDS: ReadonlySet<SettingsPaneId> = new Set<SettingsPaneId>([
   "geminiNano",
   "googlePhotos",
   "googleCalendar",
+  "outlookCalendar",
   "roadmaps",
   "tags",
   "data",
