@@ -12,7 +12,6 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 - **What worked:** ...
 - **What didn't:** ...
 - **Reusable lesson:** ...
-```
 
 ---
 
@@ -111,5 +110,4 @@ Entry format (defined in `.claude/agents/milestone-researcher.md` § Memory prot
 ## 2026-05-20T12:30:00Z · milestone:frontend-uplift-2026q2-m9 · status:complete (general/external researcher)
 - **Bottleneck observed:** [CONFIRMED — explore researcher caught same issue] `btn-primary` class does not exist; also confirmed `LongTerm.tsx` is a thin 7-line wrapper delegating to `TodoList` — illustration wiring must go into `TodoList.tsx` via a new `emptyIllustration?: React.ReactNode` prop, not `LongTerm.tsx`. The `emptyHint: string` prop type change to `React.ReactNode` would break Sprint/Today callers that pass strings.
 - **What worked:** Tracing component delegation chain (`LongTerm → TodoList`) confirmed the correct edit target before recommending prop design.
-- **What didn't:** n/a.
 - **Reusable lesson:** For illustration milestones targeting named sections, always trace the full render chain to the component that owns the empty-state branch — thin section wrappers (like `LongTerm.tsx`) often delegate to shared components. Add a new optional prop rather than widening an existing string prop to `ReactNode`, to avoid breaking sibling callers.
