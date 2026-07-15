@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GoogleCalendarEvent } from "@/lib/googleCalendar/types";
 import type { OutlookIcsEvent } from "@/lib/outlookIcs/types";
 import { addDays } from "@/lib/dateUtils";
+import type { LocalCalendarEvent } from "@/types";
 import {
   buildMonthGrid,
   indexDayItems,
@@ -40,6 +41,23 @@ function outlookEvent(
     allDay: false,
     ...rest,
   } as OutlookIcsEvent;
+}
+
+function localEvent(
+  overrides: Partial<LocalCalendarEvent> &
+    Pick<LocalCalendarEvent, "id" | "start" | "end">,
+): LocalCalendarEvent {
+  const { id, start, end, ...rest } = overrides;
+  return {
+    id,
+    title: "Local event",
+    start,
+    end,
+    source: "local-calendar",
+    readOnly: false,
+    allDay: false,
+    ...rest,
+  };
 }
 
 describe("external events in the month-grid index", () => {
@@ -111,5 +129,28 @@ describe("external events in the month-grid index", () => {
     expect(
       indexed.get(day)?.calendarEvents.map((event) => event.source),
     ).toEqual(["google-calendar", "outlook-ics"]);
+  });
+
+  it("indexes local events with imported events and sorts them by start time", () => {
+    const day = new Date(2026, 6, 13).getTime();
+    const google = googleEvent({
+      id: "gcal:primary:meeting",
+      start: new Date(2026, 6, 13, 11, 0).getTime(),
+      end: new Date(2026, 6, 13, 12, 0).getTime(),
+    });
+    const local = localEvent({
+      id: "local-calendar:review",
+      title: "Project review",
+      start: new Date(2026, 6, 13, 9, 0).getTime(),
+      end: new Date(2026, 6, 13, 10, 0).getTime(),
+      location: "Room 4B",
+      notes: "Bring the brief",
+    });
+
+    const indexed = indexDayItems(cells, [], [], day, [google, local]);
+
+    expect(
+      indexed.get(day)?.calendarEvents.map((event) => event.source),
+    ).toEqual(["local-calendar", "google-calendar"]);
   });
 });

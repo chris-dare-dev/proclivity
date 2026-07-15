@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
 import { MonthGrid } from "./calendar/MonthGrid";
+import { CalendarEventModal } from "./calendar/CalendarEventModal";
+import type { NewLocalCalendarEventFields } from "./calendar/calendarEventUtils";
 import {
   addMonths,
   calendarGridWindow,
@@ -8,8 +16,9 @@ import {
   monthLabel,
   startOfMonth,
 } from "./calendar/calendarUtils";
-import { startOfDay } from "@/lib/dateUtils";
+import { addDays, startOfDay } from "@/lib/dateUtils";
 import { useStore } from "@/storage/useStore";
+import { uid } from "@/storage/storage";
 import { OPEN_SETTINGS_EVENT } from "@/storage/constants";
 import {
   useGoogleCalendar,
@@ -27,9 +36,9 @@ import "./calendar/calendar.css";
  * Default export so the section can be wired up with `React.lazy`
  * from App.tsx — keeps the initial newtab chunk slim.
  *
- * Read-only by design in v1: editing items still happens in their
- * native tabs (Today, Sprint, Long-term, Reminders). The Calendar
- * is a cross-cutting overview, not a duplicate of those CRUD UIs.
+ * Imported Google and Outlook calendars remain read-only. User-owned local
+ * events can be created here; reminders, todos, and sprints still edit in
+ * their native tabs.
  */
 interface CalendarProps {
   /** Optional callback from App — navigates to a named tab (M3/M4). */
@@ -37,9 +46,12 @@ interface CalendarProps {
 }
 
 export default function Calendar({ onTabChange }: CalendarProps) {
-  const { state } = useStore();
+  const { state, update } = useStore();
   const sectionRef = useRef<HTMLElement | null>(null);
   const [compact, setCompact] = useState(false);
+  const [eventEditorDay, setEventEditorDay] = useState<number | null>(null);
+  const [eventEditorFocusTarget, setEventEditorFocusTarget] =
+    useState<HTMLElement | null>(null);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -70,7 +82,7 @@ export default function Calendar({ onTabChange }: CalendarProps) {
   const [today, setToday] = useState<number>(() => startOfDay(Date.now()));
   useEffect(() => {
     // Schedule the next tick just after local midnight.
-    const msUntilMidnight = startOfDay(Date.now()) + 86_400_000 - Date.now();
+    const msUntilMidnight = addDays(startOfDay(Date.now()), 1) - Date.now();
     const t = setTimeout(() => setToday(startOfDay(Date.now())), msUntilMidnight + 1000);
     return () => clearTimeout(t);
   }, [today]);
@@ -88,6 +100,33 @@ export default function Calendar({ onTabChange }: CalendarProps) {
     [],
   );
 
+  const openEventEditor = useCallback(
+    (dayTimestamp: number, returnFocusTo: HTMLElement) => {
+      setEventEditorFocusTarget(returnFocusTo);
+      setEventEditorDay(dayTimestamp);
+    },
+    [],
+  );
+  const closeEventEditor = useCallback(() => setEventEditorDay(null), []);
+  const createLocalEvent = useCallback(
+    async (fields: NewLocalCalendarEventFields) => {
+      await update((current) => ({
+        ...current,
+        localCalendarEvents: [
+          ...current.localCalendarEvents,
+          {
+            id: `local-calendar:${uid()}`,
+            ...fields,
+            source: "local-calendar",
+            readOnly: false,
+            allDay: false,
+          },
+        ],
+      }));
+    },
+    [update],
+  );
+
   const showingCurrent = isCurrentMonth(monthStart);
   const label = useMemo(() => monthLabel(monthStart), [monthStart]);
   const { windowStart, windowEnd } = useMemo(
@@ -97,8 +136,12 @@ export default function Calendar({ onTabChange }: CalendarProps) {
   const googleCalendar = useGoogleCalendar(windowStart, windowEnd);
   const outlookCalendar = useOutlookIcsCalendar(windowStart, windowEnd);
   const calendarEvents = useMemo(
-    () => [...googleCalendar.events, ...outlookCalendar.events],
-    [googleCalendar.events, outlookCalendar.events],
+    () => [
+      ...state.localCalendarEvents,
+      ...googleCalendar.events,
+      ...outlookCalendar.events,
+    ],
+    [googleCalendar.events, outlookCalendar.events, state.localCalendarEvents],
   );
   const openGoogleCalendarSettings = useCallback(() => {
     window.dispatchEvent(
@@ -141,6 +184,19 @@ export default function Calendar({ onTabChange }: CalendarProps) {
         </div>
 
         <div className="calendar-header__right">
+          <button
+            type="button"
+            className="calendar-create-btn"
+            onClick={(event) =>
+              openEventEditor(
+                showingCurrent ? today : monthStart,
+                event.currentTarget,
+              )
+            }
+          >
+            <Plus size={15} aria-hidden="true" />
+            New event
+          </button>
           <button
             type="button"
             className="calendar-today-btn"
@@ -188,10 +244,18 @@ export default function Calendar({ onTabChange }: CalendarProps) {
         tags={state.tags}
         calendarEvents={calendarEvents}
         timeFormat={timeFormat}
+        onRequestCreate={openEventEditor}
         {...(state.activeSprintId !== undefined
           ? { activeSprintId: state.activeSprintId }
           : {})}
         {...(onTabChange !== undefined ? { onTabChange } : {})}
+      />
+      <CalendarEventModal
+        open={eventEditorDay !== null}
+        dayTimestamp={eventEditorDay ?? today}
+        returnFocusTo={eventEditorFocusTarget}
+        onClose={closeEventEditor}
+        onCreate={createLocalEvent}
       />
     </section>
   );
@@ -220,6 +284,10 @@ function Legend({ showOutlook }: { showOutlook: boolean }) {
           Outlook snapshot
         </li>
       ) : null}
+      <li>
+        <span className="calendar-legend__dot calendar-legend__dot--local" aria-hidden="true">E</span>{" "}
+        Local event
+      </li>
       <li>
         <span className="calendar-legend__dot calendar-legend__dot--reminder" aria-hidden="true">R</span>{" "}
         Reminder

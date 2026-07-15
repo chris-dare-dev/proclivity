@@ -17,12 +17,20 @@ import {
   fromDateInput,
   startOfDay,
 } from "@/lib/dateUtils";
-import type { Reminder, Sprint, Todo, WeekStart } from "@/types";
+import type {
+  LocalCalendarEvent,
+  Reminder,
+  Sprint,
+  Todo,
+  WeekStart,
+} from "@/types";
 import type { GoogleCalendarEvent } from "@/lib/googleCalendar/types";
 import type { OutlookIcsEvent } from "@/lib/outlookIcs/types";
 
 /** Read-only events imported from an external calendar provider. */
 export type ExternalCalendarEvent = GoogleCalendarEvent | OutlookIcsEvent;
+/** Events that share the month-grid interval and sorting rules. */
+export type CalendarEvent = ExternalCalendarEvent | LocalCalendarEvent;
 
 /** Total cells rendered per month grid. Stable 6 × 7 layout so the
  *  surrounding chrome never reflows when the month changes. */
@@ -414,8 +422,8 @@ export function lanesPerWeekRow(sprints: Sprint[], cells: MonthGridCell[]): numb
  * bars, not cell content.
  */
 export interface DayItems {
-  /** Read-only external calendar events intersecting this local day. */
-  calendarEvents: ExternalCalendarEvent[];
+  /** Imported or user-owned calendar events intersecting this local day. */
+  calendarEvents: CalendarEvent[];
   /** Reminders firing on this day (recurrence already expanded). */
   reminders: Reminder[];
   /** Long-term todos whose `dueAt` falls on this day. */
@@ -439,7 +447,7 @@ export function indexDayItems(
   reminders: Reminder[],
   todos: Todo[],
   today: number,
-  calendarEvents: ExternalCalendarEvent[],
+  calendarEvents: CalendarEvent[],
 ): Map<number, DayItems> {
   const byCellTs = new Map<number, DayItems>();
   for (const c of cells) {
@@ -454,7 +462,8 @@ export function indexDayItems(
   const from = cells[0]!.ts;
   const to = addDays(cells[cells.length - 1]!.ts, 1);
 
-  // External calendars use half-open intervals. `end - 1ms` prevents an event
+  // Calendar events use half-open intervals. Subtracting one millisecond
+  // from `end` prevents an event
   // ending exactly at midnight from leaking into the following day. Multi-day
   // events are repeated into every intersecting visible cell.
   for (const event of calendarEvents) {

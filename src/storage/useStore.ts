@@ -40,7 +40,12 @@ export function useStore(): {
 
   // Stable reference across re-renders so useCallback deps in consumers stay clean (#40)
   const update = useCallback(async (fn: (s: ProclivityState) => ProclivityState) => {
-    await storage.update(fn);
+    const next = await storage.update(fn);
+    // chrome.storage emits an onChanged event back to the extension page, but
+    // the localStorage preview fallback does not notify the same document.
+    // Applying the committed state here keeps both runtimes immediately
+    // consistent; a later storage notification is an idempotent replacement.
+    setState(next);
   }, []);
 
   return { state, loading, update };

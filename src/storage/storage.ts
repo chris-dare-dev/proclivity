@@ -1,4 +1,11 @@
-import { EMPTY_STATE, type ProclivityState, type Reminder, type Sprint, type Todo } from "@/types";
+import {
+  EMPTY_STATE,
+  type LocalCalendarEvent,
+  type ProclivityState,
+  type Reminder,
+  type Sprint,
+  type Todo,
+} from "@/types";
 import { STORAGE_KEY } from "./constants";
 import { getLogger } from "@/observability/logger";
 
@@ -49,6 +56,60 @@ export function localMidnight(): number {
 }
 
 /**
+ * Backfill and defensively validate the user-owned calendar collection.
+ * Imported provider events never pass through this path: Google and Outlook
+ * remain isolated under their dedicated read-only storage keys.
+ */
+export function normalizeLocalCalendarEvents(
+  value: unknown,
+): LocalCalendarEvent[] {
+  if (!Array.isArray(value)) return [];
+
+  const normalized: LocalCalendarEvent[] = [];
+  const seenIds = new Set<string>();
+  for (const candidate of value) {
+    if (typeof candidate !== "object" || candidate === null) continue;
+    const event = candidate as Record<string, unknown>;
+    const id = typeof event.id === "string" ? event.id.trim() : "";
+    const title = typeof event.title === "string" ? event.title.trim() : "";
+    const start = event.start;
+    const end = event.end;
+    if (
+      !id ||
+      seenIds.has(id) ||
+      !title ||
+      typeof start !== "number" ||
+      !Number.isFinite(start) ||
+      typeof end !== "number" ||
+      !Number.isFinite(end) ||
+      end <= start ||
+      event.source !== "local-calendar" ||
+      event.readOnly !== false ||
+      event.allDay !== false
+    ) {
+      continue;
+    }
+
+    const location =
+      typeof event.location === "string" ? event.location.trim() : "";
+    const notes = typeof event.notes === "string" ? event.notes.trim() : "";
+    normalized.push({
+      id,
+      title,
+      start,
+      end,
+      source: "local-calendar",
+      readOnly: false,
+      allDay: false,
+      ...(location ? { location } : {}),
+      ...(notes ? { notes } : {}),
+    });
+    seenIds.add(id);
+  }
+  return normalized;
+}
+
+/**
  * Normalize raw storage state — the canonical backfill pass shared by
  * `get()` and `subscribe()` (H1 fix).
  *
@@ -81,6 +142,9 @@ export function normalizeState(raw: ProclivityState): ProclivityState {
   const midnight = localMidnight();
   return {
     ...base,
+    localCalendarEvents: normalizeLocalCalendarEvents(
+      base.localCalendarEvents,
+    ),
     todos: base.todos.map((t) => {
       const w: Todo = (t as Todo & { tags?: string[] }).tags !== undefined ? t : { ...t, tags: [] };
       if (w.done && w.closedAt === undefined)
@@ -159,7 +223,11 @@ export const storage = {
     }
     const handler = (e: StorageEvent) => {
       if (e.key !== STORAGE_KEY) return;
-      listener(e.newValue ? JSON.parse(e.newValue) : EMPTY_STATE);
+      listener(
+        e.newValue
+          ? normalizeState(JSON.parse(e.newValue) as ProclivityState)
+          : EMPTY_STATE,
+      );
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);

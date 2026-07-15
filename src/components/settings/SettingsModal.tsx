@@ -409,6 +409,7 @@ export function SettingsModal({ open, onClose, initialPane }: Props) {
         ganttCharts: [],
         ganttTasks: [],
         reminders: [],
+        localCalendarEvents: [],
         // This action clears planning content, not the user's preferences or
         // export-history timestamp.
         settings: { ...s.settings },

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type MouseEvent } from "react";
 import type { DayItems, MonthGridCell } from "./calendarUtils";
 import type { Tag, TimeFormat } from "@/types";
 import { startOfDay } from "@/lib/dateUtils";
@@ -12,11 +12,13 @@ const MAX_CHIPS_MOBILE = 2;
 export type CalendarChipItem =
   | {
       kind: "calendar";
-      provider: "google" | "outlook";
+      provider: "google" | "outlook" | "local";
       id: string;
       title: string;
       label: string;
       htmlLink?: string | undefined;
+      location?: string | undefined;
+      notes?: string | undefined;
     }
   | { kind: "reminder"; id: string; title: string; done: boolean; tags: string[] }
   | { kind: "today"; id: string; title: string; done: boolean; tags: string[] }
@@ -48,6 +50,10 @@ interface DayCellProps {
     details: CalendarDayDetails,
     trigger: HTMLButtonElement,
   ) => void;
+  onRequestCreate: (
+    dayTimestamp: number,
+    returnFocusTo: HTMLElement,
+  ) => void;
 }
 
 /**
@@ -68,6 +74,7 @@ export const DayCell = memo(function DayCell({
   timeFormat,
   detailsOpen,
   onOpenDetails,
+  onRequestCreate,
 }: DayCellProps) {
   const dayNum = new Date(cell.ts).getDate();
   const dateLabel = new Date(cell.ts).toLocaleDateString(undefined, {
@@ -79,19 +86,30 @@ export const DayCell = memo(function DayCell({
 
   // Merge all item types into one ordered list for cap/overflow logic.
   const calendarChips: CalendarChipItem[] = items.calendarEvents.map(
-    (event) => ({
-      kind: "calendar" as const,
-      provider:
+    (event) => {
+      const provider =
         event.source === "google-calendar"
           ? ("google" as const)
-          : ("outlook" as const),
-      id: event.id,
-      title: event.title,
-      label: calendarEventLabel(event, cell.ts, timeFormat),
-      ...(event.source === "google-calendar" && event.htmlLink
-        ? { htmlLink: event.htmlLink }
-        : {}),
-    }),
+          : event.source === "outlook-ics"
+            ? ("outlook" as const)
+            : ("local" as const);
+      return {
+        kind: "calendar" as const,
+        provider,
+        id: event.id,
+        title: event.title,
+        label: calendarEventLabel(event, cell.ts, timeFormat),
+        ...(event.source === "google-calendar" && event.htmlLink
+          ? { htmlLink: event.htmlLink }
+          : {}),
+        ...(event.source === "local-calendar" && event.location
+          ? { location: event.location }
+          : {}),
+        ...(event.source === "local-calendar" && event.notes
+          ? { notes: event.notes }
+          : {}),
+      };
+    },
   );
   const localChips: CalendarChipItem[] = [
     ...items.reminders.map((r) => ({
@@ -127,6 +145,20 @@ export const DayCell = memo(function DayCell({
   const visibleChips = allChips.slice(0, cap);
   const remaining = totalItems - cap;
 
+  const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest(
+        "a, button, input, textarea, select, .calendar-chip, [role='button'], [data-calendar-no-create]",
+      )
+    ) {
+      return;
+    }
+    event.currentTarget.focus();
+    onRequestCreate(cell.ts, event.currentTarget);
+  };
+
   return (
     <div
       className={[
@@ -138,7 +170,10 @@ export const DayCell = memo(function DayCell({
         .join(" ")}
       role="group"
       aria-label={dateLabel}
+      tabIndex={-1}
+      title="Double-click empty space to create an event"
       data-lanes={lanes > 0 ? lanes : undefined}
+      onDoubleClick={handleDoubleClick}
     >
       <div className="calendar-cell__head">
         <span className="calendar-cell__date">{dayNum}</span>
@@ -156,6 +191,15 @@ export const DayCell = memo(function DayCell({
             chip={chip}
             dateLabel={dateLabel}
             tagById={tagById}
+            {...(chip.kind === "calendar" && chip.provider === "local"
+              ? {
+                  onOpenDetails: (trigger: HTMLButtonElement) =>
+                    onOpenDetails(
+                      { cellTs: cell.ts, dateLabel, chips: allChips },
+                      trigger,
+                    ),
+                }
+              : {})}
           />
         ))}
         {remaining > 0 && (
@@ -217,6 +261,7 @@ export function CalendarDayDetailsModal({
               chip={chip}
               dateLabel={details.dateLabel}
               tagById={tagById}
+              expanded
             />
           ))}
         </ul>
@@ -234,19 +279,28 @@ function CalendarChip({
   chip,
   dateLabel,
   tagById,
+  onOpenDetails,
+  expanded = false,
 }: {
   chip: CalendarChipItem;
   dateLabel: string;
   tagById: Map<string, Tag>;
+  onOpenDetails?: ((trigger: HTMLButtonElement) => void) | undefined;
+  expanded?: boolean | undefined;
 }) {
   if (chip.kind === "calendar") {
     const isGoogle = chip.provider === "google";
-    const providerLabel = isGoogle ? "Google Calendar" : "Outlook snapshot";
+    const isLocal = chip.provider === "local";
+    const providerLabel = isGoogle
+      ? "Google Calendar"
+      : isLocal
+        ? "Local event"
+        : "Outlook snapshot";
     const content = (
       <>
         <span className="sr-only">{providerLabel}: </span>
         <span className="calendar-chip__dot" aria-hidden="true">
-          {isGoogle ? "G" : "O"}
+          {isGoogle ? "G" : isLocal ? "E" : "O"}
         </span>
         <span className="calendar-chip__label">{chip.label}</span>
       </>
@@ -266,7 +320,32 @@ function CalendarChip({
           >
             {content}
           </a>
-        ) : content}
+        ) : isLocal && onOpenDetails ? (
+          <button
+            type="button"
+            className="calendar-chip__local-button"
+            onClick={(event) => onOpenDetails(event.currentTarget)}
+            aria-label={`${chip.label}, ${dateLabel} — view event details`}
+          >
+            {content}
+          </button>
+        ) : (
+          <span className="calendar-chip__content">{content}</span>
+        )}
+        {expanded && isLocal && (chip.location || chip.notes) ? (
+          <span className="calendar-chip__details">
+            {chip.location ? (
+              <span>
+                <strong>Location</strong> {chip.location}
+              </span>
+            ) : null}
+            {chip.notes ? (
+              <span>
+                <strong>Notes</strong> {chip.notes}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </li>
     );
   }

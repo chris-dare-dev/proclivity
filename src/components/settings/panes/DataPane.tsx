@@ -123,8 +123,9 @@ export function DataPane({
           </span>
         ) : (
           <span className="settings-hint">
-            Export downloads all your todos, sprints, Gantt charts, and
-            reminders as a JSON file. Import replaces your current data.
+            Export downloads all your todos, sprints, Gantt charts, reminders,
+            and local calendar events as a JSON file. Import replaces your
+            current data.
           </span>
         )}
 
@@ -142,9 +143,9 @@ export function DataPane({
             <div className="settings-clear-confirm">
               <p>
                 This will permanently delete all your todos, sprints, Gantt
-                charts, reminders, tags, saved card layouts, and the imported
-                Outlook snapshot. Your preferences stay unchanged. This
-                action cannot be undone.
+                charts, reminders, local calendar events, tags, saved card
+                layouts, and the imported Outlook snapshot. Your preferences
+                stay unchanged. This action cannot be undone.
               </p>
               <div className="settings-clear-buttons">
                 <button

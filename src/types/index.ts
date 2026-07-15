@@ -170,6 +170,27 @@ export interface Reminder {
 }
 
 /**
+ * A user-owned event created inside Proclivity.
+ *
+ * Imported Google and Outlook records intentionally live in separate,
+ * read-only stores. Local events are part of ProclivityState so backups,
+ * imports, and Clear All treat them like the rest of the user's planning
+ * data. Timed intervals are half-open: `start` is inclusive and `end` is
+ * exclusive.
+ */
+export interface LocalCalendarEvent {
+  id: string;
+  title: string;
+  start: number;
+  end: number;
+  location?: string | undefined;
+  notes?: string | undefined;
+  source: "local-calendar";
+  readOnly: false;
+  allDay: false;
+}
+
+/**
  * A reminder occurrence awaiting acknowledgement on the dashboard.
  *
  * Alerts are the in-app replacement for `chrome.notifications`: the service
@@ -527,6 +548,7 @@ export interface ProclivityState {
   ganttCharts: GanttChart[];
   ganttTasks: GanttTask[];
   reminders: Reminder[];
+  localCalendarEvents: LocalCalendarEvent[];
   settings: UserSettings;
   /** Global tag registry. Items reference entries here by id. */
   tags: Tag[];
@@ -544,6 +566,7 @@ export const EMPTY_STATE: ProclivityState = {
   ganttCharts: [],
   ganttTasks: [],
   reminders: [],
+  localCalendarEvents: [],
   settings: {},
   tags: [],
 };

@@ -10,7 +10,7 @@ import {
   indexDayItems,
   packSegmentLanes,
   weekdayLabels,
-  type ExternalCalendarEvent,
+  type CalendarEvent,
   type MonthGridCell,
 } from "./calendarUtils";
 import type {
@@ -33,8 +33,12 @@ interface MonthGridProps {
   todos: Todo[];
   sprints: Sprint[];
   tags: Tag[];
-  calendarEvents: ExternalCalendarEvent[];
+  calendarEvents: CalendarEvent[];
   timeFormat: TimeFormat;
+  onRequestCreate: (
+    dayTimestamp: number,
+    returnFocusTo: HTMLElement,
+  ) => void;
   activeSprintId?: string | undefined;
   /** Optional tab-navigation callback passed down from App. When provided,
    *  sprint bars become clickable (M3) and empty-state has actionable links (M4). */
@@ -63,6 +67,7 @@ export const MonthGrid = memo(function MonthGrid({
   tags,
   calendarEvents,
   timeFormat,
+  onRequestCreate,
   activeSprintId,
   onTabChange,
 }: MonthGridProps) {
@@ -182,6 +187,7 @@ export const MonthGrid = memo(function MonthGrid({
                 timeFormat={timeFormat}
                 detailsOpen={dayDetails?.cellTs === cell.ts}
                 onOpenDetails={openDayDetails}
+                onRequestCreate={onRequestCreate}
               />
             ))}
           </div>
