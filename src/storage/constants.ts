@@ -161,10 +161,10 @@ export const DEFAULT_SETTINGS: ResolvedUserSettings = {
   reducedMotion: false,
   workspaceCompanionWidthPx: WORKSPACE_COMPANION_DEFAULT_WIDTH,
   meshEnabled: true,
-  // Matches the legacy CSS opacity of 0.18 (≈ 20%). Controls .mesh-background
-  // opacity directly via the --mesh-intensity CSS custom property; the shader
-  // uAlpha is kept at 1.0 so this is the sole brightness control.
-  meshIntensity: 0.2,
+  // The glass workspace needs a visible atmospheric field without competing
+  // with content. This directly controls .mesh-background opacity; shader
+  // uAlpha remains 1.0 so Settings retains one linear intensity control.
+  meshIntensity: 0.4,
   meshColorMode: "auto",
   meshColor: "#7c9cff",
   timeFormat: "auto",

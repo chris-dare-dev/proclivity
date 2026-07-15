@@ -29,7 +29,7 @@
   min-inline-size: 0;
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  background: var(--workspace-shell-surface);
   backdrop-filter: blur(16px);
 }
 
@@ -214,7 +214,7 @@
   padding: var(--space-4) var(--space-3);
   overflow: hidden;
   border-right: 1px solid var(--border);
-  background: color-mix(in srgb, var(--panel) 88%, var(--bg));
+  background: var(--workspace-shell-surface);
 }
 
 .app[data-focus-mode="true"] .workspace-rail {
@@ -346,7 +346,7 @@
   margin: 0;
   padding: 10px var(--space-4);
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--workspace-shell-surface);
 }
 
 .content {
@@ -380,7 +380,7 @@
   scrollbar-gutter: stable;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--panel) 78%, var(--bg));
+  background: var(--workspace-panel-surface);
 }
 
 .workspace-panel[hidden] {
@@ -398,7 +398,7 @@
 }
 
 .workspace-panel[data-slot="companion"] {
-  background: var(--panel);
+  background: var(--workspace-panel-surface);
 }
 
 .workspace-resize-handle {
@@ -800,5 +800,27 @@ button:focus-visible {
 
   .content > [data-leaving="true"] {
     transition: none;
+  }
+}
+
+@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+  .header {
+    backdrop-filter: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .header,
+  .workspace-rail,
+  .workspace-prompt .quick-prompt,
+  .workspace-panel {
+    border-color: CanvasText;
+    background: Canvas;
+    backdrop-filter: none;
+  }
+
+  .workspace-resize-handle:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 }

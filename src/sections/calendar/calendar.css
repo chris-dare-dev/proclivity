@@ -267,7 +267,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--panel);
+  background: transparent;
 }
 
 .calendar-grid__header {
@@ -276,7 +276,7 @@
    * column with intrinsic content (e.g. a long todo chip) push past its
    * fair share and collapse sibling columns. The 0 floor pins each track. */
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  background: var(--panel-2);
+  background: var(--workspace-elevated-surface);
   border-bottom: 1px solid var(--border);
 }
 
@@ -313,7 +313,7 @@
   flex-direction: column;
   gap: 4px;
   min-height: 0;
-  background: var(--panel);
+  background: var(--workspace-elevated-surface);
   /* H2: base padding-top. Overridden per data-lanes value below so each
    * week-row gets the correct vertical space without applying the global
    * max to every cell. The data-lanes attribute is set in DayCell.tsx. */
@@ -333,7 +333,11 @@
 }
 
 .calendar-cell--out {
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: color-mix(
+    in oklab,
+    var(--workspace-elevated-surface) 78%,
+    transparent
+  );
 }
 /* round2-M5: removed opacity: 0.55 — double-dim (color + opacity) made dates
  * near-invisible in light theme. --text-dim alone provides sufficient contrast separation. */
@@ -344,13 +348,21 @@
 /* H5 + round2-M2: today cell — bumped to 20% mix for better dark-theme legibility;
  * inset border widened to 3px for stronger positional cue. */
 .calendar-cell--today {
-  background: color-mix(in srgb, var(--accent) 20%, var(--panel));
+  background: color-mix(
+    in oklab,
+    var(--accent) 20%,
+    var(--workspace-elevated-surface)
+  );
   box-shadow: inset 3px 0 0 var(--accent);
 }
 /* round2-M2: light theme needs a stronger tint because both panel and highlight
  * are near-white — 25% keeps the cell distinctly visible. */
 [data-theme="light"] .calendar-cell--today {
-  background: color-mix(in srgb, var(--accent) 25%, var(--panel));
+  background: color-mix(
+    in oklab,
+    var(--accent) 25%,
+    var(--workspace-elevated-surface)
+  );
 }
 
 .calendar-cell__head {

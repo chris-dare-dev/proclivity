@@ -63,6 +63,24 @@
   /* Full-viewport workspace shell */
   --workspace-rail-width: 176px;
   --workspace-gap: 12px;
+  /* Home-only translucent surfaces. Keep the global panel tokens opaque:
+     settings, modals, and dense controls rely on their stable contrast. */
+  --workspace-shell-surface: color-mix(
+    in oklab,
+    var(--panel) 82%,
+    transparent
+  );
+  --workspace-panel-surface: color-mix(
+    in oklab,
+    var(--panel) 68%,
+    transparent
+  );
+  --workspace-elevated-surface: color-mix(
+    in oklab,
+    var(--panel-2) 88%,
+    transparent
+  );
+  --workspace-embed-opacity: 0.96;
 
   /* Shared interaction timing */
   --duration-fast: 120ms;
@@ -97,6 +115,66 @@
   --danger: oklch(0.55 0.22 22);
   --warn: oklch(0.60 0.18 60);
   --ok: oklch(0.50 0.15 179);
+  /* Light surfaces need more pigment so moving wires do not sit directly
+     beneath dark text. The mesh remains visible without becoming noisy. */
+  --workspace-shell-surface: color-mix(
+    in oklab,
+    var(--panel) 88%,
+    transparent
+  );
+  --workspace-panel-surface: color-mix(
+    in oklab,
+    var(--panel) 76%,
+    transparent
+  );
+  --workspace-elevated-surface: color-mix(
+    in oklab,
+    var(--panel-2) 93%,
+    transparent
+  );
+  --workspace-embed-opacity: 0.98;
+}
+
+/* Compact canvases have less open space around text, so add a little more
+   surface coverage while preserving the same glass hierarchy. */
+@media (max-width: 839px) {
+  :root {
+    --workspace-panel-surface: color-mix(
+      in oklab,
+      var(--panel) 76%,
+      transparent
+    );
+  }
+
+  [data-theme="light"] {
+    --workspace-panel-surface: color-mix(
+      in oklab,
+      var(--panel) 84%,
+      transparent
+    );
+  }
+}
+
+/* Respect explicit requests for less transparency. Forced-colors gets the
+   same opaque contract; component styles supply system border colors. */
+@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-theme="light"] {
+    --workspace-shell-surface: var(--panel);
+    --workspace-panel-surface: var(--panel);
+    --workspace-elevated-surface: var(--panel-2);
+    --workspace-embed-opacity: 1;
+  }
+}
+
+@media (forced-colors: active) {
+  :root,
+  [data-theme="light"] {
+    --workspace-shell-surface: Canvas;
+    --workspace-panel-surface: Canvas;
+    --workspace-elevated-surface: Canvas;
+    --workspace-embed-opacity: 1;
+  }
 }
 
 /* ── Density: compact ─────────────────────────────────────────── */

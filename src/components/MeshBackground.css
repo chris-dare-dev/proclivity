@@ -3,16 +3,16 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  /* Lower the visual weight so it doesn't compete with the planner UI.
-   * Driven by --mesh-intensity (0–1) which Settings writes inline. */
-  opacity: var(--mesh-intensity, 0.2);
+  /* Driven by --mesh-intensity (0–1), which Settings writes inline. The
+   * stronger fallback complements the shader's ridge/valley separation. */
+  opacity: var(--mesh-intensity, 0.4);
   /* Fade in once three.js has loaded (lazy-import path) */
   animation: mesh-fade-in 800ms ease-out both;
 }
 
 @keyframes mesh-fade-in {
   from { opacity: 0; }
-  to   { opacity: var(--mesh-intensity, 0.2); }
+  to   { opacity: var(--mesh-intensity, 0.4); }
 }
 
 /* Dual guard: @media for OS-level preference;
@@ -24,6 +24,12 @@
 }
 [data-reduced-motion="true"] .mesh-background {
   animation: none;
+}
+
+@media (forced-colors: active) {
+  .mesh-background {
+    display: none;
+  }
 }
 
 .mesh-background canvas {

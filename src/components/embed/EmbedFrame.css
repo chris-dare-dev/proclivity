@@ -66,7 +66,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--panel);
+  background: var(--workspace-panel-surface);
 }
 
 .embed-frame__iframe {
@@ -107,7 +107,10 @@
   }
 }
 .embed-frame__iframe[data-loaded="true"] {
-  opacity: 1;
+  /* Cross-origin pages cannot inherit our transparent background. A very
+     slight fade lets the mesh tint the embed without materially softening
+     remote text and controls. High-contrast modes override this to 1. */
+  opacity: var(--workspace-embed-opacity);
 }
 
 .embed-frame__loading {
@@ -150,5 +153,12 @@
   }
   .embed-frame__iframe {
     transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .embed-frame__viewport {
+    border-color: CanvasText;
+    background: Canvas;
   }
 }

@@ -5,7 +5,9 @@
   min-inline-size: 0;
   min-block-size: 0;
   overflow: hidden;
-  background: var(--panel);
+  /* The workspace panel already supplies the glass layer. Avoid stacking a
+     second opaque stage beneath contained or compact photos. */
+  background: transparent;
 }
 
 .photos-slide {

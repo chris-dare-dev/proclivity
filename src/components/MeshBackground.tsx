@@ -93,8 +93,10 @@ const fragmentShader = /* glsl */ `
   uniform float uAlpha;
   varying float vElevation;
   void main() {
-    // Brighten peaks slightly so the warp has visible depth
-    float brightness = 0.65 + 0.35 * clamp(vElevation * 0.6 + 0.5, 0.0, 1.0);
+    // Separate bright ridges from recessed valleys. This increases perceived
+    // contrast without adding geometry, post-processing, or animation speed.
+    float ridge = smoothstep(-0.55, 0.75, vElevation);
+    float brightness = mix(0.50, 1.25, ridge);
     gl_FragColor = vec4(uColor * brightness, uAlpha);
   }
 `;
@@ -195,7 +197,7 @@ function WarpMesh() {
 }
 
 interface MeshBackgroundProps {
-  /** Wire opacity, 0–1. Passed to the uAlpha uniform. */
+  /** Wire opacity, 0–1. Applied to the full mesh layer as a CSS variable. */
   intensity?: number | undefined;
   /**
    * When true, freezes the animation (frameloop="demand"). The OS-level
@@ -206,7 +208,7 @@ interface MeshBackgroundProps {
 }
 
 export function MeshBackground({
-  intensity = 0.2,
+  intensity = 0.4,
   reducedMotion = false,
 }: MeshBackgroundProps) {
   // OS-level preference is the strongest signal. The user setting can
