@@ -4,7 +4,13 @@
       "WebFetch(domain:linear.app)",
       "WebFetch(domain:m3.material.io)",
       "WebFetch(domain:www.radix-ui.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(curl -sSI https://app.monarchmoney.com/)",
+      "Bash(curl -sSI https://www.monarchmoney.com/)",
+      "Bash(curl -sSI https://osint-6g5.pages.dev/)",
+      "Bash(curl -sSIL https://app.monarchmoney.com/)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

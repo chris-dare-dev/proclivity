@@ -1,3 +1,14 @@
+---
+project: proclivity
+type: config
+status: active
+authorship: agent-generated
+tags:
+- project/proclivity
+- type/config
+- authorship/agent-generated
+---
+
 # AGENTS.md
 
 This file exists as a discoverability stub. Proclivity's canonical operating
