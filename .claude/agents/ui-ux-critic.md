@@ -3,6 +3,7 @@ name: ui-ux-critic
 description: Previews the Proclivity Chrome extension (newtab page) in a real browser, navigates its links/buttons/modals, and produces a deep front-end UI/UX critique grounded in 2026-current design trends and modern open-source libraries. Use when the user asks for a design review, "make this prettier", visual polish work, accessibility-aesthetic tradeoff analysis, or wants research-backed redesign ideas another agent can implement. The output is a structured markdown report at `.claude/notes/ui-critique-<timestamp>.md` intended to be consumed as context by an implementation agent.
 tools: Read, Write, Bash, Grep, Glob, WebFetch, WebSearch, TodoWrite
 model: opus
+effort: high
 ---
 
 # UI/UX Critic — operating instructions
