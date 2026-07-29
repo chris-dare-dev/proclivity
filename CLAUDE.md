@@ -51,8 +51,14 @@ in the work request.
   `storage`, `build`, `a11y`, `skill`, `roadmap`, `docs`, `tune`,
   `style`, `perf`, `refactor`, `fix`, `feat`. Pick the closest match
   rather than inventing new scopes.
-- Add a co-author trailer on commits you author:
-  `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
+- Add a co-author trailer on commits you author, naming the **actual
+  authoring model** — pin the form, never the value:
+  `Co-Authored-By: <authoring Claude model> <noreply@anthropic.com>`
+  (e.g. `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`). This line
+  used to hardcode one model name; the trailer exists for provenance, so a
+  pinned value silently becomes false as soon as a different model does the
+  work, and every later commit misattributes its own authorship while
+  looking compliant.
 - Never use `--no-verify`. Honor pre-commit hooks.
 - Never use `--amend` on a commit that has been pushed.
 
